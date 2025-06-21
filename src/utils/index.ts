@@ -1,3 +1,4 @@
+export * from "./base64";
 export * from "./random";
 
 export const textEncoder = /* @__PURE__ */ new TextEncoder();
