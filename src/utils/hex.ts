@@ -12,7 +12,7 @@ export function hexEncode(data: Uint8Array | string): string {
   }
 
   return Array.prototype.map
-    .call(encodedData, (x: number) => Math.abs(x).toString(16))
+    .call(encodedData, (x: number) => ("00" + x.toString(16)).slice(-2))
     .join("");
 }
 
