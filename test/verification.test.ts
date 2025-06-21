@@ -98,7 +98,7 @@ describe.concurrent("secureVerify", () => {
     expect(secureVerify(reference, undefined)).toBe(false);
   });
 
-  // Test with special characters 
+  // Test with special characters
   it("should correctly verify string vs Uint8Array with special characters", () => {
     const testString =
       "Hello, Vitest! 👋 This is a test string with some special characters: Ā 𐀀 文 +/=";
