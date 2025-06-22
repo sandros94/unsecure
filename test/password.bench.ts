@@ -33,6 +33,46 @@ describe("bench password generation", () => {
       shifty.generate(64);
     });
   });
+
+  describe("128 characters", () => {
+    bench("unsecure", () => {
+      generateSecurePassword(128);
+    });
+
+    bench("@deepsource/shifty", () => {
+      shifty.generate(128);
+    });
+  });
+
+  describe("256 characters", () => {
+    bench("unsecure", () => {
+      generateSecurePassword(256);
+    });
+
+    bench("@deepsource/shifty", () => {
+      shifty.generate(256);
+    });
+  });
+
+  describe("384 characters", () => {
+    bench("unsecure", () => {
+      generateSecurePassword(384);
+    });
+
+    bench("@deepsource/shifty", () => {
+      shifty.generate(384);
+    });
+  });
+
+  describe("512 characters", () => {
+    bench("unsecure", () => {
+      generateSecurePassword(512);
+    });
+
+    bench("@deepsource/shifty", () => {
+      shifty.generate(512);
+    });
+  });
 });
 
 /**
