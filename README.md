@@ -30,8 +30,8 @@ import { hash, generateSecurePassword, secureVerify } from "unsecure";
 import {
   hexEncode,
   hexDecode,
-  secureRandomNumber,
   secureShuffle,
+  ...
 } from "unsecure/utils";
 ```
 
@@ -48,8 +48,8 @@ import {
 import {
   hexEncode,
   hexDecode,
-  secureRandomNumber,
   secureShuffle,
+  ...
 } from "https://esm.sh/unsecure/utils";
 ```
 
@@ -73,9 +73,11 @@ const hash512 = await hash("hello world", { algorithm: "SHA-512" });
 // '309ecc489c12d6eb4cc40f50c902f2b4d0ed77ee511a7c7a9bcd3ca86d4cd86f...'
 ```
 
-### generateSecurePassword
+### generateSecurePassword (or generateSecureToken)
 
 Generates a cryptographically secure password. You can customize its length and character set (all enabled by default). If a string is passed it will be used as a set of allowed characters.
+
+Internally it uses a buffer, which is constantly updated, to minimize Web Crypto API calls and greatly improve performance. This becomes useful when generating 128-512 characters long tokens.
 
 ```ts
 import { generateSecurePassword } from "unsecure";
@@ -83,6 +85,10 @@ import { generateSecurePassword } from "unsecure";
 // Generate a default 16-character password
 const password = generateSecurePassword();
 // e.g. 'Zk(p4@L!v9{g~8sB'
+
+// Generate 28-character password
+const password = generateSecurePassword(28);
+// e.g. '4~j&zgf-tO+PoMBVl}tK/}5$FgzF'
 
 // Generate a 24-character password with no special characters
 const longPassword = generateSecurePassword({
@@ -141,12 +147,16 @@ const text = hexDecode(hex); // "hello"
 
 #### Randomness
 
-Includes `secureRandomNumber` and `secureShuffle`.
+Includes `createSecureRandomGenerator`, `secureRandomNumber` and `secureShuffle`.
 
 ```ts
-import { secureRandomNumber, secureShuffle } from "unsecure/utils";
+import { createSecureRandomGenerator, secureRandomNumber, secureShuffle } from "unsecure/utils";
 
-// Get a secure random number between 0 and 99
+// Creates a secure random number generator (more performant for subsequent calls)
+const generator = createSecureRandomGenerator();
+const n = generator.next(1000); // Get a secure random number between 0 and 999
+
+// Get a secure random number between 0 and 99 (more memory-efficient for single use)
 const n = secureRandomNumber(100);
 
 // Securely shuffle an array in-place
