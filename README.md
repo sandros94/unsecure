@@ -8,7 +8,7 @@
 
 <!-- /automd -->
 
-`unsecure` is a collection of runtime-agnostic cryptographycally-secure utilities. (ba dum tss 🥁)
+`unsecure` is a collection of runtime-agnostic cryptographically-secure utilities. (ba dum tss 🥁)
 
 ## Usage
 
