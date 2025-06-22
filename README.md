@@ -31,7 +31,7 @@ import {
   hexEncode,
   hexDecode,
   secureShuffle,
-  ...
+  // ...
 } from "unsecure/utils";
 ```
 
@@ -49,7 +49,7 @@ import {
   hexEncode,
   hexDecode,
   secureShuffle,
-  ...
+  // ...
 } from "https://esm.sh/unsecure/utils";
 ```
 
@@ -150,7 +150,11 @@ const text = hexDecode(hex); // "hello"
 Includes `createSecureRandomGenerator`, `secureRandomNumber` and `secureShuffle`.
 
 ```ts
-import { createSecureRandomGenerator, secureRandomNumber, secureShuffle } from "unsecure/utils";
+import {
+  createSecureRandomGenerator,
+  secureRandomNumber,
+  secureShuffle,
+} from "unsecure/utils";
 
 // Creates a secure random number generator (more performant for subsequent calls)
 const generator = createSecureRandomGenerator();
