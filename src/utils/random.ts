@@ -61,7 +61,28 @@ export function createSecureRandomGenerator(): SecureRandomGenerator {
  * use `createSecureRandomGenerator()`.
  */
 export function secureRandomNumber(max: number): number {
-  return createSecureRandomGenerator().next(max);
+  // Validate input: max must be a positive integer <= 2^32
+  if (!Number.isInteger(max) || max <= 0) {
+    throw new RangeError("max must be a positive integer.");
+  }
+  if (max > 2 ** 32) {
+    // A single Uint32Array cannot reliably generate numbers in this range without bias
+    throw new RangeError("max must be less than or equal to 2^32.");
+  }
+
+  // Uses a 32-bit unsigned integer array for random values.
+  const randomBytes = new Uint32Array(1);
+  // Values above this threshold will be rejected to prevent bias.
+  const maxSafe = 2 ** 32 - (2 ** 32 % max);
+  let randomValue: number;
+
+  do {
+    // Get a random value from the Web Crypto API.
+    crypto.getRandomValues(randomBytes);
+    randomValue = randomBytes[0]!;
+  } while (randomValue >= maxSafe); // Reject biased values and retry.
+
+  return randomValue % max;
 }
 
 /**
