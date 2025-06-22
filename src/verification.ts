@@ -36,6 +36,10 @@ export function secureVerify(
   reference: Uint8Array | string,
   incoming: Uint8Array | string | undefined,
 ): boolean {
+  if (!reference || reference.length === 0) {
+    throw new Error("Cannot verify. Reference is undefined.");
+  }
+
   const a = _toUint8Array(reference);
 
   // To prevent timing attacks, the execution path must be consistent

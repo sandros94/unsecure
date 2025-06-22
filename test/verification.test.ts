@@ -16,18 +16,6 @@ describe.concurrent("secureVerify", () => {
     expect(secureVerify(arr1, arr2)).toBe(true);
   });
 
-  it("should return true for identical empty Uint8Arrays", () => {
-    const arr1 = new Uint8Array([]);
-    const arr2 = new Uint8Array([]);
-    expect(secureVerify(arr1, arr2)).toBe(true);
-  });
-
-  it("should return true for identical empty strings", () => {
-    const str1 = "";
-    const str2 = "";
-    expect(secureVerify(str1, str2)).toBe(true);
-  });
-
   it("should return true for matching string and Uint8Array", () => {
     const str = "hello world";
     const arr = textEncoder.encode("hello world");
@@ -110,5 +98,13 @@ describe.concurrent("secureVerify", () => {
     expect(secureVerify(testString, testString + "x")).toBe(false);
     const modifiedUint8Array = new Uint8Array([...testUint8Array, 1]);
     expect(secureVerify(testUint8Array, modifiedUint8Array)).toBe(false);
+  });
+
+  // Test errors
+  it("should throw an error when reference is undefined", () => {
+    // @ts-expect-error
+    expect(() => secureVerify(undefined, "test")).toThrow(
+      "Cannot verify. Reference is undefined.",
+    );
   });
 });
