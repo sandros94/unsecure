@@ -32,6 +32,12 @@ export function generateSecurePassword(length?: number): string;
 export function generateSecurePassword(
   options?: GeneratePasswordOptions,
 ): string;
+/**
+ * Generates a cryptographically secure password based on the provided options.
+ * @param {number | GeneratePasswordOptions} numOrOptions - The desired length or the configuration for password generation.
+ * @returns {string} The generated password.
+ * @throws {Error} if no character types are selected.
+ */
 export function generateSecurePassword(
   numOrOptions: number | GeneratePasswordOptions = DEFAULT_LENGTH,
 ): string {
@@ -121,6 +127,14 @@ export function generateSecurePassword(
   // Ensure the password is the exact length requested
   return finalPasswordArray.slice(0, length).join("");
 }
+
+/**
+ * Generates a cryptographically secure token based on the provided options.
+ * @param {number | GeneratePasswordOptions} numOrOptions - The desired length or the configuration for token generation.
+ * @returns {string} The generated token.
+ * @throws {Error} if no character types are selected.
+ */
+export const generateSecureToken = generateSecurePassword;
 
 /**
  * INTERNAL FUNCTIONS
