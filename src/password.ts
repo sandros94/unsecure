@@ -1,4 +1,8 @@
-import { secureRandomNumber, secureShuffle } from "./utils";
+import {
+  createSecureRandomGenerator,
+  type SecureRandomGenerator,
+  secureShuffle,
+} from "./utils";
 import type { GeneratePasswordOptions } from "./types";
 
 /**
@@ -14,24 +18,44 @@ const DEFAULT_LENGTH = 16;
 
 /**
  * Generates a cryptographically secure password based on the provided options.
+ * @param {number} length - The desired length of the password.
+ * @returns {string} The generated password.
+ * @throws {Error} if no character types are selected.
+ */
+export function generateSecurePassword(length?: number): string;
+/**
+ * Generates a cryptographically secure password based on the provided options.
  * @param {GeneratePasswordOptions} options - The configuration for password generation.
  * @returns {string} The generated password.
  * @throws {Error} if no character types are selected.
  */
-export const generateSecurePassword = (
-  options: GeneratePasswordOptions = {},
-): string => {
-  const {
-    length = DEFAULT_LENGTH,
-    uppercase = true,
-    lowercase = true,
-    numbers = true,
-    specials = true,
-  } = options;
+export function generateSecurePassword(
+  options?: GeneratePasswordOptions,
+): string;
+export function generateSecurePassword(
+  numOrOptions: number | GeneratePasswordOptions = DEFAULT_LENGTH,
+): string {
+  let length: number;
+  let uppercase: boolean | string = true;
+  let lowercase: boolean | string = true;
+  let numbers: boolean | string = true;
+  let specials: boolean | string = true;
+
+  if (typeof numOrOptions === "number") {
+    length = numOrOptions;
+  } else {
+    length = numOrOptions.length ?? DEFAULT_LENGTH;
+    uppercase = numOrOptions.uppercase ?? true;
+    lowercase = numOrOptions.lowercase ?? true;
+    numbers = numOrOptions.numbers ?? true;
+    specials = numOrOptions.specials ?? true;
+  }
 
   if (length < 1) {
     throw new TypeError("Password length must be at least 1.");
   }
+
+  const random = createSecureRandomGenerator();
 
   let charset = "";
   const guaranteedChars: Array<string> = [];
@@ -41,6 +65,7 @@ export const generateSecurePassword = (
     const { used, guaranteed } = _characterSetBuilder(
       uppercase,
       DEFAULT_UPPERCASE,
+      random,
     );
     charset += used;
     guaranteedChars.push(guaranteed);
@@ -49,12 +74,17 @@ export const generateSecurePassword = (
     const { used, guaranteed } = _characterSetBuilder(
       lowercase,
       DEFAULT_LOWERCASE,
+      random,
     );
     charset += used;
     guaranteedChars.push(guaranteed);
   }
   if (_shouldIncludeSet(numbers)) {
-    const { used, guaranteed } = _characterSetBuilder(numbers, DEFAULT_NUMBERS);
+    const { used, guaranteed } = _characterSetBuilder(
+      numbers,
+      DEFAULT_NUMBERS,
+      random,
+    );
     charset += used;
     guaranteedChars.push(guaranteed);
   }
@@ -62,6 +92,7 @@ export const generateSecurePassword = (
     const { used, guaranteed } = _characterSetBuilder(
       specials,
       DEFAULT_SPECIALS,
+      random,
     );
     charset += used;
     guaranteedChars.push(guaranteed);
@@ -77,19 +108,19 @@ export const generateSecurePassword = (
   // Fill the rest of the password length with random characters from the full set
   if (remainingLength > 0) {
     for (let i = 0; i < remainingLength; i++) {
-      randomChars.push(charset[secureRandomNumber(charset.length)]);
+      randomChars.push(charset[random.next(charset.length)]);
     }
   }
 
   // Combine guaranteed characters with random ones and shuffle securely
-  const finalPasswordArray = secureShuffle([
-    ...guaranteedChars,
-    ...randomChars,
-  ]);
+  const finalPasswordArray = secureShuffle(
+    [...guaranteedChars, ...randomChars],
+    random,
+  );
 
   // Ensure the password is the exact length requested
   return finalPasswordArray.slice(0, length).join("");
-};
+}
 
 /**
  * INTERNAL FUNCTIONS
@@ -107,11 +138,12 @@ function _shouldIncludeSet<T extends boolean | string>(
 function _characterSetBuilder(
   set: string | true | undefined,
   defaultSet: string,
+  random: SecureRandomGenerator,
 ) {
   const used = typeof set === "string" ? set : defaultSet;
 
   return {
     used,
-    guaranteed: used[secureRandomNumber(used.length)]!,
+    guaranteed: used[random.next(used.length)]!,
   };
 }
