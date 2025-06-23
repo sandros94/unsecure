@@ -1,4 +1,5 @@
 export type DigestAlgorithm = "SHA-256" | "SHA-384" | "SHA-512";
+export type DigestReturnAs = "hex" | "base64" | "b64" | "base64url" | "b64url" | "uint8array" | "bytes";
 
 export interface DigestOptions {
   /**
@@ -8,9 +9,9 @@ export interface DigestOptions {
    */
   algorithm?: DigestAlgorithm;
   /**
-   * Whether to output to string or Uint8Array
+   * Whether to output to HEX, Base64, Base64URL or Uint8Array
    *
-   * @default true
+   * @default 'hex'
    */
-  asString?: boolean;
+  returnAs?: DigestReturnAs;
 }

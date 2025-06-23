@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { hash } from "../src/hash";
+import { hexEncode, base64Encode, base64UrlEncode } from "../src/utils";
 
 describe("hash utility", () => {
   const testString =
@@ -7,8 +8,13 @@ describe("hash utility", () => {
   const testUint8Array = new TextEncoder().encode(testString);
 
   // Known hash values for the `testString`
-  const sha256Hex =
-    "521cb0415f1a06428456d9ef4e948c0270a806442325253cb7a8a6b7e43da9c7";
+  const sha256 = new Uint8Array([
+    82, 28, 176, 65, 95, 26, 6, 66, 132, 86, 217, 239, 78, 148, 140, 2, 112,
+    168, 6, 68, 35, 37, 37, 60, 183, 168, 166, 183, 228, 61, 169, 199,
+  ]);
+  const sha256Hex = hexEncode(sha256);
+  const sha256Base64 = base64Encode(sha256);
+  const sha256Base64Url = base64UrlEncode(sha256);
   const sha384Hex =
     "ad34d79a7831c2ca6de3012696b9b25746cb7491f613bb6a3716d05de01f84bf180b5758bd3185fcea084ac9c2ba01b4";
   const sha512Hex =
@@ -24,20 +30,26 @@ describe("hash utility", () => {
     expect(result).toBe(sha256Hex);
   });
 
-  it("should return a hex string when 'asString' is 'true'", async () => {
-    const result = await hash(testString, { asString: true });
+  it("should return a hex string when 'returnAs' is 'hex'", async () => {
+    const result = await hash(testString, { returnAs: "hex" });
     expect(result).toBe(sha256Hex);
   });
 
-  it("should return a Uint8Array when 'asString' is 'false'", async () => {
-    const result = await hash(testString, { asString: false });
-    expect(result).toBeInstanceOf(Uint8Array);
+  it("should return a hex string when 'returnAs' is 'base64'", async () => {
+    const result = await hash(testString, { returnAs: "base64" });
+    expect(result).toBe(sha256Base64);
+  });
 
-    // Verify the bytes by converting them to hex
-    const hexResult = [...result]
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-    expect(hexResult).toBe(sha256Hex);
+  it("should return a hex string when 'returnAs' is 'base64url'", async () => {
+    const result = await hash(testString, { returnAs: "base64url" });
+    expect(result).toBe(sha256Base64Url);
+  });
+
+  it("should return a Uint8Array when 'returnAs' is 'uint8array'", async () => {
+    const result = await hash(testString, { returnAs: "uint8array" });
+
+    expect(result).toBeInstanceOf(Uint8Array);
+    expect(result).toStrictEqual(sha256);
   });
 
   it("should hash using SHA-384 when specified", async () => {
@@ -53,7 +65,7 @@ describe("hash utility", () => {
   it("should hash using SHA-512 and return bytes when specified", async () => {
     const result = await hash(testString, {
       algorithm: "SHA-512",
-      asString: false,
+      returnAs: "uint8array",
     });
     expect(result).toBeInstanceOf(Uint8Array);
     const hexResult = [...result]
