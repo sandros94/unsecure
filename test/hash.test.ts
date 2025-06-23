@@ -87,4 +87,10 @@ describe("hash utility", () => {
     const result = await hash(new Uint8Array(0));
     expect(result).toBe(emptySha256);
   });
+
+  it("should throw for unsupported returnAs", async () => {
+    await expect(
+      hash(testString, { returnAs: "unsupported" as any }),
+    ).rejects.toThrow('Unsupported hash "returnAs" option: unsupported');
+  });
 });
