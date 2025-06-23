@@ -57,15 +57,28 @@ import {
 
 Hashes input data using a specified cryptographic algorithm. It uses the Web Crypto API, so it works in any modern JavaScript runtime.
 
+options:
+
+- **algorithm**: `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`)
+- **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default `hex`)
+
 ```ts
 import { hash } from "unsecure";
 
-// Hash a string using the default SHA-256
+// Hash an input using the default SHA-256 and return as a hex string
 const hashHex = await hash("hello world");
 // 'b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9'
 
+// Hash an input using the default SHA-256 and return as a base64 string
+const hashBase64 = await hash("hello world", { returnAs: "base64" });
+// 'UhywQV8aBkKEVtnvTpSMAnCoBkQjJSU8t6imt+Q9qcc='
+
+// Hash an input using the default SHA-256 and return as a base64 URL string
+const hashBase64URL = await hash("hello world", { returnAs: "base64url" });
+// 'UhywQV8aBkKEVtnvTpSMAnCoBkQjJSU8t6imt-Q9qcc'
+
 // Hash and get raw bytes (Uint8Array)
-const hashBytes = await hash("hello world", { asString: false });
+const hashBytes = await hash("hello world", { returnAs: "bytes" });
 // Uint8Array(32) [ 185, 77, 39, 185, 147, 77, ... ]
 
 // Hash using SHA-512
