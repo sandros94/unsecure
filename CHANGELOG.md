@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.0.2
+
+[compare changes](https://github.com/sandros94/unsecure/compare/v0.0.1...v0.0.2)
+
+### 🩹 Fixes
+
+- **hash:** Optionally return base64/base64url encoded strings ([fe98972](https://github.com/sandros94/unsecure/commit/fe98972))
+
+### 📖 Documentation
+
+- Readme typo ([7e31c50](https://github.com/sandros94/unsecure/commit/7e31c50))
+
+### 🏡 Chore
+
+- Apply automated updates ([796cc19](https://github.com/sandros94/unsecure/commit/796cc19))
+
+### ❤️ Contributors
+
+- Sandro Circi ([@sandros94](https://github.com/sandros94))
+
 ## v0.0.1
 
 ### 🚀 Enhancements
