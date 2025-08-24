@@ -11,8 +11,8 @@ import { textEncoder } from "./utils";
  *
  * @example
  * // Comparing two strings
- * secureVerify('secret_token_123', 'secret_token_123'); // true
- * secureVerify('secret_token_123', 'wrong_token');      // false
+ * secureCompare('secret_token_123', 'secret_token_123'); // true
+ * secureCompare('secret_token_123', 'wrong_token');      // false
  *
  * @example
  * // Comparing two Uint8Arrays
@@ -20,19 +20,19 @@ import { textEncoder } from "./utils";
  * const mac2 = new Uint8Array([1, 2, 3]);
  * const mac3 = new Uint8Array([1, 2, 4]);
  *
- * secureVerify(mac1, mac2); // true
- * secureVerify(mac1, mac3); // false
+ * secureCompare(mac1, mac2); // true
+ * secureCompare(mac1, mac3); // false
  *
  * @example
  * // Comparing a string with a Uint8Array
  * const tokenBytes = new TextEncoder().encode('my_secure_token');
- * secureVerify('my_secure_token', tokenBytes); // true
+ * secureCompare('my_secure_token', tokenBytes); // true
  *
  * @example
  * // Handling undefined incoming data in a timing-safe manner
- * secureVerify('some_reference', undefined); // false
+ * secureCompare('some_reference', undefined); // false
  */
-export function secureVerify(
+export function secureCompare(
   reference: Uint8Array | string,
   incoming: Uint8Array | string | undefined,
 ): boolean {
@@ -67,6 +67,11 @@ export function secureVerify(
 
   return mismatch === 0;
 }
+
+/**
+ * @deprecated Use `secureCompare` instead.
+ */
+export const secureVerify = secureCompare;
 
 function _toUint8Array(input: Uint8Array | string): Uint8Array {
   if (typeof input === "string") {

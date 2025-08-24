@@ -25,7 +25,7 @@ Import:
 
 ```js
 // Main functions
-import { hash, generateSecurePassword, secureVerify } from "unsecure";
+import { hash, generateSecurePassword, secureCompare } from "unsecure";
 // Utility functions
 import {
   hexEncode,
@@ -42,7 +42,7 @@ import {
 import {
   hash,
   generateSecurePassword,
-  secureVerify,
+  secureCompare,
 } from "https://esm.sh/unsecure";
 // Utility functions
 import {
@@ -119,18 +119,18 @@ const pin = generateSecurePassword({
 });
 ```
 
-### secureVerify
+### secureCompare
 
 Compares two values (string or Uint8Array) in a timing-attack-safe manner. The first argument is always the reference value, which determines the time it takes for verification.
 
 ```ts
-import { secureVerify } from "unsecure";
+import { secureCompare } from "unsecure";
 
 const secret = "my-super-secret-token";
 const userInput = "my-super-secret-token";
 // from user input
 
-if (secureVerify(secret, userInput)) {
+if (secureCompare(secret, userInput)) {
   console.log("Tokens match!");
 } else {
   console.log("Tokens do not match!");
@@ -139,8 +139,8 @@ if (secureVerify(secret, userInput)) {
 // Also works with Uint8Array and mixed types
 const mac1 = new Uint8Array([1, 2, 3]);
 const mac2 = new Uint8Array([1, 2, 3]);
-secureVerify(mac1, mac2); // true
-secureVerify(secret, mac2); // false
+secureCompare(mac1, mac2); // true
+secureCompare(secret, mac2); // false
 ```
 
 ### Utilities (`unsecure/utils`)
