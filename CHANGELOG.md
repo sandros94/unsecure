@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.0.3
+
+[compare changes](https://github.com/sandros94/unsecure/compare/v0.0.2...v0.0.3)
+
+### 💅 Refactors
+
+- Rename `secureVerify` to `secureCompare` ([1773c93](https://github.com/sandros94/unsecure/commit/1773c93))
+- Rename `generateSecurePassword` to `secureGenerate` ([bf131f6](https://github.com/sandros94/unsecure/commit/bf131f6))
+
+### 📖 Documentation
+
+- **hash:** Document `returnAs` option ([027e103](https://github.com/sandros94/unsecure/commit/027e103))
+
+### 🏡 Chore
+
+- Update deps ([8ec53e1](https://github.com/sandros94/unsecure/commit/8ec53e1))
+
+### ✅ Tests
+
+- **hash:** Add throwing test ([db61274](https://github.com/sandros94/unsecure/commit/db61274))
+
+### ❤️ Contributors
+
+- Sandro Circi ([@sandros94](https://github.com/sandros94))
+
 ## v0.0.2
 
 [compare changes](https://github.com/sandros94/unsecure/compare/v0.0.1...v0.0.2)
