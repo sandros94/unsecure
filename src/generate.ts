@@ -3,7 +3,7 @@ import {
   type SecureRandomGenerator,
   secureShuffle,
 } from "./utils";
-import type { GeneratePasswordOptions } from "./types";
+import type { SecureGenerateOptions } from "./types";
 
 /**
  * Default character sets. The SPECIALS set is curated to avoid characters that
@@ -17,29 +17,27 @@ const DEFAULT_SPECIALS = "!@#$%^&*()_+{}:<>?|[];,./~-=";
 const DEFAULT_LENGTH = 16;
 
 /**
- * Generates a cryptographically secure password based on the provided options.
- * @param {number} length - The desired length of the password.
- * @returns {string} The generated password.
+ * Generates a cryptographically secure string based on the provided options.
+ * @param {number} length - The desired length of the string.
+ * @returns {string} The generated string.
  * @throws {Error} if no character types are selected.
  */
-export function generateSecurePassword(length?: number): string;
+export function secureGenerate(length?: number): string;
 /**
- * Generates a cryptographically secure password based on the provided options.
- * @param {GeneratePasswordOptions} options - The configuration for password generation.
- * @returns {string} The generated password.
+ * Generates a cryptographically secure string based on the provided options.
+ * @param {SecureGenerateOptions} options - The configuration for string generation.
+ * @returns {string} The generated string.
  * @throws {Error} if no character types are selected.
  */
-export function generateSecurePassword(
-  options?: GeneratePasswordOptions,
-): string;
+export function secureGenerate(options?: SecureGenerateOptions): string;
 /**
- * Generates a cryptographically secure password based on the provided options.
- * @param {number | GeneratePasswordOptions} numOrOptions - The desired length or the configuration for password generation.
- * @returns {string} The generated password.
+ * Generates a cryptographically secure string based on the provided options.
+ * @param {number | SecureGenerateOptions} numOrOptions - The desired length or the configuration for string generation.
+ * @returns {string} The generated string.
  * @throws {Error} if no character types are selected.
  */
-export function generateSecurePassword(
-  numOrOptions: number | GeneratePasswordOptions = DEFAULT_LENGTH,
+export function secureGenerate(
+  numOrOptions: number | SecureGenerateOptions = DEFAULT_LENGTH,
 ): string {
   let length: number;
   let uppercase: boolean | string = true;
@@ -105,13 +103,13 @@ export function generateSecurePassword(
   }
 
   if (!charset) {
-    throw new Error("Cannot generate password. No character types selected.");
+    throw new Error("Cannot generate string. No character types selected.");
   }
 
   const remainingLength = length - guaranteedChars.length;
   const randomChars = [];
 
-  // Fill the rest of the password length with random characters from the full set
+  // Fill the rest of the string length with random characters from the full set
   if (remainingLength > 0) {
     for (let i = 0; i < remainingLength; i++) {
       randomChars.push(charset[random.next(charset.length)]);
@@ -124,17 +122,18 @@ export function generateSecurePassword(
     random,
   );
 
-  // Ensure the password is the exact length requested
+  // Ensure the string is the exact length requested
   return finalPasswordArray.slice(0, length).join("");
 }
 
 /**
- * Generates a cryptographically secure token based on the provided options.
- * @param {number | GeneratePasswordOptions} numOrOptions - The desired length or the configuration for token generation.
- * @returns {string} The generated token.
- * @throws {Error} if no character types are selected.
+ * @deprecated Use `secureGenerate` instead.
  */
-export const generateSecureToken = generateSecurePassword;
+export const generateSecureToken = secureGenerate;
+/**
+ * @deprecated Use `secureGenerate` instead.
+ */
+export const generateSecurePassword = secureGenerate;
 
 /**
  * INTERNAL FUNCTIONS

@@ -1,12 +1,12 @@
 import { bench, describe } from "vitest";
-import { generateSecurePassword } from "../src";
+import { secureGenerate } from "../src";
 
-describe("bench password generation", () => {
+describe("bench token generation", () => {
   const shifty = new Shifty(true, 16);
 
   describe("16 characters", () => {
     bench("unsecure", () => {
-      generateSecurePassword(16);
+      secureGenerate(16);
     });
 
     bench("@deepsource/shifty", () => {
@@ -16,7 +16,7 @@ describe("bench password generation", () => {
 
   describe("32 characters", () => {
     bench("unsecure", () => {
-      generateSecurePassword(32);
+      secureGenerate(32);
     });
 
     bench("@deepsource/shifty", () => {
@@ -26,7 +26,7 @@ describe("bench password generation", () => {
 
   describe("64 characters", () => {
     bench("unsecure", () => {
-      generateSecurePassword(64);
+      secureGenerate(64);
     });
 
     bench("@deepsource/shifty", () => {
@@ -36,7 +36,7 @@ describe("bench password generation", () => {
 
   describe("128 characters", () => {
     bench("unsecure", () => {
-      generateSecurePassword(128);
+      secureGenerate(128);
     });
 
     bench("@deepsource/shifty", () => {
@@ -46,7 +46,7 @@ describe("bench password generation", () => {
 
   describe("256 characters", () => {
     bench("unsecure", () => {
-      generateSecurePassword(256);
+      secureGenerate(256);
     });
 
     bench("@deepsource/shifty", () => {
@@ -56,7 +56,7 @@ describe("bench password generation", () => {
 
   describe("384 characters", () => {
     bench("unsecure", () => {
-      generateSecurePassword(384);
+      secureGenerate(384);
     });
 
     bench("@deepsource/shifty", () => {
@@ -66,7 +66,7 @@ describe("bench password generation", () => {
 
   describe("512 characters", () => {
     bench("unsecure", () => {
-      generateSecurePassword(512);
+      secureGenerate(512);
     });
 
     bench("@deepsource/shifty", () => {
@@ -92,7 +92,7 @@ export default class Shifty {
 
   /**
    * Constructor function
-   * @param {boolean} [harden = true] - this hardens the password using special chars
+   * @param {boolean} [harden = true] - this hardens the token using special chars
    * @param {number} [defaultLength=DEFAULT_LENGTH] - the default length of the secret string in case no value is passed to generate
    * @return {void}
    */
@@ -143,7 +143,7 @@ export default class Shifty {
     let secret = "";
 
     // The while loop ensures we always satisfy the length condition
-    // If the inner loop ends before we have the password of the required length
+    // If the inner loop ends before we have the token of the required length
     // the while loop will restart the inner loop
     while (secret.length < length) {
       // generate a new buffer everytime to ensure we don't end up with repeating values

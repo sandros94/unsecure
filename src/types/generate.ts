@@ -1,4 +1,4 @@
-export interface GeneratePasswordOptions {
+export interface SecureGenerateOptions {
   /**
    * The desired length of the password.
    *
@@ -30,3 +30,8 @@ export interface GeneratePasswordOptions {
    */
   specials?: boolean | string;
 }
+
+/**
+ * @deprecated Use `SecureGenerateOptions` instead.
+ */
+export type GeneratePasswordOptions = SecureGenerateOptions;

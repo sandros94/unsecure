@@ -25,7 +25,7 @@ Import:
 
 ```js
 // Main functions
-import { hash, generateSecurePassword, secureCompare } from "unsecure";
+import { hash, secureGenerate, secureCompare } from "unsecure";
 // Utility functions
 import {
   hexEncode,
@@ -39,11 +39,7 @@ import {
 
 ```js
 // Main functions
-import {
-  hash,
-  generateSecurePassword,
-  secureCompare,
-} from "https://esm.sh/unsecure";
+import { hash, secureGenerate, secureCompare } from "https://esm.sh/unsecure";
 // Utility functions
 import {
   hexEncode,
@@ -86,31 +82,31 @@ const hash512 = await hash("hello world", { algorithm: "SHA-512" });
 // '309ecc489c12d6eb4cc40f50c902f2b4d0ed77ee511a7c7a9bcd3ca86d4cd86f...'
 ```
 
-### generateSecurePassword (or generateSecureToken)
+### secureGenerate (or generateSecureToken)
 
-Generates a cryptographically secure password. You can customize its length and character set (all enabled by default). If a string is passed it will be used as a set of allowed characters.
+Generates a cryptographically secure string. You can customize its length and character set (all enabled by default). If a string is passed it will be used as a set of allowed characters.
 
 Internally it uses a buffer, which is constantly updated, to minimize Web Crypto API calls and greatly improve performance. This becomes useful when generating 128-512 characters long tokens.
 
 ```ts
-import { generateSecurePassword } from "unsecure";
+import { secureGenerate } from "unsecure";
 
 // Generate a default 16-character password
-const password = generateSecurePassword();
+const password = secureGenerate();
 // e.g. 'Zk(p4@L!v9{g~8sB'
 
 // Generate 28-character password
-const password = generateSecurePassword(28);
+const password = secureGenerate(28);
 // e.g. '4~j&zgf-tO+PoMBVl}tK/}5$FgzF'
 
-// Generate a 24-character password with no special characters
-const longPassword = generateSecurePassword({
+// Generate a 24-character token with no special characters
+const token = secureGenerate({
   length: 24,
   specials: false,
 });
 
-// Generate a password using only custom numbers
-const pin = generateSecurePassword({
+// Generate a pin using only custom numbers
+const pin = secureGenerate({
   length: 6,
   uppercase: false,
   lowercase: false,
