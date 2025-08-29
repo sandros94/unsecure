@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.0.4
+
+[compare changes](https://github.com/sandros94/unsecure/compare/v0.0.3...v0.0.4)
+
+### 🚀 Enhancements
+
+- Sanitizing utility for prototype pollution ([0d48bff](https://github.com/sandros94/unsecure/commit/0d48bff))
+
+### 🏡 Chore
+
+- Add vscode tasks ([2b9856f](https://github.com/sandros94/unsecure/commit/2b9856f))
+
+### ❤️ Contributors
+
+- Sandro Circi ([@sandros94](https://github.com/sandros94))
+
 ## v0.0.3
 
 [compare changes](https://github.com/sandros94/unsecure/compare/v0.0.2...v0.0.3)
