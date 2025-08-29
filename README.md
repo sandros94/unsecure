@@ -180,6 +180,40 @@ secureShuffle(list); // e.g. [ 3, 1, 5, 2, 4 ]
 const shuffled = secureShuffle([...list]);
 ```
 
+### sanitizeObject
+
+Remove prototype-pollution vectors from a plain record in-place. It strips the dangerous own properties `__proto__`, `prototype`, and `constructor` from the target and all nested objects/arrays. It returns the same reference you pass in.
+
+- Deep, in-place sanitization over objects and arrays
+- Cycle-safe (handles circular references)
+- Leaves non-objects, functions, Dates, Maps/Sets unchanged
+
+```ts
+import { sanitizeObject } from "unsecure";
+
+const payload: Record<string, unknown> = {
+  user: {
+    name: "alice",
+    // potential pollution vectors
+    __proto__: { hacked: true },
+    profile: [{ constructor: "bad" }, { prototype: { x: 1 } }],
+  },
+};
+
+sanitizeObject(payload); // returns the same reference
+
+// After sanitization
+Object.hasOwn(payload.user, "__proto__"); // false
+Object.hasOwn(payload.user.profile[0]!, "constructor"); // false
+Object.hasOwn(payload.user.profile[1]!, "prototype"); // false
+```
+
+Notes:
+
+- Only own properties named exactly `__proto__`, `prototype`, and `constructor` are removed.
+- The function doesn't clone; it mutates the input value in-place for performance and memory efficiency.
+- Values like Date, Map, Set, functions, and primitives are returned unchanged (but still traversed through if found as nested values on a plain object/array).
+
 ## Development
 
 <details>
