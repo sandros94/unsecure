@@ -271,6 +271,27 @@ describe.concurrent("secureGenerate", () => {
       customUpper + customLower + customNumbers + customSpecials;
     expect(containsOnlyCharsFromSet(token, allowedSet)).toBe(true);
   });
+
+  it("should include a timestamp when timestamp is true", () => {
+    const token = secureGenerate({ length: 20, timestamp: true });
+    expect(token.length).toBe(20);
+    // Check if it starts with a base36 string (approximate check)
+    expect(/^[0-9a-z]+/.test(token)).toBe(true);
+  });
+
+  it("should include a specific timestamp when a Date object is passed", () => {
+    const date = new Date("2023-01-01T00:00:00Z");
+    const timestampStr = date.getTime().toString(36);
+    const token = secureGenerate({ length: 20, timestamp: date });
+    expect(token.length).toBe(20);
+    expect(token.startsWith(timestampStr)).toBe(true);
+  });
+
+  it("should throw an error if length is not sufficient for timestamp", () => {
+    expect(() => secureGenerate({ length: 5, timestamp: true })).toThrowError(
+      /Password length must be greater than timestamp length/,
+    );
+  });
 });
 
 /**

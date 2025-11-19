@@ -44,6 +44,7 @@ export function secureGenerate(
   let lowercase: boolean | string = true;
   let numbers: boolean | string = true;
   let specials: boolean | string = true;
+  let timestamp: true | Date | undefined;
 
   if (typeof numOrOptions === "number") {
     length = numOrOptions;
@@ -53,10 +54,23 @@ export function secureGenerate(
     lowercase = numOrOptions.lowercase ?? true;
     numbers = numOrOptions.numbers ?? true;
     specials = numOrOptions.specials ?? true;
+    timestamp = numOrOptions.timestamp;
+  }
+
+  let timestampStr = "";
+  if (timestamp) {
+    const date = timestamp === true ? new Date() : timestamp;
+    timestampStr = date.getTime().toString(36);
   }
 
   if (length < 1) {
     throw new TypeError("Password length must be at least 1.");
+  }
+
+  if (timestampStr && length <= timestampStr.length) {
+    throw new Error(
+      `Password length must be greater than timestamp length (${timestampStr.length}).`,
+    );
   }
 
   const random = createSecureRandomGenerator();
@@ -106,7 +120,8 @@ export function secureGenerate(
     throw new Error("Cannot generate string. No character types selected.");
   }
 
-  const remainingLength = length - guaranteedChars.length;
+  const lengthToGenerate = length - timestampStr.length;
+  const remainingLength = lengthToGenerate - guaranteedChars.length;
   const randomChars = [];
 
   // Fill the rest of the string length with random characters from the full set
@@ -123,7 +138,7 @@ export function secureGenerate(
   );
 
   // Ensure the string is the exact length requested
-  return finalPasswordArray.slice(0, length).join("");
+  return timestampStr + finalPasswordArray.slice(0, lengthToGenerate).join("");
 }
 
 /**

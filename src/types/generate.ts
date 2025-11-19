@@ -24,11 +24,17 @@ export interface SecureGenerateOptions {
    */
   numbers?: boolean | string;
   /**
-   * Include the default special characters.
+   * Include special characters.
    *
    * @default true
    */
   specials?: boolean | string;
+  /**
+   * Include a timestamp at the beginning of the string.
+   *
+   * @default false
+   */
+  timestamp?: true | Date;
 }
 
 /**
