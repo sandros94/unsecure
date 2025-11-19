@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.0.5
+
+[compare changes](https://github.com/sandros94/unsecure/compare/v0.0.4...v0.0.5)
+
+### 🚀 Enhancements
+
+- Add timestamp option to secureGenerate for time-sortable tokens ([6b2fcdb](https://github.com/sandros94/unsecure/commit/6b2fcdb))
+
+### 📖 Documentation
+
+- Describe `sanitizeObject` utility ([230ebb7](https://github.com/sandros94/unsecure/commit/230ebb7))
+
+### ❤️ Contributors
+
+- Sandro Circi ([@sandros94](https://github.com/sandros94))
+
 ## v0.0.4
 
 [compare changes](https://github.com/sandros94/unsecure/compare/v0.0.3...v0.0.4)
