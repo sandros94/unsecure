@@ -113,6 +113,15 @@ const pin = secureGenerate({
   specials: false,
   numbers: "13579",
 });
+
+// Generate a token with current timestamp prefix
+const stamp = secureGenerate({ length: 20, timestamp: true });
+// Output example: "mi6dcq...random..."
+
+// Generate a token with a specific date prefix
+const date = new Date('2023-01-01T00:00:00Z');
+const datestamp = secureGenerate({ length: 20, timestamp: date });
+// Output example: "lcclw5...random..."
 ```
 
 ### secureCompare
