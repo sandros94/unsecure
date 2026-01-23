@@ -5,6 +5,9 @@ export default defineBuildConfig({
     {
       type: "bundle",
       input: ["./src/index.ts", "./src/utils.ts"],
+      rolldown: {
+        platform: "neutral",
+      },
     },
   ],
 });
