@@ -176,10 +176,21 @@ import {
 
 // Creates a secure random number generator (more performant for subsequent calls)
 const generator = createSecureRandomGenerator();
-const n = generator.next(1000); // Get a secure random number between 0 and 999
 
-// Get a secure random number between 0 and 99 (more memory-efficient for single use)
-const n = secureRandomNumber(100);
+// Get a random number in range [0, max)
+const n = generator.next(1000); // 0 to 999
+
+// Get a random number in range [min, max)
+const n2 = generator.next(50, 150); // 50 to 149
+
+// Exclude specific values using an array or Set
+const n3 = generator.next(10, [3, 5, 7]); // 0-9, excluding 3, 5, 7
+const n4 = generator.next(50, 100, new Set([55, 60, 65])); // 50-99, excluding 55, 60, 65
+
+// Get a secure random number (more memory-efficient for single use)
+const num = secureRandomNumber(100); // 0 to 99
+const num2 = secureRandomNumber(50, 150); // 50 to 149
+const num3 = secureRandomNumber(10, [2, 4, 6]); // 0-9, excluding 2, 4, 6
 
 // Securely shuffle an array in-place
 const list = [1, 2, 3, 4, 5];
@@ -187,6 +198,11 @@ secureShuffle(list); // e.g. [ 3, 1, 5, 2, 4 ]
 
 // Or spread the original to not mutate it
 const shuffled = secureShuffle([...list]);
+
+// Reuse generator for better performance when shuffling multiple times
+const gen = createSecureRandomGenerator();
+secureShuffle(list1, gen);
+secureShuffle(list2, gen);
 ```
 
 ### sanitizeObject
