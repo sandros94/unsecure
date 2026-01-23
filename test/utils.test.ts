@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  createSecureRandomGenerator,
   secureRandomNumber,
   secureShuffle,
   base64Decode,
@@ -12,7 +13,7 @@ import {
 
 describe.concurrent("Utility Functions", () => {
   describe("secureRandomNumber(max)", () => {
-    it("should return a number within the range [0, max] and be an integer", () => {
+    it("should return a number within the range [0, max) and be an integer", () => {
       const max = 100;
       const iterations = 1000; // Run multiple times to increase confidence
 
@@ -66,35 +67,251 @@ describe.concurrent("Utility Functions", () => {
       }
     });
 
-    it("should throw RangeError when max is 0", () => {
+    it("should throw RangeError when max is 0 or negative", () => {
       expect(() => secureRandomNumber(0)).toThrow(RangeError);
       expect(() => secureRandomNumber(0)).toThrow(
-        "max must be a positive integer.",
+        "max must be greater than min.",
       );
-    });
-
-    it("should throw RangeError when max is negative", () => {
-      const max = -5;
-      expect(() => secureRandomNumber(max)).toThrow(RangeError);
-      expect(() => secureRandomNumber(max)).toThrow(
-        "max must be a positive integer.",
-      );
+      expect(() => secureRandomNumber(-5)).toThrow(RangeError);
     });
 
     it("should throw RangeError when max is not an integer", () => {
       const max = 3.14;
       expect(() => secureRandomNumber(max)).toThrow(RangeError);
       expect(() => secureRandomNumber(max)).toThrow(
-        "max must be a positive integer.",
+        "min and max must be integers.",
       );
     });
 
-    it("should throw RangeError when max is greater than 2**32", () => {
+    it("should throw RangeError when range is greater than 2**32", () => {
       const max = 2 ** 32 + 1;
       expect(() => secureRandomNumber(max)).toThrow(RangeError);
       expect(() => secureRandomNumber(max)).toThrow(
-        "max must be less than or equal to 2^32.",
+        "range must be less than or equal to 2^32.",
       );
+    });
+  });
+
+  describe("secureRandomNumber(min, max)", () => {
+    it("should return a number within the range [min, max) and be an integer", () => {
+      const min = 50;
+      const max = 150;
+      const iterations = 1000;
+
+      for (let i = 0; i < iterations; i++) {
+        const num = secureRandomNumber(min, max);
+        expect(num).toBeTypeOf("number");
+        expect(num).toBeGreaterThanOrEqual(min);
+        expect(num).toBeLessThan(max);
+        expect(Number.isInteger(num)).toBe(true);
+      }
+    });
+
+    it("should return min when range is 1", () => {
+      expect(secureRandomNumber(5, 6)).toBe(5);
+    });
+
+    it("should handle negative ranges", () => {
+      const min = -100;
+      const max = -50;
+      const iterations = 100;
+
+      for (let i = 0; i < iterations; i++) {
+        const num = secureRandomNumber(min, max);
+        expect(num).toBeGreaterThanOrEqual(min);
+        expect(num).toBeLessThan(max);
+        expect(Number.isInteger(num)).toBe(true);
+      }
+    });
+
+    it("should handle ranges spanning zero", () => {
+      const min = -50;
+      const max = 50;
+      const iterations = 1000;
+
+      for (let i = 0; i < iterations; i++) {
+        const num = secureRandomNumber(min, max);
+        expect(num).toBeGreaterThanOrEqual(min);
+        expect(num).toBeLessThan(max);
+        expect(Number.isInteger(num)).toBe(true);
+      }
+    });
+
+    it("should throw RangeError when max <= min", () => {
+      expect(() => secureRandomNumber(10, 10)).toThrow(RangeError);
+      expect(() => secureRandomNumber(10, 10)).toThrow(
+        "max must be greater than min.",
+      );
+      expect(() => secureRandomNumber(10, 5)).toThrow(RangeError);
+    });
+
+    it("should throw RangeError when min or max are not integers", () => {
+      expect(() => secureRandomNumber(1.5, 10)).toThrow(RangeError);
+      expect(() => secureRandomNumber(1, 10.5)).toThrow(RangeError);
+      expect(() => secureRandomNumber(1.5, 10.5)).toThrow(
+        "min and max must be integers.",
+      );
+    });
+
+    it("should throw RangeError when range exceeds 2**32", () => {
+      const min = 0;
+      const max = 2 ** 32 + 1;
+      expect(() => secureRandomNumber(min, max)).toThrow(RangeError);
+      expect(() => secureRandomNumber(min, max)).toThrow(
+        "range must be less than or equal to 2^32.",
+      );
+    });
+  });
+
+  describe("secureRandomNumber with ignore parameter", () => {
+    it("should exclude values in ignore array", () => {
+      const iterations = 100;
+      const ignore = [5, 7, 9];
+
+      for (let i = 0; i < iterations; i++) {
+        const num = secureRandomNumber(10, ignore);
+        expect(ignore).not.toContain(num);
+        expect(num).toBeGreaterThanOrEqual(0);
+        expect(num).toBeLessThan(10);
+      }
+    });
+
+    it("should exclude values in ignore Set", () => {
+      const iterations = 100;
+      const ignore = new Set([5, 7, 9]);
+
+      for (let i = 0; i < iterations; i++) {
+        const num = secureRandomNumber(10, ignore);
+        expect(ignore.has(num)).toBe(false);
+        expect(num).toBeGreaterThanOrEqual(0);
+        expect(num).toBeLessThan(10);
+      }
+    });
+
+    it("should work with min/max and ignore array", () => {
+      const iterations = 100;
+      const ignore = [55, 57, 59];
+
+      for (let i = 0; i < iterations; i++) {
+        const num = secureRandomNumber(50, 60, ignore);
+        expect(ignore).not.toContain(num);
+        expect(num).toBeGreaterThanOrEqual(50);
+        expect(num).toBeLessThan(60);
+      }
+    });
+
+    it("should throw RangeError when ignore excludes all values in range", () => {
+      const ignore = [0, 1, 2, 3, 4];
+      expect(() => secureRandomNumber(5, ignore)).toThrow(RangeError);
+      expect(() => secureRandomNumber(5, ignore)).toThrow(
+        "Ignore set excludes all possible values in the range.",
+      );
+    });
+
+    it("should throw TypeError for invalid ignore parameter", () => {
+      expect(() => secureRandomNumber(10, "invalid" as any)).toThrow(TypeError);
+      expect(() => secureRandomNumber(10, "invalid" as any)).toThrow(
+        "ignore must be an iterable of numbers or a Set<number>.",
+      );
+    });
+
+    it("should ignore non-integer values in ignore set", () => {
+      const iterations = 100;
+      const ignore = new Set([1.5, 2.7, 3]);
+
+      for (let i = 0; i < iterations; i++) {
+        const num = secureRandomNumber(10, ignore);
+        // Only integer 3 should be excluded
+        expect(num).not.toBe(3);
+        expect(num).toBeGreaterThanOrEqual(0);
+        expect(num).toBeLessThan(10);
+        expect(Number.isInteger(num)).toBe(true);
+      }
+    });
+  });
+
+  describe("createSecureRandomGenerator", () => {
+    it("should generate numbers in range [0, max) using next(max)", () => {
+      const gen = createSecureRandomGenerator();
+      const max = 100;
+      const iterations = 1000;
+
+      for (let i = 0; i < iterations; i++) {
+        const num = gen.next(max);
+        expect(num).toBeGreaterThanOrEqual(0);
+        expect(num).toBeLessThan(max);
+        expect(Number.isInteger(num)).toBe(true);
+      }
+    });
+
+    it("should generate numbers in range [min, max) using next(min, max)", () => {
+      const gen = createSecureRandomGenerator();
+      const min = 50;
+      const max = 150;
+      const iterations = 1000;
+
+      for (let i = 0; i < iterations; i++) {
+        const num = gen.next(min, max);
+        expect(num).toBeGreaterThanOrEqual(min);
+        expect(num).toBeLessThan(max);
+        expect(Number.isInteger(num)).toBe(true);
+      }
+    });
+
+    it("should respect ignore parameter with next(max, ignore)", () => {
+      const gen = createSecureRandomGenerator();
+      const ignore = new Set([3, 5, 7]);
+      const iterations = 100;
+
+      for (let i = 0; i < iterations; i++) {
+        const num = gen.next(10, ignore);
+        expect(ignore.has(num)).toBe(false);
+        expect(num).toBeGreaterThanOrEqual(0);
+        expect(num).toBeLessThan(10);
+      }
+    });
+
+    it("should respect ignore parameter with next(min, max, ignore)", () => {
+      const gen = createSecureRandomGenerator();
+      const ignore = [53, 55, 57];
+      const iterations = 100;
+
+      for (let i = 0; i < iterations; i++) {
+        const num = gen.next(50, 60, ignore);
+        expect(ignore).not.toContain(num);
+        expect(num).toBeGreaterThanOrEqual(50);
+        expect(num).toBeLessThan(60);
+      }
+    });
+
+    it("should throw RangeError when max <= min", () => {
+      const gen = createSecureRandomGenerator();
+      expect(() => gen.next(10, 10)).toThrow(RangeError);
+      expect(() => gen.next(10, 5)).toThrow("max must be greater than min.");
+    });
+
+    it("should throw RangeError when ignore excludes all values", () => {
+      const gen = createSecureRandomGenerator();
+      const ignore = new Set([0, 1, 2, 3, 4]);
+      expect(() => gen.next(5, ignore)).toThrow(RangeError);
+      expect(() => gen.next(5, ignore)).toThrow(
+        "Ignore set excludes all possible values in the range.",
+      );
+    });
+
+    it("should reuse buffer efficiently for multiple calls", () => {
+      const gen = createSecureRandomGenerator();
+      const results = [];
+      // Generate more than buffer size (256) to ensure refill happens
+      for (let i = 0; i < 500; i++) {
+        results.push(gen.next(1000));
+      }
+      expect(results.length).toBe(500);
+      // All should be valid numbers
+      for (const num of results) {
+        expect(num).toBeGreaterThanOrEqual(0);
+        expect(num).toBeLessThan(1000);
+      }
     });
   });
 

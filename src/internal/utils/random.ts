@@ -3,17 +3,33 @@
  */
 export interface SecureRandomGenerator {
   /**
-   * Gets a single cryptographically secure random integer within a specified range.
+   * Gets a single cryptographically secure random integer in the range [0, max).
    * @param {number} max - The exclusive upper bound for the random number.
+   * @param {Iterable<number> | Set<number>} [ignore] - Optional iterable or set of values to ignore.
    * @returns {number} A cryptographically secure random integer.
    */
-  next(max: number): number;
+  next(max: number, ignore?: Iterable<number> | Set<number>): number;
+
+  /**
+   * Gets a single cryptographically secure random integer in the range [min, max).
+   * @param {number} min - The inclusive lower bound for the random number.
+   * @param {number} max - The exclusive upper bound for the random number.
+   * @param {Iterable<number> | Set<number>} [ignore] - Optional iterable or set of values to ignore.
+   * @returns {number} A cryptographically secure random integer.
+   */
+  next(
+    min: number,
+    max: number,
+    ignore?: Iterable<number> | Set<number>,
+  ): number;
 }
 
 /**
  * Creates a cryptographically secure random number generator that uses a buffer
  * to reduce the number of calls to the Web Crypto API. This is a performant
  * way to generate multiple random numbers.
+ * Supports next(max), next(min, max) and both variants with an optional
+ * ignore iterable or Set of values to exclude from results.
  * @returns {SecureRandomGenerator} An object with a `next` method for generating numbers.
  */
 export function createSecureRandomGenerator(): SecureRandomGenerator {
@@ -27,32 +43,103 @@ export function createSecureRandomGenerator(): SecureRandomGenerator {
     index = 0;
   }
 
-  return {
-    next: (max: number): number => {
-      if (!Number.isInteger(max) || max <= 0) {
-        throw new RangeError("max must be a positive integer.");
+  function next(max: number, ignore?: Iterable<number> | Set<number>): number;
+  function next(
+    min: number,
+    max: number,
+    ignore?: Iterable<number> | Set<number>,
+  ): number;
+  function next(
+    a: number,
+    b?: Iterable<number> | Set<number> | number,
+    c?: Iterable<number> | Set<number>,
+  ): number {
+    let min: number;
+    let max: number;
+    let rawIgnore: Iterable<number> | Set<number> | undefined;
+
+    // Determine which overload was used.
+    if (typeof b === "number") {
+      min = a;
+      max = b;
+      rawIgnore = c;
+    } else {
+      min = 0;
+      max = a;
+      rawIgnore = b;
+    }
+
+    if (!Number.isInteger(min) || !Number.isInteger(max)) {
+      throw new RangeError("min and max must be integers.");
+    }
+    if (max <= min) {
+      throw new RangeError("max must be greater than min.");
+    }
+
+    const range = max - min;
+    if (range > 2 ** 32) {
+      throw new RangeError("range must be less than or equal to 2^32.");
+    }
+
+    // Normalize ignore to a Set for O(1) lookups if provided.
+    let ignoreSet: Set<number> | undefined;
+    if (rawIgnore != null) {
+      if (rawIgnore instanceof Set) {
+        ignoreSet = rawIgnore;
+      } else if (
+        typeof rawIgnore !== "string" &&
+        (Array.isArray(rawIgnore) ||
+          typeof (rawIgnore as any)[Symbol.iterator] === "function")
+      ) {
+        ignoreSet = new Set(rawIgnore as Iterable<number>);
+      } else {
+        throw new TypeError(
+          "ignore must be an iterable of numbers or a Set<number>.",
+        );
       }
-      if (max > 2 ** 32) {
-        throw new RangeError("max must be less than or equal to 2^32.");
-      }
-      const maxSafe = 2 ** 32 - (2 ** 32 % max);
-      let randomValue: number;
-      do {
-        if (index >= BUFFER_SIZE) {
-          _refillBuffer();
+
+      // Quick sanity: if ignoreSet excludes all possible values in range, it's impossible to generate a value.
+      let excludedInRange = 0;
+      for (const v of ignoreSet) {
+        if (!Number.isInteger(v)) continue;
+        if (v >= min && v < max) {
+          excludedInRange++;
+          if (excludedInRange >= range) {
+            throw new RangeError(
+              "Ignore set excludes all possible values in the range.",
+            );
+          }
         }
-        randomValue = buffer[index++]!;
-      } while (randomValue >= maxSafe); // Reject biased values and retry.
-      return randomValue % max;
-    },
-  };
+      }
+    }
+
+    const maxSafe = 2 ** 32 - (2 ** 32 % range);
+    let randomValue: number;
+    let candidate: number;
+    do {
+      if (index >= BUFFER_SIZE) {
+        _refillBuffer();
+      }
+      randomValue = buffer[index++]!;
+      candidate = min + (randomValue % range);
+      // Loop while value is biased (>= maxSafe) or candidate is in ignore set.
+    } while (
+      randomValue >= maxSafe ||
+      (ignoreSet !== undefined && ignoreSet.has(candidate))
+    );
+
+    return candidate;
+  }
+
+  return { next };
 }
 
 /**
- * Gets a single cryptographically secure random integer within a specified range.
+ * Gets a single cryptographically secure random integer in the range [0, max).
  * This function avoids modulo bias by rejecting values that would cause an
  * uneven distribution.
  * @param {number} max - The exclusive upper bound for the random number.
+ * @param {Iterable<number> | Set<number>} [ignore] - Optional iterable or set of values to ignore.
  * @returns {number} A cryptographically secure random integer between 0 (inclusive) and max (exclusive).
  *
  * @throws {RangeError} If `max` is not a positive integer or is greater than 2^32.
@@ -60,29 +147,114 @@ export function createSecureRandomGenerator(): SecureRandomGenerator {
  * @description For generating multiple random numbers, it is more performant to
  * use `createSecureRandomGenerator()`.
  */
-export function secureRandomNumber(max: number): number {
-  // Validate input: max must be a positive integer <= 2^32
-  if (!Number.isInteger(max) || max <= 0) {
-    throw new RangeError("max must be a positive integer.");
+export function secureRandomNumber(
+  max: number,
+  ignore?: Iterable<number> | Set<number>,
+): number;
+/**
+ * Gets a single cryptographically secure random integer in the range [min, max).
+ * This function avoids modulo bias by rejecting values that would cause an
+ * uneven distribution.
+ * @param {number} min - The inclusive lower bound for the random number.
+ * @param {number} max - The exclusive upper bound for the random number.
+ * @param {Iterable<number> | Set<number>} [ignore] - Optional iterable or set of values to ignore.
+ * @returns {number} A cryptographically secure random integer between min (inclusive) and max (exclusive).
+ *
+ * @throws {RangeError} If `min` or `max` are not integers, if `max` <= `min`, or if the range is greater than 2^32.
+ *
+ * @description For generating multiple random numbers, it is more performant to
+ * use `createSecureRandomGenerator()`.
+ */
+export function secureRandomNumber(
+  min: number,
+  max: number,
+  ignore?: Iterable<number> | Set<number>,
+): number;
+export function secureRandomNumber(
+  a: number,
+  b?: Iterable<number> | Set<number> | number,
+  c?: Iterable<number> | Set<number>,
+): number {
+  let min: number;
+  let max: number;
+  let rawIgnore: Iterable<number> | Set<number> | undefined;
+
+  // Determine which overload was used.
+  if (typeof b === "number") {
+    min = a;
+    max = b;
+    rawIgnore = c;
+  } else {
+    min = 0;
+    max = a;
+    rawIgnore = b;
   }
-  if (max > 2 ** 32) {
+
+  // Validate input: min and max must be integers
+  if (!Number.isInteger(min) || !Number.isInteger(max)) {
+    throw new RangeError("min and max must be integers.");
+  }
+  if (max <= min) {
+    throw new RangeError("max must be greater than min.");
+  }
+
+  const range = max - min;
+  if (range > 2 ** 32) {
     // A single Uint32Array cannot reliably generate numbers in this range without bias
-    throw new RangeError("max must be less than or equal to 2^32.");
+    throw new RangeError("range must be less than or equal to 2^32.");
+  }
+
+  // Normalize ignore to a Set for O(1) lookups if provided.
+  let ignoreSet: Set<number> | undefined;
+  if (rawIgnore != null) {
+    if (rawIgnore instanceof Set) {
+      ignoreSet = rawIgnore;
+    } else if (
+      typeof rawIgnore !== "string" &&
+      (Array.isArray(rawIgnore) ||
+        typeof (rawIgnore as any)[Symbol.iterator] === "function")
+    ) {
+      ignoreSet = new Set(rawIgnore as Iterable<number>);
+    } else {
+      throw new TypeError(
+        "ignore must be an iterable of numbers or a Set<number>.",
+      );
+    }
+
+    // Quick sanity: if ignoreSet excludes all possible values in range, it's impossible to generate a value.
+    let excludedInRange = 0;
+    for (const v of ignoreSet) {
+      if (!Number.isInteger(v)) continue;
+      if (v >= min && v < max) {
+        excludedInRange++;
+        if (excludedInRange >= range) {
+          throw new RangeError(
+            "Ignore set excludes all possible values in the range.",
+          );
+        }
+      }
+    }
   }
 
   // Uses a 32-bit unsigned integer array for random values.
   const randomBytes = new Uint32Array(1);
   // Values above this threshold will be rejected to prevent bias.
-  const maxSafe = 2 ** 32 - (2 ** 32 % max);
+  const maxSafe = 2 ** 32 - (2 ** 32 % range);
   let randomValue: number;
+  let candidate: number;
 
   do {
     // Get a random value from the Web Crypto API.
     crypto.getRandomValues(randomBytes);
     randomValue = randomBytes[0]!;
-  } while (randomValue >= maxSafe); // Reject biased values and retry.
+    candidate = min + (randomValue % range);
+    // Loop while value is biased (>= maxSafe) or candidate is in ignore set.
+  } while (
+    randomValue >= maxSafe ||
+    (ignoreSet !== undefined && ignoreSet.has(candidate))
+  );
 
-  return randomValue % max;
+  return candidate;
 }
 
 /**
