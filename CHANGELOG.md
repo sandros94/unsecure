@@ -1,5 +1,36 @@
 # Changelog
 
+## v0.0.6
+
+[compare changes](https://github.com/sandros94/unsecure/compare/v0.0.5...v0.0.6)
+
+### 🚀 Enhancements
+
+- Enhance secure random number generation with range and ignore options ([b261599](https://github.com/sandros94/unsecure/commit/b261599))
+
+### 📖 Documentation
+
+- Document timestamp usage for `secureGenerate` ([76bc93f](https://github.com/sandros94/unsecure/commit/76bc93f))
+
+### 📦 Build
+
+- Switch to obuild ([22df20f](https://github.com/sandros94/unsecure/commit/22df20f))
+- Add rolldown platform configuration ([7e9a4a8](https://github.com/sandros94/unsecure/commit/7e9a4a8))
+
+### 🏡 Chore
+
+- Apply automated updates ([4cd42ec](https://github.com/sandros94/unsecure/commit/4cd42ec))
+- Update gitignore ([bd33548](https://github.com/sandros94/unsecure/commit/bd33548))
+
+### 🤖 CI
+
+- Unify jobs and run autofix only when required ([501a99c](https://github.com/sandros94/unsecure/commit/501a99c))
+- Update workflows ([61af225](https://github.com/sandros94/unsecure/commit/61af225))
+
+### ❤️ Contributors
+
+- Sandro Circi ([@sandros94](https://github.com/sandros94))
+
 ## v0.0.5
 
 [compare changes](https://github.com/sandros94/unsecure/compare/v0.0.4...v0.0.5)

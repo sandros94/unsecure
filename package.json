@@ -1,6 +1,6 @@
 {
   "name": "unsecure",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Low-level Security utilities",
   "repository": "sandros94/unsecure",
   "license": "MIT",
