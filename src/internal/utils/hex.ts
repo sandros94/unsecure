@@ -1,4 +1,4 @@
-import { textEncoder, textDecoder } from "./";
+import { textEncoder, textDecoder } from "../../utils.ts";
 
 /* Hex encoding function */
 export function hexEncode(data: Uint8Array | string): string {

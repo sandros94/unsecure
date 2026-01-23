@@ -1,4 +1,4 @@
-import { textEncoder, textDecoder } from "./";
+import { textEncoder, textDecoder } from "../../utils.ts";
 
 /* Base64 URL encoding function */
 export function base64Encode(data: Uint8Array | string): string {

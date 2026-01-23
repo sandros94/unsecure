@@ -2,8 +2,51 @@ import {
   createSecureRandomGenerator,
   type SecureRandomGenerator,
   secureShuffle,
-} from "./utils";
-import type { SecureGenerateOptions } from "./types";
+} from "./utils.ts";
+
+export interface SecureGenerateOptions {
+  /**
+   * The desired length of the password.
+   *
+   * @default 16
+   */
+  length?: number;
+  /**
+   * Include uppercase letters.
+   *
+   * @default true
+   */
+  uppercase?: boolean | string;
+  /**
+   * Include lowercase letters.
+   *
+   * @default true
+   */
+  lowercase?: boolean | string;
+  /**
+   * Include numbers.
+   *
+   * @default true
+   */
+  numbers?: boolean | string;
+  /**
+   * Include special characters.
+   *
+   * @default true
+   */
+  specials?: boolean | string;
+  /**
+   * Include a timestamp at the beginning of the string.
+   *
+   * @default false
+   */
+  timestamp?: true | Date;
+}
+
+/**
+ * @deprecated Use `SecureGenerateOptions` instead.
+ */
+export type GeneratePasswordOptions = SecureGenerateOptions;
 
 /**
  * Default character sets. The SPECIALS set is curated to avoid characters that
@@ -144,11 +187,11 @@ export function secureGenerate(
 /**
  * @deprecated Use `secureGenerate` instead.
  */
-export const generateSecureToken = secureGenerate;
+export const generateSecureToken: typeof secureGenerate = secureGenerate;
 /**
  * @deprecated Use `secureGenerate` instead.
  */
-export const generateSecurePassword = secureGenerate;
+export const generateSecurePassword: typeof secureGenerate = secureGenerate;
 
 /**
  * INTERNAL FUNCTIONS

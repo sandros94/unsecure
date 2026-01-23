@@ -1,5 +1,5 @@
 import { bench, describe } from "vitest";
-import { secureGenerate } from "../src";
+import { secureGenerate } from "../src/index.ts";
 
 describe("bench token generation", () => {
   const shifty = new Shifty(true, 16);
@@ -82,7 +82,7 @@ describe("bench token generation", () => {
  * license: MIT https://github.com/DeepSourceCorp/shifty/blob/066bc1ccc294703becb90f31a8e2c400ba05e76b/LICENSE
  */
 
-const DEFAULT_LENGTH = 16;
+const DEFAULT_LENGTH: number = 16;
 
 export default class Shifty {
   private hardenPassword: boolean;
@@ -96,7 +96,7 @@ export default class Shifty {
    * @param {number} [defaultLength=DEFAULT_LENGTH] - the default length of the secret string in case no value is passed to generate
    * @return {void}
    */
-  constructor(harden = true, defaultLength = DEFAULT_LENGTH) {
+  constructor(harden = true, defaultLength: number = DEFAULT_LENGTH) {
     this.hardenPassword = harden;
     this.randomBuffer = new Uint8Array(0);
     this.defaultLength = defaultLength;

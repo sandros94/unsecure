@@ -8,7 +8,7 @@ import {
   base64UrlEncode,
   hexDecode,
   hexEncode,
-} from "../src/utils";
+} from "../src/utils.ts";
 
 describe.concurrent("Utility Functions", () => {
   describe("secureRandomNumber(max)", () => {

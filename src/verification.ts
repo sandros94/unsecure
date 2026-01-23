@@ -1,4 +1,4 @@
-import { textEncoder } from "./utils";
+import { textEncoder } from "./utils.ts";
 
 /**
  * Compares two inputs (Uint8Array or string) in a way that is safe against timing attacks.
@@ -71,7 +71,7 @@ export function secureCompare(
 /**
  * @deprecated Use `secureCompare` instead.
  */
-export const secureVerify = secureCompare;
+export const secureVerify: typeof secureCompare = secureCompare;
 
 function _toUint8Array(input: Uint8Array | string): Uint8Array {
   if (typeof input === "string") {

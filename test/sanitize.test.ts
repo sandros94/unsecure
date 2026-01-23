@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sanitizeObject } from "../src";
+import { sanitizeObject } from "../src/index.ts";
 
 function withDangerousKeys() {
   const o: Record<string, unknown> = {};
@@ -15,9 +15,9 @@ describe("sanitizeObject", () => {
     const ref = sanitizeObject(o);
     expect(ref).toBe(o);
 
-    expect(Object.hasOwn(o, "__proto__")).toBe(false);
-    expect(Object.hasOwn(o, "prototype")).toBe(false);
-    expect(Object.hasOwn(o, "constructor")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(o, "__proto__")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(o, "prototype")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(o, "constructor")).toBe(false);
   });
 
   it("deeply removes dangerous keys from nested objects", () => {
@@ -28,22 +28,44 @@ describe("sanitizeObject", () => {
     };
     sanitizeObject(obj);
     // top
-    expect(Object.hasOwn(obj, "__proto__")).toBe(false);
-    expect(Object.hasOwn(obj, "prototype")).toBe(false);
-    expect(Object.hasOwn(obj, "constructor")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(obj, "__proto__")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(obj, "prototype")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(obj, "constructor")).toBe(
+      false,
+    );
     // nested
-    expect(Object.hasOwn(obj.b, "__proto__")).toBe(false);
-    expect(Object.hasOwn(obj.b, "prototype")).toBe(false);
-    expect(Object.hasOwn(obj.b, "constructor")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(obj.b, "__proto__")).toBe(
+      false,
+    );
+    expect(Object.prototype.hasOwnProperty.call(obj.b, "prototype")).toBe(
+      false,
+    );
+    expect(Object.prototype.hasOwnProperty.call(obj.b, "constructor")).toBe(
+      false,
+    );
     // deeper
-    expect(Object.hasOwn(obj.b.d, "__proto__")).toBe(false);
-    expect(Object.hasOwn(obj.b.d, "prototype")).toBe(false);
-    expect(Object.hasOwn(obj.b.d, "constructor")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(obj.b.d, "__proto__")).toBe(
+      false,
+    );
+    expect(Object.prototype.hasOwnProperty.call(obj.b.d, "prototype")).toBe(
+      false,
+    );
+    expect(Object.prototype.hasOwnProperty.call(obj.b.d, "constructor")).toBe(
+      false,
+    );
     // array element
-    expect(Object.hasOwn(obj.e[0]!, "__proto__")).toBe(false);
-    expect(Object.hasOwn(obj.e[0]!, "prototype")).toBe(false);
-    expect(Object.hasOwn(obj.e[0]!, "constructor")).toBe(false);
-    expect(Object.hasOwn((obj.e[0] as any).g, "__proto__")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(obj.e[0]!, "__proto__")).toBe(
+      false,
+    );
+    expect(Object.prototype.hasOwnProperty.call(obj.e[0]!, "prototype")).toBe(
+      false,
+    );
+    expect(Object.prototype.hasOwnProperty.call(obj.e[0]!, "constructor")).toBe(
+      false,
+    );
+    expect(
+      Object.prototype.hasOwnProperty.call((obj.e[0] as any).g, "__proto__"),
+    ).toBe(false);
   });
 
   it("skips non-plain objects like Date, Map, Set, and functions", () => {
@@ -62,7 +84,9 @@ describe("sanitizeObject", () => {
     (obj as any).safe = 1;
     (obj as any).constructor = 2;
     sanitizeObject(obj);
-    expect(Object.hasOwn(obj, "constructor")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(obj, "constructor")).toBe(
+      false,
+    );
     expect((obj as any).safe).toBe(1);
   });
 
@@ -77,8 +101,8 @@ describe("sanitizeObject", () => {
 
     sanitizeObject(a);
 
-    expect(Object.hasOwn(a, "__proto__")).toBe(false);
-    expect(Object.hasOwn(b, "prototype")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(a, "__proto__")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(b, "prototype")).toBe(false);
     // sanity: structure intact
     expect(a.b).toBe(b);
     expect(a.self).toBe(a);

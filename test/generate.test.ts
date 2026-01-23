@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { secureGenerate } from "../src/generate";
+import { secureGenerate } from "../src/generate.ts";
 
 describe.concurrent("secureGenerate", () => {
   // Test case 1: Default options

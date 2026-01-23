@@ -11,28 +11,25 @@
     "email": "sandro.circi@digitoolmedia.com"
   },
   "exports": {
+    "./package.json": "./package.json",
+    "./utils": "./dist/utils.mjs",
     ".": {
       "types": "./dist/index.d.mts",
+      "utils": "./dist/utils.mjs",
       "default": "./dist/index.mjs"
-    },
-    "./utils": {
-      "types": "./dist/utils.d.mts",
-      "default": "./dist/utils.mjs"
     }
   },
-  "main": "./dist/index.mjs",
-  "module": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "unbuild",
+    "build": "obuild",
     "dev": "vitest dev",
-    "lint": "eslint . && prettier -c .",
-    "lint:fix": "automd && eslint . --fix && prettier -w .",
+    "lint": "eslint --cache . && prettier -c src test",
+    "lint:fix": "automd && eslint --cache . --fix && prettier -c src test -w .",
     "prepack": "pnpm build",
-    "release": "pnpm test && pnpm prepack && changelogen --release --push --publish",
+    "release": "pnpm test && pnpm prepack && changelogen --release --push",
     "test": "pnpm lint && pnpm test:types && vitest run --slowTestThreshold=500",
     "test:coverage": "pnpm lint && pnpm test:types && vitest run --coverage --slowTestThreshold=500",
     "test:types": "tsc --noEmit --skipLibCheck",
@@ -45,13 +42,13 @@
     "changelogen": "^0.6.2",
     "eslint": "^9.34.0",
     "eslint-config-unjs": "^0.5.0",
+    "obuild": "^0.4.20",
     "prettier": "^3.6.2",
     "typescript": "^5.9.2",
-    "unbuild": "^3.6.1",
     "vitest": "^3.2.4"
   },
   "engines": {
     "node": "22"
   },
-  "packageManager": "pnpm@10.25.0"
+  "packageManager": "pnpm@10.28.1"
 }
