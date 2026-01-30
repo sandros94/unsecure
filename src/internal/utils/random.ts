@@ -6,7 +6,12 @@ export interface SecureRandomGenerator {
    * Gets a single cryptographically secure random integer in the range [0, max).
    * @param {number} max - The exclusive upper bound for the random number.
    * @param {Iterable<number> | Set<number>} [ignore] - Optional iterable or set of values to ignore.
+   *
    * @returns {number} A cryptographically secure random integer.
+   *
+   * @throws {RangeError} If `max` is not a positive integer or is greater than 2^32.
+   * @throws {TypeError} If `ignore` is not an iterable of numbers or a Set<number>.
+   * @throws {RangeError} If `ignore` excludes all possible values in the range.
    */
   next(max: number, ignore?: Iterable<number> | Set<number>): number;
 
@@ -15,7 +20,12 @@ export interface SecureRandomGenerator {
    * @param {number} min - The inclusive lower bound for the random number.
    * @param {number} max - The exclusive upper bound for the random number.
    * @param {Iterable<number> | Set<number>} [ignore] - Optional iterable or set of values to ignore.
+   *
    * @returns {number} A cryptographically secure random integer.
+   *
+   * @throws {RangeError} If `min` or `max` are not integers, if `max` <= `min`, or if the range is greater than 2^32.
+   * @throws {TypeError} If `ignore` is not an iterable of numbers or a Set<number>.
+   * @throws {RangeError} If `ignore` excludes all possible values in the range.
    */
   next(
     min: number,
@@ -140,9 +150,12 @@ export function createSecureRandomGenerator(): SecureRandomGenerator {
  * uneven distribution.
  * @param {number} max - The exclusive upper bound for the random number.
  * @param {Iterable<number> | Set<number>} [ignore] - Optional iterable or set of values to ignore.
+ *
  * @returns {number} A cryptographically secure random integer between 0 (inclusive) and max (exclusive).
  *
  * @throws {RangeError} If `max` is not a positive integer or is greater than 2^32.
+ * @throws {TypeError} If `ignore` is not an iterable of numbers or a Set<number>.
+ * @throws {RangeError} If `ignore` excludes all possible values in the range.
  *
  * @description For generating multiple random numbers, it is more performant to
  * use `createSecureRandomGenerator()`.
@@ -158,9 +171,12 @@ export function secureRandomNumber(
  * @param {number} min - The inclusive lower bound for the random number.
  * @param {number} max - The exclusive upper bound for the random number.
  * @param {Iterable<number> | Set<number>} [ignore] - Optional iterable or set of values to ignore.
+ *
  * @returns {number} A cryptographically secure random integer between min (inclusive) and max (exclusive).
  *
  * @throws {RangeError} If `min` or `max` are not integers, if `max` <= `min`, or if the range is greater than 2^32.
+ * @throws {TypeError} If `ignore` is not an iterable of numbers or a Set<number>.
+ * @throws {RangeError} If `ignore` excludes all possible values in the range.
  *
  * @description For generating multiple random numbers, it is more performant to
  * use `createSecureRandomGenerator()`.
