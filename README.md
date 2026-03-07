@@ -1,12 +1,8 @@
 # unsecure
 
-<!-- automd:badges bundlephobia style="flat" color="FFDC3B" -->
-
-[![npm version](https://img.shields.io/npm/v/unsecure?color=FFDC3B)](https://npmjs.com/package/unsecure)
-[![npm downloads](https://img.shields.io/npm/dm/unsecure?color=FFDC3B)](https://npm.chart.dev/unsecure)
-[![bundle size](https://img.shields.io/bundlephobia/minzip/unsecure?color=FFDC3B)](https://bundlephobia.com/package/unsecure)
-
-<!-- /automd -->
+[![npm version](https://npmx.dev/api/registry/badge/version/unsecure?name=true&color=FFDC3B)](https://npmx.dev/package/unsecure)
+[![npm downloads](https://npmx.dev/api/registry/badge/downloads/unsecure?color=FFDC3B)](https://npmx.dev/package/unsecure)
+[![bundle size](https://npmx.dev/api/registry/badge/size/unsecure?color=FFDC3B)](https://npmx.dev/package/unsecure)
 
 `unsecure` is a collection of runtime-agnostic cryptographically-secure utilities. (ba dum tss 🥁)
 
