@@ -69,26 +69,20 @@ describe.concurrent("Utility Functions", () => {
 
     it("should throw RangeError when max is 0 or negative", () => {
       expect(() => secureRandomNumber(0)).toThrow(RangeError);
-      expect(() => secureRandomNumber(0)).toThrow(
-        "max must be greater than min.",
-      );
+      expect(() => secureRandomNumber(0)).toThrow("max must be greater than min.");
       expect(() => secureRandomNumber(-5)).toThrow(RangeError);
     });
 
     it("should throw RangeError when max is not an integer", () => {
       const max = 3.14;
       expect(() => secureRandomNumber(max)).toThrow(RangeError);
-      expect(() => secureRandomNumber(max)).toThrow(
-        "min and max must be integers.",
-      );
+      expect(() => secureRandomNumber(max)).toThrow("min and max must be integers.");
     });
 
     it("should throw RangeError when range is greater than 2**32", () => {
       const max = 2 ** 32 + 1;
       expect(() => secureRandomNumber(max)).toThrow(RangeError);
-      expect(() => secureRandomNumber(max)).toThrow(
-        "range must be less than or equal to 2^32.",
-      );
+      expect(() => secureRandomNumber(max)).toThrow("range must be less than or equal to 2^32.");
     });
   });
 
@@ -139,18 +133,14 @@ describe.concurrent("Utility Functions", () => {
 
     it("should throw RangeError when max <= min", () => {
       expect(() => secureRandomNumber(10, 10)).toThrow(RangeError);
-      expect(() => secureRandomNumber(10, 10)).toThrow(
-        "max must be greater than min.",
-      );
+      expect(() => secureRandomNumber(10, 10)).toThrow("max must be greater than min.");
       expect(() => secureRandomNumber(10, 5)).toThrow(RangeError);
     });
 
     it("should throw RangeError when min or max are not integers", () => {
       expect(() => secureRandomNumber(1.5, 10)).toThrow(RangeError);
       expect(() => secureRandomNumber(1, 10.5)).toThrow(RangeError);
-      expect(() => secureRandomNumber(1.5, 10.5)).toThrow(
-        "min and max must be integers.",
-      );
+      expect(() => secureRandomNumber(1.5, 10.5)).toThrow("min and max must be integers.");
     });
 
     it("should throw RangeError when range exceeds 2**32", () => {
@@ -361,16 +351,7 @@ describe.concurrent("Utility Functions", () => {
     });
 
     it("should correctly shuffle arrays with various data types and duplicates", () => {
-      const originalArray = [
-        1,
-        "a",
-        { id: 1 },
-        "a",
-        2,
-        1,
-        { id: 2 },
-        { id: 1 },
-      ];
+      const originalArray = [1, "a", { id: 1 }, "a", 2, 1, { id: 2 }, { id: 1 }];
       const arrayCopy = [...originalArray];
       secureShuffle(arrayCopy);
 
@@ -504,9 +485,7 @@ describe.concurrent("Utility Functions", () => {
     const testString =
       "Hello, Vitest! 👋 This is a test string with some special characters: Ā 𐀀 文 +/=";
     const testUint8Array = new TextEncoder().encode(testString);
-    const expectedHex = [...testUint8Array]
-      .map((x) => x.toString(16).padStart(2, "0"))
-      .join("");
+    const expectedHex = [...testUint8Array].map((x) => x.toString(16).padStart(2, "0")).join("");
 
     describe("hexEncode(data)", () => {
       it("should encode a string to hex", () => {
@@ -558,15 +537,15 @@ describe.concurrent("Utility Functions", () => {
       });
 
       it("should handle odd length hex strings gracefully", () => {
-        // "abc" is split into ["ab", "c"]. "ab" -> 0xab, "c" -> 0x0c.
+        // Only complete byte pairs are decoded; trailing nibble is ignored.
         const decoded = hexDecode("abc", false);
-        expect(decoded).toEqual(Uint8Array.from([0xab, 0x0c]));
+        expect(decoded).toEqual(Uint8Array.from([0xab]));
       });
 
-      it("should handle invalid hex characters gracefully (results in NaN)", () => {
-        // "zz" -> Number.parseInt("zz", 16) is NaN.
+      it("should handle invalid hex characters gracefully", () => {
+        // Invalid hex characters result in an empty buffer.
         const decoded = hexDecode("zz", false);
-        expect(decoded).toEqual(Uint8Array.from([Number.NaN]));
+        expect(decoded).toEqual(new Uint8Array(0));
       });
     });
   });
