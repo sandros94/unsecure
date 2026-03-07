@@ -1,5 +1,41 @@
 # Changelog
 
+## v0.0.7
+
+[compare changes](https://github.com/sandros94/unsecure/compare/v0.0.6...v0.0.7)
+
+### 🚀 Enhancements
+
+- New `randomJitter` utility ([06980e2](https://github.com/sandros94/unsecure/commit/06980e2))
+
+### 🔥 Performance
+
+- Implement buffer detection and enhance base64/hex utilities ([42077b4](https://github.com/sandros94/unsecure/commit/42077b4))
+
+### 💅 Refactors
+
+- Simplify sanitizeObject and remove redundant key deletion strategies ([7ebe13b](https://github.com/sandros94/unsecure/commit/7ebe13b))
+
+### 📖 Documentation
+
+- Update examples for random utils ([b59202a](https://github.com/sandros94/unsecure/commit/b59202a))
+- **random:** Properly document when utils throw ([1166297](https://github.com/sandros94/unsecure/commit/1166297))
+
+### 🏡 Chore
+
+- Switch to oxc and tsgo, update deps ([272bef0](https://github.com/sandros94/unsecure/commit/272bef0))
+- Add `AGENT.md` ([9451c91](https://github.com/sandros94/unsecure/commit/9451c91))
+- Add claude settings ([77ccc0d](https://github.com/sandros94/unsecure/commit/77ccc0d))
+- Update readme badges ([0cf5dfd](https://github.com/sandros94/unsecure/commit/0cf5dfd))
+
+### 🤖 CI
+
+- Refactor workflows ([321f72a](https://github.com/sandros94/unsecure/commit/321f72a))
+
+### ❤️ Contributors
+
+- Sandro Circi ([@sandros94](https://github.com/sandros94))
+
 ## v0.0.6
 
 [compare changes](https://github.com/sandros94/unsecure/compare/v0.0.5...v0.0.6)
