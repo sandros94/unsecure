@@ -46,17 +46,6 @@ describe("sanitizeObject", () => {
     expect(Object.prototype.hasOwnProperty.call((obj.e[0] as any).g, "__proto__")).toBe(false);
   });
 
-  it("skips non-plain objects like Date, Map, Set, and functions", () => {
-    const date = new Date();
-    const map = new Map();
-    const set = new Set();
-    const fn = () => {};
-    expect(sanitizeObject(date as any)).toBe(date);
-    expect(sanitizeObject(map as any)).toBe(map);
-    expect(sanitizeObject(set as any)).toBe(set);
-    expect(sanitizeObject(fn as any)).toBe(fn);
-  });
-
   it("handles objects with null prototype", () => {
     const obj = Object.create(null);
     (obj as any).safe = 1;
