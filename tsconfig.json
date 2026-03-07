@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "ESNext",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "moduleDetection": "force",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -10,7 +10,7 @@
     "strict": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    "erasableSyntaxOnly": true,
+    "erasableSyntaxOnly": false,
     // "noUncheckedIndexedAccess": true,
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": true,
@@ -20,7 +20,7 @@
     "composite": true,
     "isolatedDeclarations": true,
     "allowImportingTsExtensions": true,
-    "lib": ["WebWorker", "DOM", "DOM.Iterable"]
+    "lib": ["ESNext", "DOM"],
   },
   "include": ["src/**/*.ts", "test/**/*.ts"],
   "exclude": ["node_modules", "dist"]
