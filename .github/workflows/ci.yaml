@@ -6,16 +6,40 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
-  tests:
+  build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v5
-      - run: npm i -g --force corepack && corepack enable
-      - uses: actions/setup-node@v5
-        with: { node-version: lts/*, cache: pnpm }
-      - run: pnpm install
-      - run: pnpm lint
-      - run: pnpm test:types
-      - run: pnpm build
-      - run: pnpm vitest --coverage
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Prepare development build
+        run: pnpm dev:prepare
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck code
+        run: pnpm typecheck
+
+      - name: Test code
+        run: pnpm test
+
+      - name: Build packages
+        run: pnpm build
