@@ -20,7 +20,7 @@
     "composite": true,
     "isolatedDeclarations": true,
     "allowImportingTsExtensions": true,
-    "lib": ["ESNext", "DOM"],
+    "lib": ["ESNext", "DOM"]
   },
   "include": ["src/**/*.ts", "test/**/*.ts"],
   "exclude": ["node_modules", "dist"]

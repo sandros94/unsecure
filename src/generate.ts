@@ -1,8 +1,4 @@
-import {
-  createSecureRandomGenerator,
-  type SecureRandomGenerator,
-  secureShuffle,
-} from "./utils.ts";
+import { createSecureRandomGenerator, type SecureRandomGenerator, secureShuffle } from "./utils.ts";
 
 export interface SecureGenerateOptions {
   /**
@@ -123,38 +119,22 @@ export function secureGenerate(
 
   // Build the full character set and the list of guaranteed characters
   if (_shouldIncludeSet(uppercase)) {
-    const { used, guaranteed } = _characterSetBuilder(
-      uppercase,
-      DEFAULT_UPPERCASE,
-      random,
-    );
+    const { used, guaranteed } = _characterSetBuilder(uppercase, DEFAULT_UPPERCASE, random);
     charset += used;
     guaranteedChars.push(guaranteed);
   }
   if (_shouldIncludeSet(lowercase)) {
-    const { used, guaranteed } = _characterSetBuilder(
-      lowercase,
-      DEFAULT_LOWERCASE,
-      random,
-    );
+    const { used, guaranteed } = _characterSetBuilder(lowercase, DEFAULT_LOWERCASE, random);
     charset += used;
     guaranteedChars.push(guaranteed);
   }
   if (_shouldIncludeSet(numbers)) {
-    const { used, guaranteed } = _characterSetBuilder(
-      numbers,
-      DEFAULT_NUMBERS,
-      random,
-    );
+    const { used, guaranteed } = _characterSetBuilder(numbers, DEFAULT_NUMBERS, random);
     charset += used;
     guaranteedChars.push(guaranteed);
   }
   if (_shouldIncludeSet(specials)) {
-    const { used, guaranteed } = _characterSetBuilder(
-      specials,
-      DEFAULT_SPECIALS,
-      random,
-    );
+    const { used, guaranteed } = _characterSetBuilder(specials, DEFAULT_SPECIALS, random);
     charset += used;
     guaranteedChars.push(guaranteed);
   }
@@ -175,10 +155,7 @@ export function secureGenerate(
   }
 
   // Combine guaranteed characters with random ones and shuffle securely
-  const finalPasswordArray = secureShuffle(
-    [...guaranteedChars, ...randomChars],
-    random,
-  );
+  const finalPasswordArray = secureShuffle([...guaranteedChars, ...randomChars], random);
 
   // Ensure the string is the exact length requested
   return timestampStr + finalPasswordArray.slice(0, lengthToGenerate).join("");
@@ -197,13 +174,8 @@ export const generateSecurePassword: typeof secureGenerate = secureGenerate;
  * INTERNAL FUNCTIONS
  */
 
-function _shouldIncludeSet<T extends boolean | string>(
-  set: T,
-): set is Exclude<T, false> {
-  return (
-    set !== false &&
-    (set === true || (typeof set === "string" && set.length > 0))
-  );
+function _shouldIncludeSet<T extends boolean | string>(set: T): set is Exclude<T, false> {
+  return set !== false && (set === true || (typeof set === "string" && set.length > 0));
 }
 
 function _characterSetBuilder(

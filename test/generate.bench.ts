@@ -149,11 +149,7 @@ export default class Shifty {
       // generate a new buffer everytime to ensure we don't end up with repeating values
       this.populateBuffer();
 
-      for (
-        let rollIndex = 0;
-        rollIndex < this.randomBuffer.length;
-        rollIndex++
-      ) {
+      for (let rollIndex = 0; rollIndex < this.randomBuffer.length; rollIndex++) {
         // Generate character from the number
         // eslint-disable-next-line unicorn/prefer-code-point
         const char = String.fromCharCode(this.randomBuffer[rollIndex]!);
@@ -177,9 +173,7 @@ export default class Shifty {
   private populateBuffer(): void {
     // Generate a Unit8Array, this has all possible ASCII characters
     this.randomBuffer =
-      this.mode === "W3C"
-        ? this._useCryptoRandomBuffer()
-        : this._useFailoverRandomBuffer();
+      this.mode === "W3C" ? this._useCryptoRandomBuffer() : this._useFailoverRandomBuffer();
   }
 
   /**
@@ -210,10 +204,7 @@ export default class Shifty {
       // eslint-disable-next-line no-constant-condition
       while (1) {
         randomNumberForCharacterGeneration = Math.round(Math.random() * 256);
-        if (
-          randomNumberForCharacterGeneration >= 0 &&
-          randomNumberForCharacterGeneration <= 255
-        )
+        if (randomNumberForCharacterGeneration >= 0 && randomNumberForCharacterGeneration <= 255)
           break;
       }
       buffer[loopIndex] = randomNumberForCharacterGeneration;

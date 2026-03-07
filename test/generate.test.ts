@@ -195,10 +195,7 @@ describe.concurrent("secureGenerate", () => {
     const customUpper = "ABC";
     const customNumbers = "123";
     const allowedSet =
-      customUpper +
-      "abcdefghijklmnopqrstuvwxyz" +
-      customNumbers +
-      "!@#$%^&*()_+{}:<>?|[];,./~-=";
+      customUpper + "abcdefghijklmnopqrstuvwxyz" + customNumbers + "!@#$%^&*()_+{}:<>?|[];,./~-=";
     const token = secureGenerate({
       length: 10,
       uppercase: customUpper,
@@ -216,15 +213,11 @@ describe.concurrent("secureGenerate", () => {
 
   // Test case 6: Edge case - invalid length
   it("should throw an error if length is 0", () => {
-    expect(() => secureGenerate({ length: 0 })).toThrow(
-      "Password length must be at least 1.",
-    );
+    expect(() => secureGenerate({ length: 0 })).toThrow("Password length must be at least 1.");
   });
 
   it("should throw an error if length is negative", () => {
-    expect(() => secureGenerate({ length: -1 })).toThrow(
-      "Password length must be at least 1.",
-    );
+    expect(() => secureGenerate({ length: -1 })).toThrow("Password length must be at least 1.");
   });
 
   // Test case 7: Error case - no character types selected
@@ -267,8 +260,7 @@ describe.concurrent("secureGenerate", () => {
     expect(token).toContain(customSpecials);
 
     // Check that only characters from the combined set are present
-    const allowedSet =
-      customUpper + customLower + customNumbers + customSpecials;
+    const allowedSet = customUpper + customLower + customNumbers + customSpecials;
     expect(containsOnlyCharsFromSet(token, allowedSet)).toBe(true);
   });
 

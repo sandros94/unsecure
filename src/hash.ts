@@ -54,12 +54,9 @@ export async function hash(
 ): Promise<Uint8Array | string> {
   const { algorithm = "SHA-256", returnAs = "hex" } = options;
 
-  const dataBuffer =
-    typeof data === "string" ? new TextEncoder().encode(data) : data;
+  const dataBuffer = typeof data === "string" ? new TextEncoder().encode(data) : data;
 
-  const hashBytes = new Uint8Array(
-    await crypto.subtle.digest(algorithm, dataBuffer),
-  );
+  const hashBytes = new Uint8Array(await crypto.subtle.digest(algorithm, dataBuffer));
 
   switch (returnAs) {
     case "bytes":

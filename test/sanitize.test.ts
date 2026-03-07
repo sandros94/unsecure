@@ -30,42 +30,20 @@ describe("sanitizeObject", () => {
     // top
     expect(Object.prototype.hasOwnProperty.call(obj, "__proto__")).toBe(false);
     expect(Object.prototype.hasOwnProperty.call(obj, "prototype")).toBe(false);
-    expect(Object.prototype.hasOwnProperty.call(obj, "constructor")).toBe(
-      false,
-    );
+    expect(Object.prototype.hasOwnProperty.call(obj, "constructor")).toBe(false);
     // nested
-    expect(Object.prototype.hasOwnProperty.call(obj.b, "__proto__")).toBe(
-      false,
-    );
-    expect(Object.prototype.hasOwnProperty.call(obj.b, "prototype")).toBe(
-      false,
-    );
-    expect(Object.prototype.hasOwnProperty.call(obj.b, "constructor")).toBe(
-      false,
-    );
+    expect(Object.prototype.hasOwnProperty.call(obj.b, "__proto__")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(obj.b, "prototype")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(obj.b, "constructor")).toBe(false);
     // deeper
-    expect(Object.prototype.hasOwnProperty.call(obj.b.d, "__proto__")).toBe(
-      false,
-    );
-    expect(Object.prototype.hasOwnProperty.call(obj.b.d, "prototype")).toBe(
-      false,
-    );
-    expect(Object.prototype.hasOwnProperty.call(obj.b.d, "constructor")).toBe(
-      false,
-    );
+    expect(Object.prototype.hasOwnProperty.call(obj.b.d, "__proto__")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(obj.b.d, "prototype")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(obj.b.d, "constructor")).toBe(false);
     // array element
-    expect(Object.prototype.hasOwnProperty.call(obj.e[0]!, "__proto__")).toBe(
-      false,
-    );
-    expect(Object.prototype.hasOwnProperty.call(obj.e[0]!, "prototype")).toBe(
-      false,
-    );
-    expect(Object.prototype.hasOwnProperty.call(obj.e[0]!, "constructor")).toBe(
-      false,
-    );
-    expect(
-      Object.prototype.hasOwnProperty.call((obj.e[0] as any).g, "__proto__"),
-    ).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(obj.e[0]!, "__proto__")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(obj.e[0]!, "prototype")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(obj.e[0]!, "constructor")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call((obj.e[0] as any).g, "__proto__")).toBe(false);
   });
 
   it("skips non-plain objects like Date, Map, Set, and functions", () => {
@@ -84,9 +62,7 @@ describe("sanitizeObject", () => {
     (obj as any).safe = 1;
     (obj as any).constructor = 2;
     sanitizeObject(obj);
-    expect(Object.prototype.hasOwnProperty.call(obj, "constructor")).toBe(
-      false,
-    );
+    expect(Object.prototype.hasOwnProperty.call(obj, "constructor")).toBe(false);
     expect((obj as any).safe).toBe(1);
   });
 

@@ -5,9 +5,7 @@ const DANGEROUS_KEYS = ["__proto__", "prototype", "constructor"] as const;
  * This strips __proto__, prototype, and constructor own properties.
  * Returns the same reference for convenience.
  */
-export function sanitizeObject<T extends Record<string, unknown> | undefined>(
-  obj: T,
-): T {
+export function sanitizeObject<T extends Record<string, unknown> | undefined>(obj: T): T {
   // Fast-path for non-objects and undefined
   if (!obj || typeof obj !== "object") return obj;
 
@@ -70,6 +68,5 @@ function visit(current: any, seen: WeakSet<object>) {
   }
 
   // Only traverse own enumerable string-keyed properties
-  for (const k of Object.keys(current))
-    visit((current as Record<string, unknown>)[k], seen);
+  for (const k of Object.keys(current)) visit((current as Record<string, unknown>)[k], seen);
 }

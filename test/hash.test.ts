@@ -9,8 +9,8 @@ describe("hash utility", () => {
 
   // Known hash values for the `testString`
   const sha256 = new Uint8Array([
-    82, 28, 176, 65, 95, 26, 6, 66, 132, 86, 217, 239, 78, 148, 140, 2, 112,
-    168, 6, 68, 35, 37, 37, 60, 183, 168, 166, 183, 228, 61, 169, 199,
+    82, 28, 176, 65, 95, 26, 6, 66, 132, 86, 217, 239, 78, 148, 140, 2, 112, 168, 6, 68, 35, 37, 37,
+    60, 183, 168, 166, 183, 228, 61, 169, 199,
   ]);
   const sha256Hex = hexEncode(sha256);
   const sha256Base64 = base64Encode(sha256);
@@ -68,29 +68,25 @@ describe("hash utility", () => {
       returnAs: "uint8array",
     });
     expect(result).toBeInstanceOf(Uint8Array);
-    const hexResult = [...result]
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
+    const hexResult = [...result].map((b) => b.toString(16).padStart(2, "0")).join("");
     expect(hexResult).toBe(sha512Hex);
   });
 
   it("should handle empty string input", async () => {
-    const emptySha256 =
-      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    const emptySha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
     const result = await hash("");
     expect(result).toBe(emptySha256);
   });
 
   it("should handle empty Uint8Array input", async () => {
-    const emptySha256 =
-      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    const emptySha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
     const result = await hash(new Uint8Array(0));
     expect(result).toBe(emptySha256);
   });
 
   it("should throw for unsupported returnAs", async () => {
-    await expect(
-      hash(testString, { returnAs: "unsupported" as any }),
-    ).rejects.toThrow('Unsupported hash "returnAs" option: unsupported');
+    await expect(hash(testString, { returnAs: "unsupported" as any })).rejects.toThrow(
+      'Unsupported hash "returnAs" option: unsupported',
+    );
   });
 });

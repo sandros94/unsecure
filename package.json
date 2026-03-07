@@ -2,14 +2,18 @@
   "name": "unsecure",
   "version": "0.0.6",
   "description": "Low-level Security utilities",
-  "repository": "sandros94/unsecure",
   "license": "MIT",
-  "sideEffects": false,
-  "type": "module",
   "author": {
     "name": "Sandro Circi",
     "email": "sandro.circi@digitoolmedia.com"
   },
+  "repository": "sandros94/unsecure",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "types": "./dist/index.d.mts",
   "exports": {
     "./package.json": "./package.json",
     "./utils": "./dist/utils.mjs",
@@ -19,10 +23,6 @@
       "default": "./dist/index.mjs"
     }
   },
-  "types": "./dist/index.d.mts",
-  "files": [
-    "dist"
-  ],
   "scripts": {
     "build": "obuild",
     "dev": "bun --watch ./playground/main.ts",

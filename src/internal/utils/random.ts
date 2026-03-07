@@ -27,11 +27,7 @@ export interface SecureRandomGenerator {
    * @throws {TypeError} If `ignore` is not an iterable of numbers or a Set<number>.
    * @throws {RangeError} If `ignore` excludes all possible values in the range.
    */
-  next(
-    min: number,
-    max: number,
-    ignore?: Iterable<number> | Set<number>,
-  ): number;
+  next(min: number, max: number, ignore?: Iterable<number> | Set<number>): number;
 }
 
 /**
@@ -54,11 +50,7 @@ export function createSecureRandomGenerator(): SecureRandomGenerator {
   }
 
   function next(max: number, ignore?: Iterable<number> | Set<number>): number;
-  function next(
-    min: number,
-    max: number,
-    ignore?: Iterable<number> | Set<number>,
-  ): number;
+  function next(min: number, max: number, ignore?: Iterable<number> | Set<number>): number;
   function next(
     a: number,
     b?: Iterable<number> | Set<number> | number,
@@ -98,14 +90,11 @@ export function createSecureRandomGenerator(): SecureRandomGenerator {
         ignoreSet = rawIgnore;
       } else if (
         typeof rawIgnore !== "string" &&
-        (Array.isArray(rawIgnore) ||
-          typeof (rawIgnore as any)[Symbol.iterator] === "function")
+        (Array.isArray(rawIgnore) || typeof (rawIgnore as any)[Symbol.iterator] === "function")
       ) {
         ignoreSet = new Set(rawIgnore as Iterable<number>);
       } else {
-        throw new TypeError(
-          "ignore must be an iterable of numbers or a Set<number>.",
-        );
+        throw new TypeError("ignore must be an iterable of numbers or a Set<number>.");
       }
 
       // Quick sanity: if ignoreSet excludes all possible values in range, it's impossible to generate a value.
@@ -115,9 +104,7 @@ export function createSecureRandomGenerator(): SecureRandomGenerator {
         if (v >= min && v < max) {
           excludedInRange++;
           if (excludedInRange >= range) {
-            throw new RangeError(
-              "Ignore set excludes all possible values in the range.",
-            );
+            throw new RangeError("Ignore set excludes all possible values in the range.");
           }
         }
       }
@@ -133,10 +120,7 @@ export function createSecureRandomGenerator(): SecureRandomGenerator {
       randomValue = buffer[index++]!;
       candidate = min + (randomValue % range);
       // Loop while value is biased (>= maxSafe) or candidate is in ignore set.
-    } while (
-      randomValue >= maxSafe ||
-      (ignoreSet !== undefined && ignoreSet.has(candidate))
-    );
+    } while (randomValue >= maxSafe || (ignoreSet !== undefined && ignoreSet.has(candidate)));
 
     return candidate;
   }
@@ -160,10 +144,7 @@ export function createSecureRandomGenerator(): SecureRandomGenerator {
  * @description For generating multiple random numbers, it is more performant to
  * use `createSecureRandomGenerator()`.
  */
-export function secureRandomNumber(
-  max: number,
-  ignore?: Iterable<number> | Set<number>,
-): number;
+export function secureRandomNumber(max: number, ignore?: Iterable<number> | Set<number>): number;
 /**
  * Gets a single cryptographically secure random integer in the range [min, max).
  * This function avoids modulo bias by rejecting values that would cause an
@@ -227,14 +208,11 @@ export function secureRandomNumber(
       ignoreSet = rawIgnore;
     } else if (
       typeof rawIgnore !== "string" &&
-      (Array.isArray(rawIgnore) ||
-        typeof (rawIgnore as any)[Symbol.iterator] === "function")
+      (Array.isArray(rawIgnore) || typeof (rawIgnore as any)[Symbol.iterator] === "function")
     ) {
       ignoreSet = new Set(rawIgnore as Iterable<number>);
     } else {
-      throw new TypeError(
-        "ignore must be an iterable of numbers or a Set<number>.",
-      );
+      throw new TypeError("ignore must be an iterable of numbers or a Set<number>.");
     }
 
     // Quick sanity: if ignoreSet excludes all possible values in range, it's impossible to generate a value.
@@ -244,9 +222,7 @@ export function secureRandomNumber(
       if (v >= min && v < max) {
         excludedInRange++;
         if (excludedInRange >= range) {
-          throw new RangeError(
-            "Ignore set excludes all possible values in the range.",
-          );
+          throw new RangeError("Ignore set excludes all possible values in the range.");
         }
       }
     }
@@ -265,10 +241,7 @@ export function secureRandomNumber(
     randomValue = randomBytes[0]!;
     candidate = min + (randomValue % range);
     // Loop while value is biased (>= maxSafe) or candidate is in ignore set.
-  } while (
-    randomValue >= maxSafe ||
-    (ignoreSet !== undefined && ignoreSet.has(candidate))
-  );
+  } while (randomValue >= maxSafe || (ignoreSet !== undefined && ignoreSet.has(candidate)));
 
   return candidate;
 }
@@ -284,10 +257,7 @@ export function secureRandomNumber(
  *
  * @returns {Array<T>} The shuffled array.
  */
-export function secureShuffle<T>(
-  array: Array<T>,
-  generator?: SecureRandomGenerator,
-): Array<T> {
+export function secureShuffle<T>(array: Array<T>, generator?: SecureRandomGenerator): Array<T> {
   const gen = generator ?? createSecureRandomGenerator();
   // Loop from the last element down to the second.
   for (let i = array.length - 1; i > 0; i--) {
