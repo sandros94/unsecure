@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   createSecureRandomGenerator,
   secureRandomNumber,
@@ -9,6 +9,7 @@ import {
   base64UrlEncode,
   hexDecode,
   hexEncode,
+  randomJitter,
 } from "../src/utils.ts";
 
 describe.concurrent("Utility Functions", () => {
@@ -548,6 +549,76 @@ describe.concurrent("Utility Functions", () => {
         expect(decoded).toEqual(new Uint8Array(0));
       });
     });
+  });
+});
+
+describe("randomJitter", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("should resolve after a random delay within default range", async () => {
+    const spy = vi.spyOn(crypto, "getRandomValues").mockImplementation((arr) => {
+      (arr as Uint32Array)[0] = 42;
+      return arr;
+    });
+
+    const promise = randomJitter();
+    // 42 % 100 = 42ms
+    vi.advanceTimersByTime(41);
+    await expect(Promise.race([promise, Promise.resolve("pending")])).resolves.toBe("pending");
+    vi.advanceTimersByTime(1);
+    await expect(promise).resolves.toBeUndefined();
+
+    spy.mockRestore();
+  });
+
+  it("should respect custom maxMs", async () => {
+    const spy = vi.spyOn(crypto, "getRandomValues").mockImplementation((arr) => {
+      (arr as Uint32Array)[0] = 250;
+      return arr;
+    });
+
+    const promise = randomJitter(50);
+    // 250 % 50 = 0ms
+    vi.advanceTimersByTime(0);
+    await expect(promise).resolves.toBeUndefined();
+
+    spy.mockRestore();
+  });
+
+  it("should handle maxMs of 1 (always 0ms delay)", async () => {
+    const promise = randomJitter(1);
+    vi.advanceTimersByTime(0);
+    await expect(promise).resolves.toBeUndefined();
+  });
+
+  it("should respect minMs and maxMs range", async () => {
+    const spy = vi.spyOn(crypto, "getRandomValues").mockImplementation((arr) => {
+      (arr as Uint32Array)[0] = 7;
+      return arr;
+    });
+
+    const promise = randomJitter(50, 100);
+    // min=50, range=50, 7 % 50 = 7, delay = 50 + 7 = 57ms
+    vi.advanceTimersByTime(56);
+    await expect(Promise.race([promise, Promise.resolve("pending")])).resolves.toBe("pending");
+    vi.advanceTimersByTime(1);
+    await expect(promise).resolves.toBeUndefined();
+
+    spy.mockRestore();
+  });
+
+  it("should resolve with minMs delay when range is 1", async () => {
+    const promise = randomJitter(30, 31);
+    // range=1, any value % 1 = 0, delay = 30 + 0 = 30ms
+    vi.advanceTimersByTime(29);
+    await expect(Promise.race([promise, Promise.resolve("pending")])).resolves.toBe("pending");
+    vi.advanceTimersByTime(1);
+    await expect(promise).resolves.toBeUndefined();
   });
 });
 
