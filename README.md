@@ -1,8 +1,8 @@
 # unsecure
 
-[![npm version](https://npmx.dev/api/registry/badge/version/unsecure?name=true&color=FFDC3B)](https://npmx.dev/package/unsecure)
-[![npm downloads](https://npmx.dev/api/registry/badge/downloads/unsecure?color=FFDC3B)](https://npmx.dev/package/unsecure)
-[![bundle size](https://npmx.dev/api/registry/badge/size/unsecure?color=FFDC3B)](https://npmx.dev/package/unsecure)
+[![npm version](https://npmx.dev/api/registry/badge/version/unsecure?name=true)](https://npmx.dev/package/unsecure)
+[![npm downloads](https://npmx.dev/api/registry/badge/downloads/unsecure)](https://npmx.dev/package/unsecure)
+[![bundle size](https://npmx.dev/api/registry/badge/size/unsecure)](https://npmx.dev/package/unsecure)
 
 `unsecure` is a collection of runtime-agnostic cryptographically-secure utilities. (ba dum tss 🥁)
 
