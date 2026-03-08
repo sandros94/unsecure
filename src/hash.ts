@@ -1,6 +1,6 @@
 import { hexEncode, base64Encode, base64UrlEncode, textEncoder } from "./utils.ts";
 
-export type DigestAlgorithm = "SHA-256" | "SHA-384" | "SHA-512";
+export type DigestAlgorithm = "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512";
 export type DigestReturnAs =
   | "hex"
   | "base64"

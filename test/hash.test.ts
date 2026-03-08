@@ -15,6 +15,7 @@ describe("hash utility", () => {
   const sha256Hex = hexEncode(sha256);
   const sha256Base64 = base64Encode(sha256);
   const sha256Base64Url = base64UrlEncode(sha256);
+  const sha1Hex = "e2cb0ebe7cfd01ff810f5c3ef321bd6779d1f05f";
   const sha384Hex =
     "ad34d79a7831c2ca6de3012696b9b25746cb7491f613bb6a3716d05de01f84bf180b5758bd3185fcea084ac9c2ba01b4";
   const sha512Hex =
@@ -51,6 +52,21 @@ describe("hash utility", () => {
 
     expect(result).toBeInstanceOf(Uint8Array);
     expect(result).toStrictEqual(sha256);
+  });
+
+  it("should hash using SHA-1 when specified", async () => {
+    const result = await hash(testString, { algorithm: "SHA-1" });
+    expect(result).toBe(sha1Hex);
+    // SHA-1 = 20 bytes = 40 hex chars
+    expect(result.length).toBe(40);
+  });
+
+  it("should hash Uint8Array using SHA-1 and return bytes", async () => {
+    const result = await hash(testUint8Array, { algorithm: "SHA-1" });
+    expect(result).toBeInstanceOf(Uint8Array);
+    expect(result.length).toBe(20);
+    const hex = [...result].map((b) => b.toString(16).padStart(2, "0")).join("");
+    expect(hex).toBe(sha1Hex);
   });
 
   it("should hash using SHA-384 when specified", async () => {
