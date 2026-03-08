@@ -68,11 +68,6 @@ export function secureCompare(
   return mismatch === 0;
 }
 
-/**
- * @deprecated Use `secureCompare` instead.
- */
-export const secureVerify: typeof secureCompare = secureCompare;
-
 function _toUint8Array(input: Uint8Array | string): Uint8Array {
   if (typeof input === "string") {
     return textEncoder.encode(input);

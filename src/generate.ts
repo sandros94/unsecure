@@ -40,11 +40,6 @@ export interface SecureGenerateOptions {
 }
 
 /**
- * @deprecated Use `SecureGenerateOptions` instead.
- */
-export type GeneratePasswordOptions = SecureGenerateOptions;
-
-/**
  * Default character sets. The SPECIALS set is curated to avoid characters that
  * can break strings or commands in shells and .env files.
  */
@@ -160,15 +155,6 @@ export function secureGenerate(
   // Ensure the string is the exact length requested
   return timestampStr + finalPasswordArray.slice(0, lengthToGenerate).join("");
 }
-
-/**
- * @deprecated Use `secureGenerate` instead.
- */
-export const generateSecureToken: typeof secureGenerate = secureGenerate;
-/**
- * @deprecated Use `secureGenerate` instead.
- */
-export const generateSecurePassword: typeof secureGenerate = secureGenerate;
 
 /**
  * INTERNAL FUNCTIONS

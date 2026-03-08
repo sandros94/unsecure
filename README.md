@@ -78,7 +78,7 @@ const hash512 = await hash("hello world", { algorithm: "SHA-512" });
 // '309ecc489c12d6eb4cc40f50c902f2b4d0ed77ee511a7c7a9bcd3ca86d4cd86f...'
 ```
 
-### secureGenerate (or generateSecureToken)
+### secureGenerate
 
 Generates a cryptographically secure string. You can customize its length and character set (all enabled by default). If a string is passed it will be used as a set of allowed characters.
 
