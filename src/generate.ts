@@ -1,4 +1,8 @@
-import { createSecureRandomGenerator, type SecureRandomGenerator, secureShuffle } from "./utils.ts";
+import {
+  createSecureRandomGenerator,
+  type SecureRandomGenerator,
+  secureShuffle,
+} from "./random.ts";
 
 export interface SecureGenerateOptions {
   /**
