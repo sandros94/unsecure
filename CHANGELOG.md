@@ -1,5 +1,53 @@
 # Changelog
 
+## v0.1.0
+
+[compare changes](https://github.com/sandros94/unsecure/compare/v0.0.7...v0.1.0)
+
+### 🚀 Enhancements
+
+- ⚠️  Mirror input type in `hash()` return when `returnAs` is omitted ([2c13000](https://github.com/sandros94/unsecure/commit/2c13000))
+- New `entropy` utility ([dbd6987](https://github.com/sandros94/unsecure/commit/dbd6987))
+- Add `secureRandomBytes` utility ([170e095](https://github.com/sandros94/unsecure/commit/170e095))
+- Add `hmac` and `hmacVerify` utilities ([743af00](https://github.com/sandros94/unsecure/commit/743af00))
+- Add Base32 encoding and decoding utilities ([423b87e](https://github.com/sandros94/unsecure/commit/423b87e))
+- Add SHA-1 support in hash utility ([ef747ae](https://github.com/sandros94/unsecure/commit/ef747ae))
+- Implement HOTP and TOTP utilities with verification and URI generation ([e54fd6a](https://github.com/sandros94/unsecure/commit/e54fd6a))
+
+### 🩹 Fixes
+
+- Export `randomJitter` function from main module ([fe72d1b](https://github.com/sandros94/unsecure/commit/fe72d1b))
+
+### 💅 Refactors
+
+- Remove deprecated functions and types ([22ad0c7](https://github.com/sandros94/unsecure/commit/22ad0c7))
+- ⚠️  Unify decoding functions to use DecodeReturnAs type for consistency; remove number overload from `secureGenerate` ([3a790f6](https://github.com/sandros94/unsecure/commit/3a790f6))
+- ⚠️  Export random functions from main module ([ef444d1](https://github.com/sandros94/unsecure/commit/ef444d1))
+- Improve parameter naming and documentation in `secureCompare` function ([2dc588e](https://github.com/sandros94/unsecure/commit/2dc588e))
+
+### 📖 Documentation
+
+- Update readme ([c9af169](https://github.com/sandros94/unsecure/commit/c9af169))
+
+### 🏡 Chore
+
+- Update claude settings ([26c60f8](https://github.com/sandros94/unsecure/commit/26c60f8))
+
+### ✅ Tests
+
+- Improve coverage ([0e34109](https://github.com/sandros94/unsecure/commit/0e34109))
+- Add Base32 encoding and decoding tests ([7158237](https://github.com/sandros94/unsecure/commit/7158237))
+
+#### ⚠️ Breaking Changes
+
+- ⚠️  Mirror input type in `hash()` return when `returnAs` is omitted ([2c13000](https://github.com/sandros94/unsecure/commit/2c13000))
+- ⚠️  Unify decoding functions to use DecodeReturnAs type for consistency; remove number overload from `secureGenerate` ([3a790f6](https://github.com/sandros94/unsecure/commit/3a790f6))
+- ⚠️  Export random functions from main module ([ef444d1](https://github.com/sandros94/unsecure/commit/ef444d1))
+
+### ❤️ Contributors
+
+- Sandro Circi ([@sandros94](https://github.com/sandros94))
+
 ## v0.0.7
 
 [compare changes](https://github.com/sandros94/unsecure/compare/v0.0.6...v0.0.7)
