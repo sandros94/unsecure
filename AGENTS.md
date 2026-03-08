@@ -22,17 +22,21 @@ Two entry points exported via `package.json` exports:
 
 - **`unsecure`** (main) — `src/index.ts` re-exports from:
   - `src/hash.ts` — `hash()`: async hashing via `crypto.subtle.digest`
+  - `src/hmac.ts` — `hmac()`, `hmacVerify()`: HMAC signing and constant-time verification
+  - `src/otp.ts` — `hotp()`, `hotpVerify()`, `totp()`, `totpVerify()`, `generateOTPSecret()`, `otpauthURI()`: RFC 4226/6238 OTP
   - `src/generate.ts` — `secureGenerate()`: secure string/token generation with customizable charsets, buffered RNG
   - `src/verification.ts` — `secureCompare()`: constant-time comparison to prevent timing attacks
+  - `src/entropy.ts` — `entropy()`: Shannon entropy analysis
+  - `src/random.ts` — `createSecureRandomGenerator()`, `secureRandomNumber()`, `secureRandomBytes()`, `secureShuffle()`, `randomJitter()`
   - `src/sanitize.ts` — `sanitizeObject()`: in-place prototype-pollution sanitization
 
 - **`unsecure/utils`** — `src/utils.ts` re-exports from `src/internal/utils/`:
+  - `base32.ts` — base32 encode/decode (RFC 4648)
   - `base64.ts` — base64/base64url encode/decode
   - `hex.ts` — hex encode/decode
-  - `random.ts` — `createSecureRandomGenerator()`, `secureRandomNumber()`, `secureShuffle()`
-  - Also provides shared `textEncoder`, `textDecoder`, and `randomJitter()`
+  - Also provides shared `textEncoder` and `textDecoder`
 
-The `internal/utils/random.ts` generator uses a 256-element `Uint32Array` buffer to batch `crypto.getRandomValues` calls, with rejection sampling to avoid modulo bias.
+The `src/random.ts` generator uses a 256-element `Uint32Array` buffer to batch `crypto.getRandomValues` calls, with rejection sampling to avoid modulo bias.
 
 ## Key Conventions
 
