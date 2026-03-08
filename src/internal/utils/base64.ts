@@ -1,6 +1,10 @@
 import { textEncoder, textDecoder } from "../../utils.ts";
 import { _Buffer, _hasBuffer, _toBuffer } from "./_buffer.ts";
 
+// #region Types
+
+export type DecodeReturnAs = "string" | "uint8array" | "bytes";
+
 // #region Internal utilities
 
 const _hasToBase64 = !_hasBuffer && typeof (Uint8Array.prototype as any).toBase64 === "function";
@@ -38,16 +42,20 @@ export function base64UrlEncode(data: Uint8Array<ArrayBuffer> | string): string 
 }
 
 /* Base64 decoding function */
-export function base64Decode(str: string | undefined): string;
-export function base64Decode<T extends boolean | undefined>(
-  str?: string | undefined,
-  toString?: T,
-): T extends false ? Uint8Array<ArrayBuffer> : string;
+export function base64Decode<T extends DecodeReturnAs>(
+  data: string | Uint8Array<ArrayBuffer>,
+  options: { returnAs: T },
+): T extends "string" ? string : Uint8Array<ArrayBuffer>;
+export function base64Decode(data?: string): string;
+export function base64Decode(data: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer>;
 export function base64Decode(
-  str?: string | undefined,
-  toString?: boolean | undefined,
+  data?: string | Uint8Array<ArrayBuffer>,
+  options?: { returnAs?: DecodeReturnAs },
 ): Uint8Array<ArrayBuffer> | string {
-  const decodeToString = toString !== false;
+  const isBufferInput = data instanceof Uint8Array;
+  const str = isBufferInput ? textDecoder.decode(data) : data;
+  const effectiveReturnAs = options?.returnAs ?? (isBufferInput ? "uint8array" : "string");
+  const decodeToString = effectiveReturnAs === "string";
 
   if (!str) {
     return decodeToString ? "" : new Uint8Array(0);
@@ -60,24 +68,28 @@ export function base64Decode(
       : new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
   }
 
-  const data: Uint8Array<ArrayBuffer> = _hasFromBase64
+  const decoded: Uint8Array<ArrayBuffer> = _hasFromBase64
     ? (Uint8Array as any).fromBase64(str)
     : Uint8Array.from(atob(str), (b) => b.codePointAt(0)!);
 
-  return decodeToString ? textDecoder.decode(data) : data;
+  return decodeToString ? textDecoder.decode(decoded) : decoded;
 }
 
 /* Base64 URL decoding function */
-export function base64UrlDecode(str: string | undefined): string;
-export function base64UrlDecode<T extends boolean | undefined>(
-  str?: string | undefined,
-  toString?: T,
-): T extends false ? Uint8Array<ArrayBuffer> : string;
+export function base64UrlDecode<T extends DecodeReturnAs>(
+  data: string | Uint8Array<ArrayBuffer>,
+  options: { returnAs: T },
+): T extends "string" ? string : Uint8Array<ArrayBuffer>;
+export function base64UrlDecode(data?: string): string;
+export function base64UrlDecode(data: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer>;
 export function base64UrlDecode(
-  str?: string | undefined,
-  toString?: boolean | undefined,
+  data?: string | Uint8Array<ArrayBuffer>,
+  options?: { returnAs?: DecodeReturnAs },
 ): Uint8Array<ArrayBuffer> | string {
-  const decodeToString = toString !== false;
+  const isBufferInput = data instanceof Uint8Array;
+  let str = isBufferInput ? textDecoder.decode(data) : data;
+  const effectiveReturnAs = options?.returnAs ?? (isBufferInput ? "uint8array" : "string");
+  const decodeToString = effectiveReturnAs === "string";
 
   if (!str) {
     return decodeToString ? "" : new Uint8Array(0);
@@ -90,15 +102,15 @@ export function base64UrlDecode(
       : new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
   }
 
-  let data: Uint8Array<ArrayBuffer>;
+  let decoded: Uint8Array<ArrayBuffer>;
 
   if (_hasFromBase64) {
-    data = (Uint8Array as any).fromBase64(str, _b64UrlDecOpts);
+    decoded = (Uint8Array as any).fromBase64(str, _b64UrlDecOpts);
   } else {
     str = str.replace(/-/g, "+").replace(/_/g, "/");
     while (str.length % 4) str += "=";
-    data = Uint8Array.from(atob(str), (b) => b.codePointAt(0)!);
+    decoded = Uint8Array.from(atob(str), (b) => b.codePointAt(0)!);
   }
 
-  return decodeToString ? textDecoder.decode(data) : data;
+  return decodeToString ? textDecoder.decode(decoded) : decoded;
 }

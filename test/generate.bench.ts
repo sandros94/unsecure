@@ -6,7 +6,7 @@ describe("bench token generation", () => {
 
   describe("16 characters", () => {
     bench("unsecure", () => {
-      secureGenerate(16);
+      secureGenerate({ length: 16 });
     });
 
     bench("@deepsource/shifty", () => {
@@ -16,7 +16,7 @@ describe("bench token generation", () => {
 
   describe("32 characters", () => {
     bench("unsecure", () => {
-      secureGenerate(32);
+      secureGenerate({ length: 32 });
     });
 
     bench("@deepsource/shifty", () => {
@@ -26,7 +26,7 @@ describe("bench token generation", () => {
 
   describe("64 characters", () => {
     bench("unsecure", () => {
-      secureGenerate(64);
+      secureGenerate({ length: 64 });
     });
 
     bench("@deepsource/shifty", () => {
@@ -36,7 +36,7 @@ describe("bench token generation", () => {
 
   describe("128 characters", () => {
     bench("unsecure", () => {
-      secureGenerate(128);
+      secureGenerate({ length: 128 });
     });
 
     bench("@deepsource/shifty", () => {
@@ -46,7 +46,7 @@ describe("bench token generation", () => {
 
   describe("256 characters", () => {
     bench("unsecure", () => {
-      secureGenerate(256);
+      secureGenerate({ length: 256 });
     });
 
     bench("@deepsource/shifty", () => {
@@ -56,7 +56,7 @@ describe("bench token generation", () => {
 
   describe("384 characters", () => {
     bench("unsecure", () => {
-      secureGenerate(384);
+      secureGenerate({ length: 384 });
     });
 
     bench("@deepsource/shifty", () => {
@@ -66,7 +66,7 @@ describe("bench token generation", () => {
 
   describe("512 characters", () => {
     bench("unsecure", () => {
-      secureGenerate(512);
+      secureGenerate({ length: 512 });
     });
 
     bench("@deepsource/shifty", () => {

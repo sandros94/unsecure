@@ -1,5 +1,6 @@
 import { textEncoder, textDecoder } from "../../utils.ts";
 import { _Buffer, _hasBuffer, _toBuffer } from "./_buffer.ts";
+import type { DecodeReturnAs } from "./base64.ts";
 
 // #region Internal utilities
 
@@ -23,16 +24,20 @@ export function hexEncode(data: Uint8Array<ArrayBuffer> | string): string {
 }
 
 /* Hex decoding function */
-export function hexDecode(str: string | undefined): string;
-export function hexDecode<T extends boolean | undefined>(
-  str?: string | undefined,
-  toString?: T,
-): T extends false ? Uint8Array<ArrayBuffer> : string;
+export function hexDecode<T extends DecodeReturnAs>(
+  data: string | Uint8Array<ArrayBuffer>,
+  options: { returnAs: T },
+): T extends "string" ? string : Uint8Array<ArrayBuffer>;
+export function hexDecode(data?: string): string;
+export function hexDecode(data: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer>;
 export function hexDecode(
-  str?: string | undefined,
-  toString?: boolean | undefined,
+  data?: string | Uint8Array<ArrayBuffer>,
+  options?: { returnAs?: DecodeReturnAs },
 ): Uint8Array<ArrayBuffer> | string {
-  const decodeToString = toString !== false;
+  const isBufferInput = data instanceof Uint8Array;
+  const str = isBufferInput ? textDecoder.decode(data) : data;
+  const effectiveReturnAs = options?.returnAs ?? (isBufferInput ? "uint8array" : "string");
+  const decodeToString = effectiveReturnAs === "string";
 
   if (!str) {
     return decodeToString ? "" : new Uint8Array(0);
@@ -45,11 +50,11 @@ export function hexDecode(
       : new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
   }
 
-  const data: Uint8Array<ArrayBuffer> = _hasFromHex
+  const decoded: Uint8Array<ArrayBuffer> = _hasFromHex
     ? (Uint8Array as any).fromHex(str)
     : fromHexString(str);
 
-  return decodeToString ? textDecoder.decode(data) : data;
+  return decodeToString ? textDecoder.decode(decoded) : decoded;
 }
 
 function fromHexString(hexString: string) {

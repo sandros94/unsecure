@@ -52,44 +52,19 @@ const DEFAULT_LENGTH = 16;
 
 /**
  * Generates a cryptographically secure string based on the provided options.
- * @param {number} length - The desired length of the string.
- * @returns {string} The generated string.
- * @throws {Error} if no character types are selected.
- */
-export function secureGenerate(length?: number): string;
-/**
- * Generates a cryptographically secure string based on the provided options.
  * @param {SecureGenerateOptions} options - The configuration for string generation.
  * @returns {string} The generated string.
  * @throws {Error} if no character types are selected.
  */
-export function secureGenerate(options?: SecureGenerateOptions): string;
-/**
- * Generates a cryptographically secure string based on the provided options.
- * @param {number | SecureGenerateOptions} numOrOptions - The desired length or the configuration for string generation.
- * @returns {string} The generated string.
- * @throws {Error} if no character types are selected.
- */
-export function secureGenerate(
-  numOrOptions: number | SecureGenerateOptions = DEFAULT_LENGTH,
-): string {
-  let length: number;
-  let uppercase: boolean | string = true;
-  let lowercase: boolean | string = true;
-  let numbers: boolean | string = true;
-  let specials: boolean | string = true;
-  let timestamp: true | Date | undefined;
-
-  if (typeof numOrOptions === "number") {
-    length = numOrOptions;
-  } else {
-    length = numOrOptions.length ?? DEFAULT_LENGTH;
-    uppercase = numOrOptions.uppercase ?? true;
-    lowercase = numOrOptions.lowercase ?? true;
-    numbers = numOrOptions.numbers ?? true;
-    specials = numOrOptions.specials ?? true;
-    timestamp = numOrOptions.timestamp;
-  }
+export function secureGenerate(options?: SecureGenerateOptions): string {
+  const {
+    length = DEFAULT_LENGTH,
+    uppercase = true,
+    lowercase = true,
+    numbers = true,
+    specials = true,
+    timestamp,
+  } = options ?? {};
 
   let timestampStr = "";
   if (timestamp) {

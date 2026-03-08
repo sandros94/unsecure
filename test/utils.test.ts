@@ -290,6 +290,26 @@ describe.concurrent("Utility Functions", () => {
       );
     });
 
+    it("should throw RangeError when min or max are not integers", () => {
+      const gen = createSecureRandomGenerator();
+      expect(() => gen.next(1.5, 10)).toThrow(RangeError);
+      expect(() => gen.next(1.5, 10)).toThrow("min and max must be integers.");
+    });
+
+    it("should throw RangeError when range exceeds 2**32", () => {
+      const gen = createSecureRandomGenerator();
+      expect(() => gen.next(0, 2 ** 32 + 1)).toThrow(RangeError);
+      expect(() => gen.next(0, 2 ** 32 + 1)).toThrow("range must be less than or equal to 2^32.");
+    });
+
+    it("should throw TypeError for invalid ignore parameter", () => {
+      const gen = createSecureRandomGenerator();
+      expect(() => gen.next(10, "invalid" as any)).toThrow(TypeError);
+      expect(() => gen.next(10, "invalid" as any)).toThrow(
+        "ignore must be an iterable of numbers or a Set<number>.",
+      );
+    });
+
     it("should reuse buffer efficiently for multiple calls", () => {
       const gen = createSecureRandomGenerator();
       const results = [];
@@ -409,65 +429,97 @@ describe.concurrent("Utility Functions", () => {
       });
     });
 
-    describe("base64Decode(str, toString)", () => {
+    describe("base64Decode(data, options)", () => {
       const encodedString = b64Encode(testString);
+      const encodedUint8Array = new TextEncoder().encode(encodedString);
 
-      it("should decode a standard Base64 string to string by default", () => {
+      it("should decode a Base64 string to string by default", () => {
         const decoded = base64Decode(encodedString);
         expect(decoded).toBe(testString);
       });
 
-      it("should decode a standard Base64 string to string when toString is true", () => {
-        const decoded = base64Decode(encodedString, true);
+      it("should decode a Base64 string to string with returnAs 'string'", () => {
+        const decoded = base64Decode(encodedString, { returnAs: "string" });
         expect(decoded).toBe(testString);
       });
 
-      it("should decode a standard Base64 string to Uint8Array when toString is false", () => {
-        const decoded = base64Decode(encodedString, false);
+      it("should decode a Base64 string to Uint8Array with returnAs 'uint8array'", () => {
+        const decoded = base64Decode(encodedString, { returnAs: "uint8array" });
         expect(decoded).toEqual(testUint8Array);
+      });
+
+      it("should decode a Base64 string to Uint8Array with returnAs 'bytes' alias", () => {
+        const decoded = base64Decode(encodedString, { returnAs: "bytes" });
+        expect(decoded).toEqual(testUint8Array);
+      });
+
+      it("should mirror input type: Uint8Array in → Uint8Array out", () => {
+        const decoded = base64Decode(encodedUint8Array);
+        expect(decoded).toBeInstanceOf(Uint8Array);
+        expect(decoded).toEqual(testUint8Array);
+      });
+
+      it("should override mirroring with explicit returnAs", () => {
+        const decoded = base64Decode(encodedUint8Array, { returnAs: "string" });
+        expect(decoded).toBe(testString);
       });
 
       it("should handle empty string input", () => {
         expect(base64Decode("")).toBe("");
-        expect(base64Decode("", false)).toEqual(new Uint8Array(0));
+        expect(base64Decode("", { returnAs: "uint8array" })).toEqual(new Uint8Array(0));
       });
 
       it("should handle undefined input", () => {
         expect(base64Decode(undefined)).toBe("");
-        expect(base64Decode(undefined, false)).toEqual(new Uint8Array(0));
       });
     });
 
-    describe("base64UrlDecode(str, toString)", () => {
+    describe("base64UrlDecode(data, options)", () => {
       const originalBase64 = b64Encode(testString);
       const encodedUrlSafeString = originalBase64
         .replace(/\+/g, "-")
         .replace(/\//g, "_")
         .replace(/=/g, "");
+      const encodedUrlSafeUint8Array = new TextEncoder().encode(encodedUrlSafeString);
 
       it("should decode a Base64 URL-safe string to string by default", () => {
         const decoded = base64UrlDecode(encodedUrlSafeString);
         expect(decoded).toBe(testString);
       });
 
-      it("should decode a Base64 URL-safe string to string when toString is true", () => {
-        const decoded = base64UrlDecode(encodedUrlSafeString, true);
+      it("should decode a Base64 URL-safe string to string with returnAs 'string'", () => {
+        const decoded = base64UrlDecode(encodedUrlSafeString, { returnAs: "string" });
         expect(decoded).toBe(testString);
       });
 
-      it("should decode a Base64 URL-safe string to Uint8Array when toString is false", () => {
-        const decoded = base64UrlDecode(encodedUrlSafeString, false);
+      it("should decode a Base64 URL-safe string to Uint8Array with returnAs 'uint8array'", () => {
+        const decoded = base64UrlDecode(encodedUrlSafeString, { returnAs: "uint8array" });
         expect(decoded).toEqual(testUint8Array);
+      });
+
+      it("should decode a Base64 URL-safe string to Uint8Array with returnAs 'bytes' alias", () => {
+        const decoded = base64UrlDecode(encodedUrlSafeString, { returnAs: "bytes" });
+        expect(decoded).toEqual(testUint8Array);
+      });
+
+      it("should mirror input type: Uint8Array in → Uint8Array out", () => {
+        const decoded = base64UrlDecode(encodedUrlSafeUint8Array);
+        expect(decoded).toBeInstanceOf(Uint8Array);
+        expect(decoded).toEqual(testUint8Array);
+      });
+
+      it("should override mirroring with explicit returnAs", () => {
+        const decoded = base64UrlDecode(encodedUrlSafeUint8Array, { returnAs: "string" });
+        expect(decoded).toBe(testString);
       });
 
       it("should handle empty string input", () => {
         expect(base64UrlDecode("")).toBe("");
-        expect(base64UrlDecode("", false)).toEqual(new Uint8Array(0));
+        expect(base64UrlDecode("", { returnAs: "uint8array" })).toEqual(new Uint8Array(0));
       });
 
       it("should handle undefined input", () => {
         expect(base64UrlDecode(undefined)).toBe("");
-        expect(base64UrlDecode(undefined, false)).toEqual(new Uint8Array(0));
       });
 
       it("should correctly pad and decode URL-safe strings without padding", () => {
@@ -504,30 +556,47 @@ describe.concurrent("Utility Functions", () => {
       });
     });
 
-    describe("hexDecode(str, toString)", () => {
+    describe("hexDecode(data, options)", () => {
+      const encodedHexUint8Array = new TextEncoder().encode(expectedHex);
+
       it("should decode a hex string to string by default", () => {
         const decoded = hexDecode(expectedHex);
         expect(decoded).toBe(testString);
       });
 
-      it("should decode a hex string to string when toString is true", () => {
-        const decoded = hexDecode(expectedHex, true);
+      it("should decode a hex string to string with returnAs 'string'", () => {
+        const decoded = hexDecode(expectedHex, { returnAs: "string" });
         expect(decoded).toBe(testString);
       });
 
-      it("should decode a hex string to Uint8Array when toString is false", () => {
-        const decoded = hexDecode(expectedHex, false);
+      it("should decode a hex string to Uint8Array with returnAs 'uint8array'", () => {
+        const decoded = hexDecode(expectedHex, { returnAs: "uint8array" });
         expect(decoded).toEqual(testUint8Array);
+      });
+
+      it("should decode a hex string to Uint8Array with returnAs 'bytes' alias", () => {
+        const decoded = hexDecode(expectedHex, { returnAs: "bytes" });
+        expect(decoded).toEqual(testUint8Array);
+      });
+
+      it("should mirror input type: Uint8Array in → Uint8Array out", () => {
+        const decoded = hexDecode(encodedHexUint8Array);
+        expect(decoded).toBeInstanceOf(Uint8Array);
+        expect(decoded).toEqual(testUint8Array);
+      });
+
+      it("should override mirroring with explicit returnAs", () => {
+        const decoded = hexDecode(encodedHexUint8Array, { returnAs: "string" });
+        expect(decoded).toBe(testString);
       });
 
       it("should handle empty string input", () => {
         expect(hexDecode("")).toBe("");
-        expect(hexDecode("", false)).toEqual(new Uint8Array(0));
+        expect(hexDecode("", { returnAs: "uint8array" })).toEqual(new Uint8Array(0));
       });
 
       it("should handle undefined input", () => {
         expect(hexDecode(undefined)).toBe("");
-        expect(hexDecode(undefined, false)).toEqual(new Uint8Array(0));
       });
 
       it("should decode hex strings with mixed case characters", () => {
@@ -539,13 +608,13 @@ describe.concurrent("Utility Functions", () => {
 
       it("should handle odd length hex strings gracefully", () => {
         // Only complete byte pairs are decoded; trailing nibble is ignored.
-        const decoded = hexDecode("abc", false);
+        const decoded = hexDecode("abc", { returnAs: "uint8array" });
         expect(decoded).toEqual(Uint8Array.from([0xab]));
       });
 
       it("should handle invalid hex characters gracefully", () => {
         // Invalid hex characters result in an empty buffer.
-        const decoded = hexDecode("zz", false);
+        const decoded = hexDecode("zz", { returnAs: "uint8array" });
         expect(decoded).toEqual(new Uint8Array(0));
       });
     });
