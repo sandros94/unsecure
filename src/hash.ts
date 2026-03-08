@@ -1,4 +1,4 @@
-import { hexEncode, base64Encode, base64UrlEncode } from "./utils.ts";
+import { hexEncode, base64Encode, base64UrlEncode, textEncoder } from "./utils.ts";
 
 export type DigestAlgorithm = "SHA-256" | "SHA-384" | "SHA-512";
 export type DigestReturnAs =
@@ -18,9 +18,11 @@ export interface DigestOptions {
    */
   algorithm?: DigestAlgorithm;
   /**
-   * Whether to output to HEX, Base64, Base64URL or Uint8Array
+   * Whether to output to HEX, Base64, Base64URL or Uint8Array.
    *
-   * @default 'hex'
+   * When not specified, mirrors the input type:
+   * - `string` input defaults to `'hex'`
+   * - `BufferSource` input defaults to `'uint8array'`
    */
   returnAs?: DigestReturnAs;
 }
@@ -30,35 +32,55 @@ export interface DigestOptions {
  * designed to work in any modern JavaScript runtime (browsers, Node, Bun, Deno, etc.)
  * that supports the Web Crypto API.
  *
+ * When `returnAs` is not specified, the return type mirrors the input:
+ * - `string` input returns a hex `string`
+ * - `BufferSource` input returns a `Uint8Array`
+ *
+ * Use the `returnAs` option to explicitly override the output format.
+ *
  * @param data The input data to hash. Can be a string or any BufferSource
  * (e.g., Uint8Array, ArrayBuffer).
  * @param options Configuration options for the hashing operation.
- * @returns A Promise that resolves to a string (HEX, Base64, Base64URL) or Uint8Array containing the raw hash. (default HEX)
+ * @returns A Promise that resolves to a string (HEX, Base64, Base64URL) or Uint8Array containing the raw hash.
  *
  * @example
- * // Hash a string using the default SHA-256
+ * // Hash a string — returns hex string by default
  * const hashHex = await hash('hello world');
  *
- * // Hash a Uint8Array using SHA-512
+ * // Hash a Uint8Array — returns Uint8Array by default
  * const buffer = new TextEncoder().encode('some binary data');
- * const hashBytes512 = await hash(buffer, { algorithm: 'SHA-512', returnAs: "uint8array" });
+ * const hashBytes = await hash(buffer);
+ *
+ * // Explicit returnAs overrides the default
+ * const hashBytes512 = await hash('hello', { algorithm: 'SHA-512', returnAs: 'uint8array' });
+ * const hashHexFromBuffer = await hash(buffer, { returnAs: 'hex' });
  */
-export async function hash(data: string | BufferSource): Promise<string>;
 export async function hash<T extends DigestReturnAs>(
   data: string | BufferSource,
-  options: Omit<DigestOptions, "returnAs"> & { returnAs?: T },
+  options: DigestOptions & { returnAs: T },
 ): Promise<T extends "uint8array" | "bytes" ? Uint8Array : string>;
+export async function hash(
+  data: string,
+  options?: Omit<DigestOptions, "returnAs">,
+): Promise<string>;
+export async function hash(
+  data: BufferSource,
+  options?: Omit<DigestOptions, "returnAs">,
+): Promise<Uint8Array>;
 export async function hash(
   data: string | BufferSource,
   options: DigestOptions = {},
 ): Promise<Uint8Array | string> {
-  const { algorithm = "SHA-256", returnAs = "hex" } = options;
+  const { algorithm = "SHA-256", returnAs } = options;
 
-  const dataBuffer = typeof data === "string" ? new TextEncoder().encode(data) : data;
+  const isBufferInput = typeof data !== "string";
+  const dataBuffer = isBufferInput ? data : textEncoder.encode(data);
 
   const hashBytes = new Uint8Array(await crypto.subtle.digest(algorithm, dataBuffer));
 
-  switch (returnAs) {
+  const effectiveReturnAs = returnAs ?? (isBufferInput ? "uint8array" : "hex");
+
+  switch (effectiveReturnAs) {
     case "bytes":
     case "uint8array": {
       return hashBytes;

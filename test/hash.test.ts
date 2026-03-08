@@ -25,9 +25,10 @@ describe("hash utility", () => {
     expect(result).toBe(sha256Hex);
   });
 
-  it("should hash a Uint8Array using SHA-256 by default and return a hex string", async () => {
+  it("should hash a Uint8Array using SHA-256 by default and return a Uint8Array", async () => {
     const result = await hash(testUint8Array);
-    expect(result).toBe(sha256Hex);
+    expect(result).toBeInstanceOf(Uint8Array);
+    expect(result).toStrictEqual(sha256);
   });
 
   it("should return a hex string when 'returnAs' is 'hex'", async () => {
@@ -79,9 +80,30 @@ describe("hash utility", () => {
   });
 
   it("should handle empty Uint8Array input", async () => {
-    const emptySha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    const emptySha256Bytes = new Uint8Array([
+      227, 176, 196, 66, 152, 252, 28, 20, 154, 251, 244, 200, 153, 111, 185, 36, 39, 174, 65, 228,
+      100, 155, 147, 76, 164, 149, 153, 27, 120, 82, 184, 85,
+    ]);
     const result = await hash(new Uint8Array(0));
-    expect(result).toBe(emptySha256);
+    expect(result).toBeInstanceOf(Uint8Array);
+    expect(result).toStrictEqual(emptySha256Bytes);
+  });
+
+  it("should return hex string for Uint8Array input when returnAs is 'hex'", async () => {
+    const result = await hash(testUint8Array, { returnAs: "hex" });
+    expect(result).toBe(sha256Hex);
+  });
+
+  it("should return Uint8Array for string input when returnAs is 'uint8array'", async () => {
+    const result = await hash(testString, { returnAs: "uint8array" });
+    expect(result).toBeInstanceOf(Uint8Array);
+    expect(result).toStrictEqual(sha256);
+  });
+
+  it("should return Uint8Array for Uint8Array input with only algorithm option", async () => {
+    const result = await hash(testUint8Array, { algorithm: "SHA-256" });
+    expect(result).toBeInstanceOf(Uint8Array);
+    expect(result).toStrictEqual(sha256);
   });
 
   it("should throw for unsupported returnAs", async () => {
