@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
+  base32Decode,
+  base32Encode,
   base64Decode,
   base64Encode,
   base64UrlDecode,
@@ -10,6 +12,95 @@ import {
 } from "../src/utils.ts";
 
 describe.concurrent("Utility Functions", () => {
+  describe("Base32 Encoding/Decoding", () => {
+    // RFC 4648 test vectors
+    const vectors: Array<[string, string]> = [
+      ["", ""],
+      ["f", "MY======"],
+      ["fo", "MZXQ===="],
+      ["foo", "MZXW6==="],
+      ["foob", "MZXW6YQ="],
+      ["fooba", "MZXW6YTB"],
+      ["foobar", "MZXW6YTBOI======"],
+    ];
+
+    describe("base32Encode(data)", () => {
+      for (const [input, expected] of vectors) {
+        it(`should encode "${input}" to "${expected}"`, () => {
+          expect(base32Encode(input)).toBe(expected);
+        });
+      }
+
+      it("should encode a Uint8Array to Base32", () => {
+        const bytes = new TextEncoder().encode("foobar");
+        expect(base32Encode(bytes)).toBe("MZXW6YTBOI======");
+      });
+
+      it("should handle empty string", () => {
+        expect(base32Encode("")).toBe("");
+      });
+
+      it("should handle single byte values", () => {
+        // 0x00 = AAAAAAAA
+        expect(base32Encode(new Uint8Array([0]))).toBe("AA======");
+        // 0xFF = 76======
+        expect(base32Encode(new Uint8Array([255]))).toBe("74======");
+      });
+    });
+
+    describe("base32Decode(data)", () => {
+      for (const [expected, input] of vectors) {
+        if (!input) continue; // skip empty → empty case, tested separately
+        it(`should decode "${input}" to "${expected}"`, () => {
+          const decoded = new TextDecoder().decode(base32Decode(input));
+          expect(decoded).toBe(expected);
+        });
+      }
+
+      it("should handle unpadded input", () => {
+        const decoded = new TextDecoder().decode(base32Decode("MZXW6YTBOI"));
+        expect(decoded).toBe("foobar");
+      });
+
+      it("should be case-insensitive", () => {
+        const decoded = new TextDecoder().decode(base32Decode("mzxw6ytboi"));
+        expect(decoded).toBe("foobar");
+      });
+
+      it("should handle mixed case", () => {
+        const decoded = new TextDecoder().decode(base32Decode("MzXw6YtBoI"));
+        expect(decoded).toBe("foobar");
+      });
+
+      it("should return empty Uint8Array for undefined", () => {
+        expect(base32Decode(undefined)).toEqual(new Uint8Array(0));
+      });
+
+      it("should return empty Uint8Array for empty string", () => {
+        expect(base32Decode("")).toEqual(new Uint8Array(0));
+      });
+
+      it("should skip whitespace and invalid characters", () => {
+        const decoded = new TextDecoder().decode(base32Decode("MZXW 6YTB OI==\n===="));
+        expect(decoded).toBe("foobar");
+      });
+
+      it("should roundtrip binary data through encode/decode", () => {
+        const original = new Uint8Array([0, 1, 127, 128, 255]);
+        const encoded = base32Encode(original);
+        expect(base32Decode(encoded)).toEqual(original);
+      });
+
+      it("should roundtrip all single-byte values", () => {
+        for (let i = 0; i < 256; i++) {
+          const original = new Uint8Array([i]);
+          const encoded = base32Encode(original);
+          expect(base32Decode(encoded)).toEqual(original);
+        }
+      });
+    });
+  });
+
   describe("Base64 Encoding/Decoding", () => {
     const testString =
       "Hello, Vitest! 👋 This is a test string with some special characters: Ā 𐀀 文 +/=";
