@@ -1,3 +1,4 @@
+export * from "./internal/utils/base32.ts";
 export * from "./internal/utils/base64.ts";
 export * from "./internal/utils/hex.ts";
 
