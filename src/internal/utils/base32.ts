@@ -54,9 +54,12 @@ export function base32Decode(data?: string): Uint8Array<ArrayBuffer> {
   for (let i = 0; i < data.length; i++) {
     const c = data.charCodeAt(i);
     let v: number;
-    if (c >= 65 && c <= 90) v = c - 65; // A-Z → 0-25
-    else if (c >= 97 && c <= 122) v = c - 97; // a-z → 0-25
-    else if (c >= 50 && c <= 55) v = c - 24; // 2-7 → 26-31
+    if (c >= 65 && c <= 90)
+      v = c - 65; // A-Z → 0-25
+    else if (c >= 97 && c <= 122)
+      v = c - 97; // a-z → 0-25
+    else if (c >= 50 && c <= 55)
+      v = c - 24; // 2-7 → 26-31
     else continue; // skip padding, whitespace, invalid
 
     value = (value << 5) | v;
