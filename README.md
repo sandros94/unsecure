@@ -21,12 +21,36 @@ Import:
 
 ```js
 // Main functions
-import { hash, secureGenerate, secureCompare } from "unsecure";
+import {
+  hash,
+  hmac,
+  hmacVerify,
+  secureGenerate,
+  secureCompare,
+  entropy,
+  sanitizeObject,
+  // OTP
+  hotp,
+  hotpVerify,
+  totp,
+  totpVerify,
+  generateOTPSecret,
+  otpauthURI,
+  // Randomness
+  createSecureRandomGenerator,
+  secureRandomNumber,
+  secureRandomBytes,
+  secureShuffle,
+  randomJitter,
+} from "unsecure";
 // Utility functions
 import {
   hexEncode,
   hexDecode,
-  secureShuffle,
+  base64Encode,
+  base64Decode,
+  base32Encode,
+  base32Decode,
   // ...
 } from "unsecure/utils";
 ```
@@ -34,15 +58,8 @@ import {
 **CDN** (Deno, Bun and Browsers)
 
 ```js
-// Main functions
-import { hash, secureGenerate, secureCompare } from "https://esm.sh/unsecure";
-// Utility functions
-import {
-  hexEncode,
-  hexDecode,
-  secureShuffle,
-  // ...
-} from "https://esm.sh/unsecure/utils";
+import { hash, hmac, totp, secureGenerate } from "https://esm.sh/unsecure";
+import { hexEncode, base64Encode, base32Encode } from "https://esm.sh/unsecure/utils";
 ```
 
 ### hash
@@ -51,8 +68,11 @@ Hashes input data using a specified cryptographic algorithm. It uses the Web Cry
 
 options:
 
-- **algorithm**: `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`)
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`)
 - **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default `hex`)
+
+> [!WARNING]
+> `hash()` operates on complete data. The Web Crypto API does not support incremental/streaming digests, so for hashing large streams (e.g. file uploads) you'll need a platform-specific API like Node.js's `crypto.createHash()` or Deno's `crypto.subtle.digestStream()`.
 
 ```ts
 import { hash } from "unsecure";
@@ -78,6 +98,134 @@ const hash512 = await hash("hello world", { algorithm: "SHA-512" });
 // '309ecc489c12d6eb4cc40f50c902f2b4d0ed77ee511a7c7a9bcd3ca86d4cd86f...'
 ```
 
+### hmac
+
+Computes an HMAC signature using the Web Crypto API. Supports the same algorithms and output formats as `hash()`. When `returnAs` is not specified, the output type mirrors the input: string data returns a hex string, BufferSource data returns a Uint8Array.
+
+options:
+
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`)
+- **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default mirrors input type)
+
+```ts
+import { hmac, hmacVerify } from "unsecure";
+
+// Sign a string — returns hex by default
+const sig = await hmac("my-secret", "hello world");
+// 'a3a65e5...'
+
+// Sign with SHA-512 and return as base64
+const sig64 = await hmac("my-secret", payload, {
+  algorithm: "SHA-512",
+  returnAs: "base64",
+});
+
+// Verify a webhook signature in constant time
+const expected = request.headers["x-hub-signature-256"].replace("sha256=", "");
+const valid = await hmacVerify(webhookSecret, requestBody, expected);
+// true or false
+
+// Verify a base64-encoded signature
+const valid = await hmacVerify(secret, body, expectedBase64Sig, {
+  returnAs: "base64",
+});
+```
+
+### OTP (HOTP / TOTP)
+
+RFC 4226 (HOTP) and RFC 6238 (TOTP) one-time password generation and verification, built on top of `hmac()`.
+
+Secrets can be passed as raw `Uint8Array` bytes or as a base32-encoded `string`.
+
+> [!NOTE]
+> The RFCs recommend the secret to be at least as long as the hash output (20 bytes for SHA-1, 32 for SHA-256, 48 for SHA-384, 64 for SHA-512). The default `generateOTPSecret()` produces 20 bytes, which works with any algorithm but is ideal for SHA-1. Use `generateOTPSecret(32)` or `generateOTPSecret(64)` when targeting SHA-256 or SHA-512.
+
+#### hotp / hotpVerify
+
+Generate and verify HMAC-based One-Time Passwords (RFC 4226).
+
+options:
+
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`)
+- **digits**: number of digits in the OTP code (default `6`)
+- **window**: (verify only) number of counter values to check ahead (default `0`)
+
+```ts
+import { hotp, hotpVerify } from "unsecure";
+
+// Generate an OTP for counter 0
+const code = await hotp(secretBytes, 0);
+// "755224"
+
+// Generate an 8-digit OTP
+const code8 = await hotp(secretBytes, 0, { digits: 8 });
+
+// Verify an OTP
+const { valid, delta } = await hotpVerify(secret, "287082", 0, { window: 5 });
+// valid: true, delta: 1 (matched at counter 0 + 1)
+```
+
+#### totp / totpVerify
+
+Generate and verify Time-based One-Time Passwords (RFC 6238).
+
+options:
+
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`)
+- **digits**: number of digits in the OTP code (default `6`)
+- **period**: time step duration in seconds (default `30`)
+- **time**: Unix timestamp in seconds (defaults to current time)
+- **window**: (verify only) number of time steps to check in each direction (default `1`)
+
+```ts
+import { totp, totpVerify } from "unsecure";
+
+// Generate a TOTP for the current time
+const code = await totp(base32Secret);
+
+// Verify a user-provided code (checks current, previous, and next time steps)
+const { valid, delta } = await totpVerify(secret, userCode);
+// delta: 0 = current step, -1 = previous, +1 = next
+```
+
+#### generateOTPSecret
+
+Generates a cryptographically random OTP secret, returned as a base32-encoded string (without padding).
+
+```ts
+import { generateOTPSecret } from "unsecure";
+
+const secret = generateOTPSecret();
+// "JBSWY3DPEHPK3PXP..."
+
+// Custom length (32 bytes for SHA-256)
+const secret256 = generateOTPSecret(32);
+```
+
+#### otpauthURI
+
+Builds an `otpauth://` URI for provisioning OTP tokens via QR code.
+
+```ts
+import { otpauthURI } from "unsecure";
+
+const uri = otpauthURI({
+  type: "totp",
+  secret: base32Secret,
+  account: "user@example.com",
+  issuer: "MyApp",
+});
+// "otpauth://totp/MyApp:user%40example.com?secret=...&issuer=MyApp&algorithm=SHA1&digits=6&period=30"
+
+// HOTP URI (counter is required)
+const hotpUri = otpauthURI({
+  type: "hotp",
+  secret: secretBytes,
+  account: "user@example.com",
+  counter: 0,
+});
+```
+
 ### secureGenerate
 
 Generates a cryptographically secure string. You can customize its length and character set (all enabled by default). If a string is passed it will be used as a set of allowed characters.
@@ -91,8 +239,8 @@ import { secureGenerate } from "unsecure";
 const password = secureGenerate();
 // e.g. 'Zk(p4@L!v9{g~8sB'
 
-// Generate 28-character password
-const password = secureGenerate(28);
+// Generate a 28-character password
+const password = secureGenerate({ length: 28 });
 // e.g. '4~j&zgf-tO+PoMBVl}tK/}5$FgzF'
 
 // Generate a 24-character token with no special characters
@@ -122,16 +270,15 @@ const datestamp = secureGenerate({ length: 20, timestamp: date });
 
 ### secureCompare
 
-Compares two values (string or Uint8Array) in a timing-attack-safe manner. The first argument is always the reference value, which determines the time it takes for verification.
+Compares two values (string or Uint8Array) in a timing-attack-safe manner. The first argument (`expected`) is always the trusted, server-side value, which determines the loop length. The second argument (`received`) is the untrusted, user-provided value.
 
 ```ts
 import { secureCompare } from "unsecure";
 
-const secret = "my-super-secret-token";
-const userInput = "my-super-secret-token";
-// from user input
+const expected = "my-super-secret-token";
+const received = "my-super-secret-token"; // from user input
 
-if (secureCompare(secret, userInput)) {
+if (secureCompare(expected, received)) {
   console.log("Tokens match!");
 } else {
   console.log("Tokens do not match!");
@@ -141,30 +288,46 @@ if (secureCompare(secret, userInput)) {
 const mac1 = new Uint8Array([1, 2, 3]);
 const mac2 = new Uint8Array([1, 2, 3]);
 secureCompare(mac1, mac2); // true
-secureCompare(secret, mac2); // false
+secureCompare(expected, mac2); // false
+
+// Handles undefined received gracefully (returns false)
+secureCompare(expected, undefined); // false
 ```
 
-### Utilities (`unsecure/utils`)
+### entropy
 
-A collection of supplementary utilities for encoding, decoding, and random number generation.
-
-#### Encoding
-
-Includes `hexEncode`, `hexDecode`, `base64Encode`, `base64Decode`, `base64UrlEncode`, and `base64UrlDecode`.
+Computes Shannon entropy of a string or Uint8Array. Useful for measuring the quality of generated tokens, passwords, or random data.
 
 ```ts
-import { hexEncode, hexDecode } from "unsecure/utils";
+import { entropy } from "unsecure";
 
-const hex = hexEncode("hello"); // "68656c6c6f"
-const text = hexDecode(hex); // "hello"
+// Measure a generated token
+const result = entropy("Zk(p4@L!v9{g~8sB");
+console.log(result.bits); // ~60+ bits for a strong 16-char token
+console.log(result.bitsPerSymbol); // entropy per character
+console.log(result.uniqueSymbols); // number of distinct characters
+
+// Detect a weak secret
+entropy("aaaaaaa").bitsPerSymbol; // 0 — completely predictable
+
+// Analyze random bytes
+const bytes = new Uint8Array(256);
+crypto.getRandomValues(bytes);
+entropy(bytes).bitsPerSymbol; // ~7.9+ (close to max of 8 for 256 byte values)
 ```
 
-#### Randomness
+### Randomness
 
-Includes `createSecureRandomGenerator`, `secureRandomNumber` and `secureShuffle`.
+Includes `createSecureRandomGenerator`, `secureRandomNumber`, `secureRandomBytes`, `secureShuffle`, and `randomJitter`.
 
 ```ts
-import { createSecureRandomGenerator, secureRandomNumber, secureShuffle } from "unsecure/utils";
+import {
+  createSecureRandomGenerator,
+  secureRandomNumber,
+  secureRandomBytes,
+  secureShuffle,
+  randomJitter,
+} from "unsecure";
 
 // Creates a secure random number generator (more performant for subsequent calls)
 const generator = createSecureRandomGenerator();
@@ -184,6 +347,9 @@ const num = secureRandomNumber(100); // 0 to 99
 const num2 = secureRandomNumber(50, 150); // 50 to 149
 const num3 = secureRandomNumber(10, [2, 4, 6]); // 0-9, excluding 2, 4, 6
 
+// Generate random bytes
+const key = secureRandomBytes(32); // 256-bit key material (Uint8Array)
+
 // Securely shuffle an array in-place
 const list = [1, 2, 3, 4, 5];
 secureShuffle(list); // e.g. [ 3, 1, 5, 2, 4 ]
@@ -195,6 +361,28 @@ const shuffled = secureShuffle([...list]);
 const gen = createSecureRandomGenerator();
 secureShuffle(list1, gen);
 secureShuffle(list2, gen);
+
+// Add a random delay as defense-in-depth against timing side-channels
+await randomJitter(); // 0-99ms
+await randomJitter(50); // 0-49ms
+await randomJitter(50, 100); // 50-99ms
+```
+
+### Utilities (`unsecure/utils`)
+
+A collection of supplementary utilities for encoding and decoding.
+
+Includes `hexEncode`, `hexDecode`, `base64Encode`, `base64Decode`, `base64UrlEncode`, `base64UrlDecode`, `base32Encode`, and `base32Decode`.
+
+```ts
+import { hexEncode, hexDecode, base32Encode, base32Decode } from "unsecure/utils";
+
+const hex = hexEncode("hello"); // "68656c6c6f"
+const text = hexDecode(hex); // "hello"
+
+// Base32 (RFC 4648) — commonly used for OTP secrets
+const b32 = base32Encode("foobar"); // "MZXW6YTBOI======"
+const decoded = base32Decode("MZXW6YTBOI"); // Uint8Array (handles unpadded, case-insensitive)
 ```
 
 ### sanitizeObject
