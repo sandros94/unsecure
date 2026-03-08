@@ -6,7 +6,7 @@
 
 ### 🚀 Enhancements
 
-- ⚠️  Mirror input type in `hash()` return when `returnAs` is omitted ([2c13000](https://github.com/sandros94/unsecure/commit/2c13000))
+- ⚠️ Mirror input type in `hash()` return when `returnAs` is omitted ([2c13000](https://github.com/sandros94/unsecure/commit/2c13000))
 - New `entropy` utility ([dbd6987](https://github.com/sandros94/unsecure/commit/dbd6987))
 - Add `secureRandomBytes` utility ([170e095](https://github.com/sandros94/unsecure/commit/170e095))
 - Add `hmac` and `hmacVerify` utilities ([743af00](https://github.com/sandros94/unsecure/commit/743af00))
@@ -21,8 +21,8 @@
 ### 💅 Refactors
 
 - Remove deprecated functions and types ([22ad0c7](https://github.com/sandros94/unsecure/commit/22ad0c7))
-- ⚠️  Unify decoding functions to use DecodeReturnAs type for consistency; remove number overload from `secureGenerate` ([3a790f6](https://github.com/sandros94/unsecure/commit/3a790f6))
-- ⚠️  Export random functions from main module ([ef444d1](https://github.com/sandros94/unsecure/commit/ef444d1))
+- ⚠️ Unify decoding functions to use DecodeReturnAs type for consistency; remove number overload from `secureGenerate` ([3a790f6](https://github.com/sandros94/unsecure/commit/3a790f6))
+- ⚠️ Export random functions from main module ([ef444d1](https://github.com/sandros94/unsecure/commit/ef444d1))
 - Improve parameter naming and documentation in `secureCompare` function ([2dc588e](https://github.com/sandros94/unsecure/commit/2dc588e))
 
 ### 📖 Documentation
@@ -40,9 +40,9 @@
 
 #### ⚠️ Breaking Changes
 
-- ⚠️  Mirror input type in `hash()` return when `returnAs` is omitted ([2c13000](https://github.com/sandros94/unsecure/commit/2c13000))
-- ⚠️  Unify decoding functions to use DecodeReturnAs type for consistency; remove number overload from `secureGenerate` ([3a790f6](https://github.com/sandros94/unsecure/commit/3a790f6))
-- ⚠️  Export random functions from main module ([ef444d1](https://github.com/sandros94/unsecure/commit/ef444d1))
+- ⚠️ Mirror input type in `hash()` return when `returnAs` is omitted ([2c13000](https://github.com/sandros94/unsecure/commit/2c13000))
+- ⚠️ Unify decoding functions to use DecodeReturnAs type for consistency; remove number overload from `secureGenerate` ([3a790f6](https://github.com/sandros94/unsecure/commit/3a790f6))
+- ⚠️ Export random functions from main module ([ef444d1](https://github.com/sandros94/unsecure/commit/ef444d1))
 
 ### ❤️ Contributors
 
