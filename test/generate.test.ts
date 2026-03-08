@@ -232,7 +232,43 @@ describe.concurrent("secureGenerate", () => {
     ).toThrow("Cannot generate string. No character types selected.");
   });
 
-  // Test case 8: Basic check for randomness/shuffling (non-deterministic)
+  // Test case 8: Length equal to number of enabled character types (no random fill)
+  it("should work when length equals number of character types", () => {
+    const token = secureGenerate({ length: 4 });
+    expect(token.length).toBe(4);
+    // All 4 chars should be guaranteed (one per type), no random fill
+    expect(hasCharsFromSet(token, "ABCDEFGHIJKLMNOPQRSTUVWXYZ")).toBe(true);
+    expect(hasCharsFromSet(token, "abcdefghijklmnopqrstuvwxyz")).toBe(true);
+    expect(hasCharsFromSet(token, "0123456789")).toBe(true);
+    expect(hasCharsFromSet(token, "!@#$%^&*()_+{}:<>?|[];,./~-=")).toBe(true);
+  });
+
+  it("should work when length is less than number of character types", () => {
+    // 2 types enabled, length 1 — only 1 guaranteed char fits
+    const token = secureGenerate({
+      length: 1,
+      uppercase: true,
+      lowercase: false,
+      numbers: false,
+      specials: false,
+    });
+    expect(token.length).toBe(1);
+    expect(containsOnlyCharsFromSet(token, "ABCDEFGHIJKLMNOPQRSTUVWXYZ")).toBe(true);
+  });
+
+  it("should treat empty string charset as disabled", () => {
+    const token = secureGenerate({
+      uppercase: "",
+      lowercase: true,
+      numbers: false,
+      specials: false,
+    });
+    expect(token.length).toBe(16);
+    expect(hasCharsFromSet(token, "ABCDEFGHIJKLMNOPQRSTUVWXYZ")).toBe(false);
+    expect(containsOnlyCharsFromSet(token, "abcdefghijklmnopqrstuvwxyz")).toBe(true);
+  });
+
+  // Test case 9: Basic check for randomness/shuffling (non-deterministic)
   it("should produce different tokens on multiple calls with same options", () => {
     const token1 = secureGenerate();
     const token2 = secureGenerate();

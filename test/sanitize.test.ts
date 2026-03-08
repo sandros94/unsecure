@@ -73,6 +73,24 @@ describe("sanitizeObject", () => {
     expect(a.self).toBe(a);
   });
 
+  it("removes __proto__ when it is an actual own property", () => {
+    // JSON.parse creates __proto__ as an actual own property (unlike assignment)
+    const obj = JSON.parse('{"__proto__": {"poisoned": true}, "safe": 1}');
+    expect(Object.prototype.hasOwnProperty.call(obj, "__proto__")).toBe(true);
+
+    sanitizeObject(obj);
+    expect(Object.prototype.hasOwnProperty.call(obj, "__proto__")).toBe(false);
+    expect(obj.safe).toBe(1);
+  });
+
+  it("removes nested __proto__ own properties created via JSON.parse", () => {
+    const obj = JSON.parse('{"nested": {"__proto__": {"evil": true}}}');
+    expect(Object.prototype.hasOwnProperty.call(obj.nested, "__proto__")).toBe(true);
+
+    sanitizeObject(obj);
+    expect(Object.prototype.hasOwnProperty.call(obj.nested, "__proto__")).toBe(false);
+  });
+
   it("returns input unchanged for primitives and undefined", () => {
     expect(sanitizeObject(undefined)).toBeUndefined();
     expect(sanitizeObject(1 as any)).toBe(1);

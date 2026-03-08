@@ -106,6 +106,22 @@ describe("hash utility", () => {
     expect(result).toStrictEqual(sha256);
   });
 
+  it("should return base64 string when returnAs is 'b64' alias", async () => {
+    const result = await hash(testString, { returnAs: "b64" });
+    expect(result).toBe(sha256Base64);
+  });
+
+  it("should return base64url string when returnAs is 'b64url' alias", async () => {
+    const result = await hash(testString, { returnAs: "b64url" });
+    expect(result).toBe(sha256Base64Url);
+  });
+
+  it("should return Uint8Array when returnAs is 'bytes' alias", async () => {
+    const result = await hash(testString, { returnAs: "bytes" });
+    expect(result).toBeInstanceOf(Uint8Array);
+    expect(result).toStrictEqual(sha256);
+  });
+
   it("should throw for unsupported returnAs", async () => {
     await expect(hash(testString, { returnAs: "unsupported" as any })).rejects.toThrow(
       'Unsupported hash "returnAs" option: unsupported',
