@@ -31,13 +31,13 @@ describe.concurrent("secureCompare", () => {
     expect(secureCompare(arr1, arr2)).toBe(false);
   });
 
-  it("should return false for different Uint8Arrays of different lengths (reference shorter)", () => {
+  it("should return false for different Uint8Arrays of different lengths (expected shorter)", () => {
     const arr1 = new Uint8Array([1, 2, 3]);
     const arr2 = new Uint8Array([1, 2, 3, 4]);
     expect(secureCompare(arr1, arr2)).toBe(false);
   });
 
-  it("should return false for different Uint8Arrays of different lengths (incoming shorter)", () => {
+  it("should return false for different Uint8Arrays of different lengths (received shorter)", () => {
     const arr1 = new Uint8Array([1, 2, 3, 4]);
     const arr2 = new Uint8Array([1, 2, 3]);
     expect(secureCompare(arr1, arr2)).toBe(false);
@@ -49,13 +49,13 @@ describe.concurrent("secureCompare", () => {
     expect(secureCompare(str1, str2)).toBe(false);
   });
 
-  it("should return false for different strings of different lengths (reference shorter)", () => {
+  it("should return false for different strings of different lengths (expected shorter)", () => {
     const str1 = "abc";
     const str2 = "abcd";
     expect(secureCompare(str1, str2)).toBe(false);
   });
 
-  it("should return false for different strings of different lengths (incoming shorter)", () => {
+  it("should return false for different strings of different lengths (received shorter)", () => {
     const str1 = "abcd";
     const str2 = "abc";
     expect(secureCompare(str1, str2)).toBe(false);
@@ -75,15 +75,15 @@ describe.concurrent("secureCompare", () => {
     expect(secureCompare(arr, str)).toBe(false);
   });
 
-  // Test cases for undefined incoming
-  it("should return false when incoming is undefined (string reference)", () => {
-    const reference = "some_secure_value";
-    expect(secureCompare(reference, undefined)).toBe(false);
+  // Test cases for undefined received
+  it("should return false when received is undefined (string expected)", () => {
+    const expected = "some_secure_value";
+    expect(secureCompare(expected, undefined)).toBe(false);
   });
 
-  it("should return false when incoming is undefined (Uint8Array reference)", () => {
-    const reference = new Uint8Array([10, 20, 30]);
-    expect(secureCompare(reference, undefined)).toBe(false);
+  it("should return false when received is undefined (Uint8Array expected)", () => {
+    const expected = new Uint8Array([10, 20, 30]);
+    expect(secureCompare(expected, undefined)).toBe(false);
   });
 
   // Test with special characters
@@ -101,10 +101,10 @@ describe.concurrent("secureCompare", () => {
   });
 
   // Test errors
-  it("should throw an error when reference is undefined", () => {
+  it("should throw an error when expected is undefined", () => {
     // @ts-expect-error
     expect(() => secureCompare(undefined, "test")).toThrow(
-      "Cannot verify. Reference is undefined.",
+      "Cannot verify. Expected value is empty or undefined.",
     );
   });
 });

@@ -2,12 +2,18 @@ import { textEncoder } from "./utils.ts";
 
 /**
  * Compares two inputs (Uint8Array or string) in a way that is safe against timing attacks.
- * It takes a constant amount of time to execute, regardless of whether thearrays match
- * or where the first difference occurs, or if the `incoming` value is `undefined`.
+ * It takes a constant amount of time to execute, regardless of whether the values match,
+ * where the first difference occurs, or if the `received` value is `undefined`.
  *
- * @param reference The known secure reference point. This argument is always expected to be present.
- * @param incoming The incoming data to be verified against the reference. This argument can be undefined.
- * @returns Returns a boolean if the data does match or not.
+ * **Important:** The `expected` parameter determines the loop length. Always pass the
+ * trusted, server-side value as `expected` and the untrusted, user-provided value as
+ * `received`. Swapping them could leak length information about the attacker's input.
+ *
+ * @param expected The known, trusted value (e.g. a computed HMAC or stored token).
+ *                 This argument is always expected to be present.
+ * @param received The untrusted, user-provided value to verify against `expected`.
+ *                 This argument can be undefined (returns `false`).
+ * @returns `true` if the values match, `false` otherwise.
  *
  * @example
  * // Comparing two strings
@@ -29,34 +35,34 @@ import { textEncoder } from "./utils.ts";
  * secureCompare('my_secure_token', tokenBytes); // true
  *
  * @example
- * // Handling undefined incoming data in a timing-safe manner
- * secureCompare('some_reference', undefined); // false
+ * // Handling undefined received data in a timing-safe manner
+ * secureCompare('some_expected_value', undefined); // false
  */
 export function secureCompare(
-  reference: Uint8Array | string,
-  incoming: Uint8Array | string | undefined,
+  expected: Uint8Array | string,
+  received: Uint8Array | string | undefined,
 ): boolean {
-  if (!reference || reference.length === 0) {
-    throw new Error("Cannot verify. Reference is undefined.");
+  if (!expected || expected.length === 0) {
+    throw new Error("Cannot verify. Expected value is empty or undefined.");
   }
 
-  const a = _toUint8Array(reference);
+  const a = _toUint8Array(expected);
 
   // To prevent timing attacks, the execution path must be consistent
-  // regardless of whether `incoming` is defined or not.
+  // regardless of whether `received` is defined or not.
   let b: Uint8Array;
-  let isIncomingUndefined = 0; // bitwise operation
+  let isReceivedUndefined = 0;
 
-  if (incoming === undefined) {
+  if (received === undefined) {
     b = new Uint8Array(0);
-    isIncomingUndefined = 1;
+    isReceivedUndefined = 1;
   } else {
-    b = _toUint8Array(incoming);
+    b = _toUint8Array(received);
   }
 
-  let mismatch = isIncomingUndefined || a.length ^ b.length;
+  let mismatch = isReceivedUndefined | (a.length ^ b.length);
 
-  // This ensures a constant number of loop iterations based on the reference length.
+  // This ensures a constant number of loop iterations based on the expected length.
   for (const [i, element] of a.entries()) {
     // Bitwise OR (`|`) accumulates mismatches. If `element` and `b[i]` are
     // different, their XOR result will be non-zero.
