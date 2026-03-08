@@ -1,3 +1,4 @@
+export * from "./entropy.ts";
 export * from "./generate.ts";
 export * from "./hash.ts";
 export * from "./sanitize.ts";
