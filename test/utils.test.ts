@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   createSecureRandomGenerator,
+  secureRandomBytes,
   secureRandomNumber,
   secureShuffle,
   base64Decode,
@@ -323,6 +324,45 @@ describe.concurrent("Utility Functions", () => {
         expect(num).toBeGreaterThanOrEqual(0);
         expect(num).toBeLessThan(1000);
       }
+    });
+  });
+
+  describe("secureRandomBytes(length)", () => {
+    it("should return a Uint8Array of the requested length", () => {
+      const bytes = secureRandomBytes(32);
+      expect(bytes).toBeInstanceOf(Uint8Array);
+      expect(bytes.length).toBe(32);
+    });
+
+    it("should return an empty Uint8Array for length 0", () => {
+      const bytes = secureRandomBytes(0);
+      expect(bytes).toBeInstanceOf(Uint8Array);
+      expect(bytes.length).toBe(0);
+    });
+
+    it("should produce different output on successive calls", () => {
+      const a = secureRandomBytes(32);
+      const b = secureRandomBytes(32);
+      // Extremely unlikely to be equal
+      expect(a).not.toEqual(b);
+    });
+
+    it("should handle lengths larger than the 65536-byte getRandomValues limit", () => {
+      const bytes = secureRandomBytes(65537);
+      expect(bytes.length).toBe(65537);
+      // Verify it's not all zeros (would indicate second chunk wasn't filled)
+      const secondChunkSlice = bytes.subarray(65536);
+      expect(secondChunkSlice.some((b) => b !== 0)).toBe(true);
+    });
+
+    it("should throw RangeError for negative length", () => {
+      expect(() => secureRandomBytes(-1)).toThrow(RangeError);
+      expect(() => secureRandomBytes(-1)).toThrow("length must be a non-negative integer.");
+    });
+
+    it("should throw RangeError for non-integer length", () => {
+      expect(() => secureRandomBytes(3.14)).toThrow(RangeError);
+      expect(() => secureRandomBytes(3.14)).toThrow("length must be a non-negative integer.");
     });
   });
 

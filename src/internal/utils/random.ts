@@ -247,6 +247,30 @@ export function secureRandomNumber(
 }
 
 /**
+ * Generate a Uint8Array of cryptographically secure random bytes.
+ *
+ * @param length Number of random bytes to generate.
+ * @returns A Uint8Array filled with random bytes.
+ *
+ * @example
+ * const key = secureRandomBytes(32); // 256-bit key material
+ */
+export function secureRandomBytes(length: number): Uint8Array<ArrayBuffer> {
+  if (!Number.isInteger(length) || length < 0) {
+    throw new RangeError("length must be a non-negative integer.");
+  }
+  const bytes = new Uint8Array(length);
+  if (length > 0) {
+    // crypto.getRandomValues has a 65536-byte limit per call
+    for (let offset = 0; offset < length; offset += 65536) {
+      const chunk = bytes.subarray(offset, Math.min(offset + 65536, length));
+      crypto.getRandomValues(chunk);
+    }
+  }
+  return bytes;
+}
+
+/**
  * Shuffles an array in-place using the Fisher-Yates algorithm with a
  * cryptographically secure random number generator.
  * @template T
