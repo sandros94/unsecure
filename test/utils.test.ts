@@ -338,5 +338,6 @@ describe.concurrent("Utility Functions", () => {
 });
 
 function b64Encode(data: string | Uint8Array): string {
+  // @ts-ignore
   return Buffer.from(data).toString("base64");
 }

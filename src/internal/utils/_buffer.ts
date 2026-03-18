@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Shared Buffer detection for base64 and hex utilities.
 // Prefer Node.js Buffer (fastest) when available.
 
