@@ -6,7 +6,7 @@
       "Bash(pnpm test:coverage:*)",
       "Bash(pnpm build:*)",
       "Bash(pnpm lint:*)",
-      "Bash(pnpm format:*)",
+      "Bash(pnpm fmt:*)",
       "Bash(pnpm bench:*)",
       "Bash(pnpm vitest:*)"
     ]

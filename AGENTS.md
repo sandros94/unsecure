@@ -7,9 +7,9 @@
 ## Commands
 
 - **Build:** `pnpm build` (uses `obuild`)
-- **Dev:** `pnpm dev` (runs `playground/main.ts` with bun --watch)
+- **Dev prepare:** `pnpm dev:prepare` (runs `obuild --stub` for development stubs)
 - **Lint:** `pnpm lint` (runs `oxlint` then `oxfmt --check`)
-- **Format:** `pnpm format` (runs `automd`, `oxlint --fix`, `oxfmt`)
+- **Format:** `pnpm fmt` (runs `automd`, `oxlint --fix`, `oxfmt`)
 - **Typecheck:** `pnpm typecheck` (uses `tsgo --noEmit`)
 - **Test all:** `pnpm test` (vitest run)
 - **Test single file:** `pnpm vitest run test/<file>.test.ts`
@@ -20,7 +20,7 @@
 
 Two entry points exported via `package.json` exports:
 
-- **`unsecure`** (main) — `src/index.ts` re-exports from:
+- **`unsecure`** (main) — `src/index.ts` re-exports from (also re-exports `utils` as a namespace via `export * as utils`):
   - `src/hash.ts` — `hash()`: async hashing via `crypto.subtle.digest`
   - `src/hmac.ts` — `hmac()`, `hmacVerify()`: HMAC signing and constant-time verification
   - `src/otp.ts` — `hotp()`, `hotpVerify()`, `totp()`, `totpVerify()`, `generateOTPSecret()`, `otpauthURI()`: RFC 4226/6238 OTP
@@ -41,7 +41,7 @@ The `src/random.ts` generator uses a 256-element `Uint32Array` buffer to batch `
 ## Key Conventions
 
 - All crypto uses the Web Crypto API (`crypto.subtle`, `crypto.getRandomValues`) — no Node.js-specific crypto imports
-- Package manager is **pnpm** (v10.30.3, via corepack)
+- Package manager is **pnpm** (v10.32.1, via corepack)
 - Linting uses **oxlint** and formatting uses **oxfmt** (not eslint/prettier)
 - TypeScript checking uses **tsgo** (not tsc)
 - Build uses **obuild** (not unbuild)
