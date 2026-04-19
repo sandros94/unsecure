@@ -4,6 +4,21 @@
 
 `unsecure` is a zero-dependency, runtime-agnostic library of cryptographically-secure utilities built on the Web Crypto API. It targets Node.js ^22.12 or >=24, and works in any runtime supporting Web Crypto (browsers, Bun, Deno).
 
+## Core Principle — Ask First
+
+**When in doubt, ask before acting.** It is always more important to understand the vision and the request than to assume. There is no shame or wasted time in asking clarifying questions — this applies to every conversation and every task in this project.
+
+### Q&A Sessions
+
+When a task involves design decisions, ambiguity, or changes to the project vision, run a structured Q&A session before implementing. Format each question with **2–4 concrete options** the user can pick from, mix, or override with a custom answer. This keeps sessions concise and efficient:
+
+- **Number questions** (Q1, Q2, …) so answers can reference them quickly.
+- **Each option** should be a short, self-contained description (1–2 sentences) with a label (A, B, C, D).
+- **Avoid open-ended questions** — always propose options. If genuinely unsure, provide your best guesses as options.
+- **Group related questions** in a single message rather than asking one at a time.
+- After answers, **synthesize** the decisions into a summary and confirm before implementing.
+- If the answers reveal further ambiguity, do another focused round — don't assume.
+
 ## Commands
 
 - **Build:** `pnpm build` (uses `obuild`)
