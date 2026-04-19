@@ -38,6 +38,7 @@ Two entry points exported via `package.json` exports:
 - **`unsecure`** (main) — `src/index.ts` re-exports from (also re-exports `utils` as a namespace via `export * as utils`):
   - `src/hash.ts` — `hash()`: async hashing via `crypto.subtle.digest`
   - `src/hmac.ts` — `hmac()`, `hmacVerify()`: HMAC signing and constant-time verification
+  - `src/hkdf.ts` — `hkdf()`: HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`, with `returnAs` matching `hash`/`hmac`
   - `src/otp.ts` — `hotp()`, `hotpVerify()`, `totp()`, `totpVerify()`, `generateOTPSecret()`, `otpauthURI()`: RFC 4226/6238 OTP
   - `src/generate.ts` — `secureGenerate()`: secure string/token generation with customizable charsets, buffered RNG
   - `src/compare.ts` — `secureCompare()`: constant-time comparison (returns `false` on empty/undefined `expected` by default; opt-in `strict: true` preserves the pre-0.2 throw)

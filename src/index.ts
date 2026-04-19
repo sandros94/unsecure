@@ -2,6 +2,7 @@ export * from "./compare.ts";
 export * from "./entropy.ts";
 export * from "./generate.ts";
 export * from "./hash.ts";
+export * from "./hkdf.ts";
 export * from "./hmac.ts";
 export * from "./otp.ts";
 export * from "./random.ts";

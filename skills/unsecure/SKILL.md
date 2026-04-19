@@ -38,6 +38,10 @@ Load the relevant file(s) based on what the user needs:
 
 SHA hashing via `crypto.subtle.digest`. Load when working with `hash()`, content hashing, data integrity checks, or token storage patterns.
 
+### [hkdf.md](./references/hkdf.md)
+
+HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`. Load when working with `hkdf()`, deriving session keys, domain-separating keys via `info`, or expanding shared secrets into key material.
+
 ### [hmac.md](./references/hmac.md)
 
 HMAC signing and verification. Load when working with `hmac()`, `hmacVerify()`, webhook signature verification, or message authentication.

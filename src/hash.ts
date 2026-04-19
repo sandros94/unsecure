@@ -1,4 +1,5 @@
-import { hexEncode, base64Encode, base64UrlEncode, textEncoder } from "./utils.ts";
+import { encodeBytes } from "./internal/encoding.ts";
+import { textEncoder } from "./utils.ts";
 
 export type DigestAlgorithm = "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512";
 export type DigestReturnAs =
@@ -80,24 +81,5 @@ export async function hash(
 
   const effectiveReturnAs = returnAs ?? (isBufferInput ? "uint8array" : "hex");
 
-  switch (effectiveReturnAs) {
-    case "bytes":
-    case "uint8array": {
-      return hashBytes;
-    }
-    case "hex": {
-      return hexEncode(hashBytes);
-    }
-    case "b64":
-    case "base64": {
-      return base64Encode(hashBytes);
-    }
-    case "b64url":
-    case "base64url": {
-      return base64UrlEncode(hashBytes);
-    }
-    default: {
-      throw new Error(`Unsupported hash "returnAs" option: ${returnAs}`);
-    }
-  }
+  return encodeBytes(hashBytes, effectiveReturnAs, "hash");
 }

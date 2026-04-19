@@ -1,5 +1,6 @@
 import type { DigestOptions, DigestReturnAs } from "./hash.ts";
-import { hexEncode, base64Encode, base64UrlEncode, textEncoder } from "./utils.ts";
+import { encodeBytes } from "./internal/encoding.ts";
+import { textEncoder } from "./utils.ts";
 import { secureCompare } from "./compare.ts";
 
 /**
@@ -66,26 +67,7 @@ export async function hmac(
 
   const effectiveReturnAs = returnAs ?? (isBufferInput ? "uint8array" : "hex");
 
-  switch (effectiveReturnAs) {
-    case "bytes":
-    case "uint8array": {
-      return signature;
-    }
-    case "hex": {
-      return hexEncode(signature);
-    }
-    case "b64":
-    case "base64": {
-      return base64Encode(signature);
-    }
-    case "b64url":
-    case "base64url": {
-      return base64UrlEncode(signature);
-    }
-    default: {
-      throw new Error(`Unsupported hmac "returnAs" option: ${returnAs}`);
-    }
-  }
+  return encodeBytes(signature, effectiveReturnAs, "hmac");
 }
 
 /**
