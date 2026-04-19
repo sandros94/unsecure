@@ -43,7 +43,8 @@ Two entry points exported via `package.json` exports:
   - `src/compare.ts` — `secureCompare()`: constant-time comparison (returns `false` on empty/undefined `expected` by default; opt-in `strict: true` preserves the pre-0.2 throw)
   - `src/entropy.ts` — `entropy()`: Shannon entropy analysis
   - `src/random.ts` — `createSecureRandomGenerator()`, `secureRandomNumber()`, `secureRandomBytes()`, `secureShuffle()`, `randomJitter()`
-  - `src/sanitize.ts` — `sanitizeObject()`: in-place prototype-pollution sanitization
+  - `src/sanitize.ts` — `sanitizeObject()` (in-place, single-pass), `sanitizeObjectCopy()` (non-mutating, cycle-preserving copy), `safeJsonParse()` (parse-time prototype-pollution reviver)
+  - `src/internal/encoding.ts` — shared `encodeBytes(bytes, returnAs, source)` helper used by `hash`, `hmac`, and `hkdf` to keep `returnAs` behavior consistent
 
 - **`unsecure/utils`** — `src/utils.ts` re-exports from `src/internal/utils/`:
   - `base32.ts` — base32 encode/decode (RFC 4648)

@@ -64,7 +64,7 @@ Randomness utilities. Load when working with `createSecureRandomGenerator()`, `s
 
 ### [sanitize.md](./references/sanitize.md)
 
-Prototype-pollution sanitization. Load when working with `sanitizeObject()`, untrusted JSON input, or request body sanitization middleware.
+Prototype-pollution sanitization. Load when working with `sanitizeObject()`, `sanitizeObjectCopy()`, `safeJsonParse()`, untrusted JSON input, or request body sanitization middleware.
 
 ### [utils.md](./references/utils.md)
 
