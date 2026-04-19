@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { hotp, hotpVerify, totp, totpVerify, generateOTPSecret, otpauthURI } from "../src/otp.ts";
-import { base32Encode, base32Decode } from "../src/internal/utils/base32.ts";
+import { base32Encode, base32Decode } from "../src/utils/index.ts";
 
 // RFC 4226 test secret: ASCII "12345678901234567890" (20 bytes)
 const RFC4226_SECRET = new TextEncoder().encode("12345678901234567890");

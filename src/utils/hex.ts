@@ -1,6 +1,5 @@
-import { textEncoder, textDecoder } from "../../utils.ts";
+import { type DecodeReturnAs, textEncoder, textDecoder } from "./index.ts";
 import { _Buffer, _hasBuffer, _toBuffer } from "./_buffer.ts";
-import type { DecodeReturnAs } from "./types.ts";
 
 // #region Internal utilities
 

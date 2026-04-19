@@ -1,6 +1,6 @@
 import type { DigestOptions, DigestReturnAs } from "./hash.ts";
-import { encodeBytes } from "./internal/encoding.ts";
-import { textEncoder } from "./utils.ts";
+import { encodeBytes } from "./_internal/encoding.ts";
+import { textEncoder } from "./utils/index.ts";
 import { secureCompare } from "./compare.ts";
 
 /**

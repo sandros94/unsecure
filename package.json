@@ -16,11 +16,13 @@
   "types": "./dist/index.d.mts",
   "exports": {
     "./package.json": "./package.json",
-    "./utils": "./dist/utils.mjs",
     ".": {
       "types": "./dist/index.d.mts",
-      "utils": "./dist/utils.mjs",
       "default": "./dist/index.mjs"
+    },
+    "./utils": {
+      "types": "./dist/utils/index.d.mts",
+      "default": "./dist/utils/index.mjs"
     }
   },
   "scripts": {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { secureCompare } from "../src/compare.ts";
-import { textEncoder } from "../src/utils.ts";
+import { textEncoder } from "../src/utils/index.ts";
 
 describe.concurrent("secureCompare", () => {
   // Test cases for matching data

@@ -1,6 +1,6 @@
 import type { DigestAlgorithm } from "./hash.ts";
 import { hmac } from "./hmac.ts";
-import { base32Encode, base32Decode } from "./internal/utils/base32.ts";
+import { base32Encode, base32Decode } from "./utils/index.ts";
 import { secureRandomBytes } from "./random.ts";
 import { secureCompare } from "./compare.ts";
 

@@ -8,7 +8,7 @@ import {
   base64UrlEncode,
   hexDecode,
   hexEncode,
-} from "../src/utils.ts";
+} from "../src/utils/index.ts";
 
 describe.concurrent("Utility Functions", () => {
   describe("Base32 Encoding/Decoding", () => {

@@ -1,4 +1,4 @@
-import { textEncoder } from "./utils.ts";
+import { textEncoder } from "./utils/index.ts";
 
 export interface SecureCompareOptions {
   /**

@@ -1,6 +1,5 @@
-import { textEncoder, textDecoder } from "../../utils.ts";
+import { type DecodeReturnAs, textEncoder, textDecoder } from "./index.ts";
 import { _Buffer, _hasBuffer, _toBuffer } from "./_buffer.ts";
-import type { DecodeReturnAs } from "./types.ts";
 
 // Re-export so existing deep imports keep resolving; the public
 // `unsecure/utils` surface also re-exports this type via `src/utils.ts`.

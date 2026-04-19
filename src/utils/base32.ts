@@ -1,5 +1,4 @@
-import { textDecoder, textEncoder } from "../../utils.ts";
-import type { DecodeReturnAs } from "./types.ts";
+import { type DecodeReturnAs, textEncoder, textDecoder } from "./index.ts";
 
 const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 

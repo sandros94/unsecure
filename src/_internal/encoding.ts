@@ -1,5 +1,5 @@
+import { base64Encode, base64UrlEncode, hexEncode } from "../utils/index.ts";
 import type { DigestReturnAs } from "../hash.ts";
-import { base64Encode, base64UrlEncode, hexEncode } from "../utils.ts";
 
 /**
  * Encode raw bytes into the format requested by a `returnAs` option.

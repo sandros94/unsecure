@@ -1,5 +1,5 @@
-import { encodeBytes } from "./internal/encoding.ts";
-import { textEncoder } from "./utils.ts";
+import { encodeBytes } from "./_internal/encoding.ts";
+import { textEncoder } from "./utils/index.ts";
 
 export type DigestAlgorithm = "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512";
 export type DigestReturnAs =

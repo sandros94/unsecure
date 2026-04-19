@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { hash } from "../src/hash.ts";
-import { hexEncode, base64Encode, base64UrlEncode } from "../src/utils.ts";
+import { hexEncode, base64Encode, base64UrlEncode } from "../src/utils/index.ts";
 
 describe("hash utility", () => {
   const testString =

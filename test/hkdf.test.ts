@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { hkdf } from "../src/hkdf.ts";
-import { hexDecode, hexEncode, base64Encode, base64UrlEncode } from "../src/utils.ts";
+import { hexDecode, hexEncode, base64Encode, base64UrlEncode } from "../src/utils/index.ts";
 
 // RFC 5869 Appendix A test vectors.
 // Each vector's IKM / salt / info / expected OKM are given as hex strings.
