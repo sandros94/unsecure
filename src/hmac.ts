@@ -1,6 +1,6 @@
 import type { DigestOptions, DigestReturnAs } from "./hash.ts";
 import { hexEncode, base64Encode, base64UrlEncode, textEncoder } from "./utils.ts";
-import { secureCompare } from "./verification.ts";
+import { secureCompare } from "./compare.ts";
 
 /**
  * Compute an HMAC signature for the given data using a secret key.

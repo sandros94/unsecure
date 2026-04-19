@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { secureCompare } from "../src/verification.ts";
+import { secureCompare } from "../src/compare.ts";
 import { textEncoder } from "../src/utils.ts";
 
 describe.concurrent("secureCompare", () => {
@@ -100,11 +100,41 @@ describe.concurrent("secureCompare", () => {
     expect(secureCompare(testUint8Array, modifiedUint8Array)).toBe(false);
   });
 
-  // Test errors
-  it("should throw an error when expected is undefined", () => {
-    // @ts-expect-error
-    expect(() => secureCompare(undefined, "test")).toThrow(
+  // Empty / undefined expected — default behavior: return false, do not throw
+  it("returns false when expected is undefined (default)", () => {
+    expect(secureCompare(undefined, "test")).toBe(false);
+  });
+
+  it("returns false when expected is an empty string (default)", () => {
+    expect(secureCompare("", "test")).toBe(false);
+  });
+
+  it("returns false when expected is an empty Uint8Array (default)", () => {
+    expect(secureCompare(new Uint8Array(0), "test")).toBe(false);
+  });
+
+  it("still returns false (not true) when both expected and received are empty/undefined", () => {
+    // Avoids the footgun where empty == empty could be read as "valid match".
+    expect(secureCompare(undefined, undefined)).toBe(false);
+    expect(secureCompare("", "")).toBe(false);
+    expect(secureCompare(new Uint8Array(0), new Uint8Array(0))).toBe(false);
+  });
+
+  // Opt-in strict mode: throw on empty / undefined expected
+  it("throws in strict mode when expected is undefined", () => {
+    expect(() => secureCompare(undefined, "test", { strict: true })).toThrow(
       "Cannot verify. Expected value is empty or undefined.",
     );
+  });
+
+  it("throws in strict mode when expected is an empty string", () => {
+    expect(() => secureCompare("", "test", { strict: true })).toThrow(
+      "Cannot verify. Expected value is empty or undefined.",
+    );
+  });
+
+  it("strict: false is equivalent to the default (returns false, does not throw)", () => {
+    expect(secureCompare(undefined, "test", { strict: false })).toBe(false);
+    expect(secureCompare("", "test", { strict: false })).toBe(false);
   });
 });

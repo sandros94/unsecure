@@ -1,5 +1,20 @@
 import { textEncoder } from "./utils.ts";
 
+export interface SecureCompareOptions {
+  /**
+   * When `true`, throws if `expected` is empty or undefined (pre-0.2 behavior).
+   * When `false` (the default since 0.2), returns `false` instead so that
+   * every failure mode produces the same result.
+   *
+   * Leaving this at the default is recommended for most code — the throw
+   * is rarely what callers want, and can be used by an attacker to
+   * distinguish "empty server value" from "mismatch".
+   *
+   * @default false
+   */
+  strict?: boolean;
+}
+
 /**
  * Compares two inputs (Uint8Array or string) in a way that is safe against timing attacks.
  * It takes a constant amount of time to execute, regardless of whether the values match,
@@ -10,9 +25,11 @@ import { textEncoder } from "./utils.ts";
  * `received`. Swapping them could leak length information about the attacker's input.
  *
  * @param expected The known, trusted value (e.g. a computed HMAC or stored token).
- *                 This argument is always expected to be present.
+ *                 If empty or `undefined`, the function returns `false` by default,
+ *                 or throws when `options.strict` is set.
  * @param received The untrusted, user-provided value to verify against `expected`.
- *                 This argument can be undefined (returns `false`).
+ *                 `undefined` yields `false` in timing-safe fashion.
+ * @param options Behavior options. See {@link SecureCompareOptions.strict}.
  * @returns `true` if the values match, `false` otherwise.
  *
  * @example
@@ -35,15 +52,23 @@ import { textEncoder } from "./utils.ts";
  * secureCompare('my_secure_token', tokenBytes); // true
  *
  * @example
- * // Handling undefined received data in a timing-safe manner
+ * // Undefined received value
  * secureCompare('some_expected_value', undefined); // false
+ *
+ * @example
+ * // Opt-in strict mode throws on empty / undefined `expected`
+ * secureCompare(undefined, 'x', { strict: true }); // throws
  */
 export function secureCompare(
-  expected: Uint8Array | string,
+  expected: Uint8Array | string | undefined,
   received: Uint8Array | string | undefined,
+  options?: SecureCompareOptions,
 ): boolean {
   if (!expected || expected.length === 0) {
-    throw new Error("Cannot verify. Expected value is empty or undefined.");
+    if (options?.strict) {
+      throw new Error("Cannot verify. Expected value is empty or undefined.");
+    }
+    return false;
   }
 
   const a = _toUint8Array(expected);

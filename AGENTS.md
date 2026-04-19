@@ -40,7 +40,7 @@ Two entry points exported via `package.json` exports:
   - `src/hmac.ts` — `hmac()`, `hmacVerify()`: HMAC signing and constant-time verification
   - `src/otp.ts` — `hotp()`, `hotpVerify()`, `totp()`, `totpVerify()`, `generateOTPSecret()`, `otpauthURI()`: RFC 4226/6238 OTP
   - `src/generate.ts` — `secureGenerate()`: secure string/token generation with customizable charsets, buffered RNG
-  - `src/verification.ts` — `secureCompare()`: constant-time comparison to prevent timing attacks
+  - `src/compare.ts` — `secureCompare()`: constant-time comparison (returns `false` on empty/undefined `expected` by default; opt-in `strict: true` preserves the pre-0.2 throw)
   - `src/entropy.ts` — `entropy()`: Shannon entropy analysis
   - `src/random.ts` — `createSecureRandomGenerator()`, `secureRandomNumber()`, `secureRandomBytes()`, `secureShuffle()`, `randomJitter()`
   - `src/sanitize.ts` — `sanitizeObject()`: in-place prototype-pollution sanitization

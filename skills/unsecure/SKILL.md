@@ -50,9 +50,9 @@ One-time passwords (RFC 4226 HOTP / RFC 6238 TOTP). Load when working with `hotp
 
 Secure string/token/password generation. Load when working with `secureGenerate()`, API tokens, passwords, PINs, or custom character set generation.
 
-### [verification.md](./references/verification.md)
+### [compare.md](./references/compare.md)
 
-Constant-time comparison. Load when working with `secureCompare()`, timing-attack prevention, or secure equality checks for tokens/secrets.
+Constant-time comparison. Load when working with `secureCompare()`, the `strict` option, timing-attack prevention, or secure equality checks for tokens/secrets.
 
 ### [entropy.md](./references/entropy.md)
 
