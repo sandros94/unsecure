@@ -382,7 +382,8 @@ const text = hexDecode(hex); // "hello"
 
 // Base32 (RFC 4648) — commonly used for OTP secrets
 const b32 = base32Encode("foobar"); // "MZXW6YTBOI======"
-const decoded = base32Decode("MZXW6YTBOI"); // Uint8Array (handles unpadded, case-insensitive)
+const decoded = base32Decode("MZXW6YTBOI"); // "foobar" (mirrors string input)
+const bytes = base32Decode("MZXW6YTBOI", { returnAs: "uint8array" }); // raw bytes
 ```
 
 ### sanitizeObject

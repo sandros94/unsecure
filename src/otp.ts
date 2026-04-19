@@ -96,7 +96,9 @@ function _dynamicTruncate(hmacResult: Uint8Array, digits: number): string {
 
 /** Resolve a secret to raw bytes. Strings are treated as base32. */
 function _resolveSecret(secret: Uint8Array | string): Uint8Array<ArrayBuffer> {
-  return typeof secret === "string" ? base32Decode(secret) : (secret as Uint8Array<ArrayBuffer>);
+  return typeof secret === "string"
+    ? base32Decode(secret, { returnAs: "uint8array" })
+    : (secret as Uint8Array<ArrayBuffer>);
 }
 
 /** Algorithm name mapping for otpauth URIs (no hyphens). */

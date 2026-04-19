@@ -39,6 +39,10 @@ describe.concurrent("Utility Functions", () => {
         expect(base32Encode("")).toBe("");
       });
 
+      it("should handle undefined", () => {
+        expect(base32Encode(undefined)).toBe("");
+      });
+
       it("should handle single byte values", () => {
         // 0x00 = AAAAAAAA
         expect(base32Encode(new Uint8Array([0]))).toBe("AA======");
@@ -47,54 +51,79 @@ describe.concurrent("Utility Functions", () => {
       });
     });
 
-    describe("base32Decode(data)", () => {
+    describe("base32Decode(data, options)", () => {
       for (const [expected, input] of vectors) {
         if (!input) continue; // skip empty → empty case, tested separately
-        it(`should decode "${input}" to "${expected}"`, () => {
-          const decoded = new TextDecoder().decode(base32Decode(input));
-          expect(decoded).toBe(expected);
+        it(`should decode "${input}" to "${expected}" (default: string)`, () => {
+          expect(base32Decode(input)).toBe(expected);
         });
       }
 
+      it("should decode to string by default (string input mirrors)", () => {
+        expect(base32Decode("MZXW6YTBOI")).toBe("foobar");
+      });
+
+      it("should decode to Uint8Array with returnAs 'uint8array'", () => {
+        const decoded = base32Decode("MZXW6YTBOI", { returnAs: "uint8array" });
+        expect(decoded).toEqual(new TextEncoder().encode("foobar"));
+      });
+
+      it("should decode to Uint8Array with returnAs 'bytes' alias", () => {
+        const decoded = base32Decode("MZXW6YTBOI", { returnAs: "bytes" });
+        expect(decoded).toEqual(new TextEncoder().encode("foobar"));
+      });
+
+      it("should mirror input type: Uint8Array in → Uint8Array out", () => {
+        const encodedBytes = new TextEncoder().encode("MZXW6YTBOI");
+        const decoded = base32Decode(encodedBytes);
+        expect(decoded).toBeInstanceOf(Uint8Array);
+        expect(decoded).toEqual(new TextEncoder().encode("foobar"));
+      });
+
+      it("should override mirroring with explicit returnAs", () => {
+        const encodedBytes = new TextEncoder().encode("MZXW6YTBOI");
+        expect(base32Decode(encodedBytes, { returnAs: "string" })).toBe("foobar");
+      });
+
       it("should handle unpadded input", () => {
-        const decoded = new TextDecoder().decode(base32Decode("MZXW6YTBOI"));
-        expect(decoded).toBe("foobar");
+        expect(base32Decode("MZXW6YTBOI")).toBe("foobar");
       });
 
       it("should be case-insensitive", () => {
-        const decoded = new TextDecoder().decode(base32Decode("mzxw6ytboi"));
-        expect(decoded).toBe("foobar");
+        expect(base32Decode("mzxw6ytboi")).toBe("foobar");
       });
 
       it("should handle mixed case", () => {
-        const decoded = new TextDecoder().decode(base32Decode("MzXw6YtBoI"));
-        expect(decoded).toBe("foobar");
+        expect(base32Decode("MzXw6YtBoI")).toBe("foobar");
       });
 
-      it("should return empty Uint8Array for undefined", () => {
-        expect(base32Decode(undefined)).toEqual(new Uint8Array(0));
+      it("should handle undefined input", () => {
+        expect(base32Decode(undefined)).toBe("");
+        expect(base32Decode(undefined as any, { returnAs: "uint8array" })).toEqual(
+          new Uint8Array(0),
+        );
       });
 
-      it("should return empty Uint8Array for empty string", () => {
-        expect(base32Decode("")).toEqual(new Uint8Array(0));
+      it("should handle empty string input", () => {
+        expect(base32Decode("")).toBe("");
+        expect(base32Decode("", { returnAs: "uint8array" })).toEqual(new Uint8Array(0));
       });
 
       it("should skip whitespace and invalid characters", () => {
-        const decoded = new TextDecoder().decode(base32Decode("MZXW 6YTB OI==\n===="));
-        expect(decoded).toBe("foobar");
+        expect(base32Decode("MZXW 6YTB OI==\n====")).toBe("foobar");
       });
 
       it("should roundtrip binary data through encode/decode", () => {
         const original = new Uint8Array([0, 1, 127, 128, 255]);
         const encoded = base32Encode(original);
-        expect(base32Decode(encoded)).toEqual(original);
+        expect(base32Decode(encoded, { returnAs: "uint8array" })).toEqual(original);
       });
 
       it("should roundtrip all single-byte values", () => {
         for (let i = 0; i < 256; i++) {
           const original = new Uint8Array([i]);
           const encoded = base32Encode(original);
-          expect(base32Decode(encoded)).toEqual(original);
+          expect(base32Decode(encoded, { returnAs: "uint8array" })).toEqual(original);
         }
       });
     });
@@ -119,6 +148,10 @@ describe.concurrent("Utility Functions", () => {
       it("should handle empty string", () => {
         expect(base64Encode("")).toBe("");
       });
+
+      it("should handle undefined", () => {
+        expect(base64Encode(undefined)).toBe("");
+      });
     });
 
     describe("base64UrlEncode(data)", () => {
@@ -142,6 +175,10 @@ describe.concurrent("Utility Functions", () => {
 
       it("should handle empty string", () => {
         expect(base64UrlEncode("")).toBe("");
+      });
+
+      it("should handle undefined", () => {
+        expect(base64UrlEncode(undefined)).toBe("");
       });
     });
 
@@ -269,6 +306,10 @@ describe.concurrent("Utility Functions", () => {
 
       it("should handle empty string", () => {
         expect(hexEncode("")).toBe("");
+      });
+
+      it("should handle undefined", () => {
+        expect(hexEncode(undefined)).toBe("");
       });
     });
 

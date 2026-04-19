@@ -1,14 +1,18 @@
-import { textEncoder } from "../../utils.ts";
+import { textDecoder, textEncoder } from "../../utils.ts";
+import type { DecodeReturnAs } from "./types.ts";
 
 const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 /**
  * Encode binary data to a Base32 string (RFC 4648).
  *
+ * Accepts `string` or raw bytes. `undefined` and empty input return `""`.
+ *
  * @param data Raw bytes or a string to encode.
  * @returns A padded Base32-encoded string.
  */
-export function base32Encode(data: Uint8Array<ArrayBuffer> | string): string {
+export function base32Encode(data?: Uint8Array<ArrayBuffer> | string): string {
+  if (!data) return "";
   const bytes = typeof data === "string" ? textEncoder.encode(data) : data;
   if (bytes.length === 0) return "";
 
@@ -37,15 +41,40 @@ export function base32Encode(data: Uint8Array<ArrayBuffer> | string): string {
 }
 
 /**
- * Decode a Base32 string (RFC 4648) to binary data.
- * Handles both padded and unpadded input, case-insensitive.
+ * Decode a Base32 string (RFC 4648). Handles padded or unpadded input,
+ * case-insensitively, and silently skips whitespace and invalid characters.
  *
- * @param data A Base32-encoded string.
- * @returns The decoded bytes.
+ * When `returnAs` is not specified, the return type mirrors the input:
+ * - `string` input → decoded bytes interpreted as UTF-8 (`string`)
+ * - `Uint8Array` input → raw decoded bytes (`Uint8Array`)
+ *
+ * Pass `{ returnAs: "uint8array" }` (or `"bytes"`) to always get bytes,
+ * or `{ returnAs: "string" }` to always get a UTF-8 string.
  */
-export function base32Decode(data?: string): Uint8Array<ArrayBuffer> {
-  if (!data) return new Uint8Array(0);
+export function base32Decode<T extends DecodeReturnAs>(
+  data: string | Uint8Array<ArrayBuffer>,
+  options: { returnAs: T },
+): T extends "string" ? string : Uint8Array<ArrayBuffer>;
+export function base32Decode(data?: string | undefined): string;
+export function base32Decode(data: Uint8Array<ArrayBuffer> | undefined): Uint8Array<ArrayBuffer>;
+export function base32Decode(
+  data?: string | Uint8Array<ArrayBuffer> | undefined,
+  options?: { returnAs?: DecodeReturnAs },
+): Uint8Array<ArrayBuffer> | string {
+  const isBufferInput = data instanceof Uint8Array;
+  const str = isBufferInput ? textDecoder.decode(data) : data;
+  const effectiveReturnAs = options?.returnAs ?? (isBufferInput ? "uint8array" : "string");
+  const decodeToString = effectiveReturnAs === "string";
 
+  if (!str) {
+    return decodeToString ? "" : new Uint8Array(0);
+  }
+
+  const bytes = _base32DecodeToBytes(str);
+  return decodeToString ? textDecoder.decode(bytes) : bytes;
+}
+
+function _base32DecodeToBytes(data: string): Uint8Array<ArrayBuffer> {
   const output = new Uint8Array(Math.floor((data.length * 5) / 8));
   let bits = 0;
   let value = 0;

@@ -1,6 +1,6 @@
 import { textEncoder, textDecoder } from "../../utils.ts";
 import { _Buffer, _hasBuffer, _toBuffer } from "./_buffer.ts";
-import type { DecodeReturnAs } from "./base64.ts";
+import type { DecodeReturnAs } from "./types.ts";
 
 // #region Internal utilities
 
@@ -9,8 +9,11 @@ const _hasFromHex = !_hasBuffer && typeof (Uint8Array as any).fromHex === "funct
 
 // #region Public API
 
-/* Hex encoding function */
-export function hexEncode(data: Uint8Array<ArrayBuffer> | string): string {
+/**
+ * Hex encoding. Accepts `string`, raw bytes, or `undefined` (returns `""`).
+ */
+export function hexEncode(data?: Uint8Array<ArrayBuffer> | string): string {
+  if (!data) return "";
   if (_hasBuffer) {
     return _toBuffer(data).toString("hex");
   }
@@ -28,10 +31,10 @@ export function hexDecode<T extends DecodeReturnAs>(
   data: string | Uint8Array<ArrayBuffer>,
   options: { returnAs: T },
 ): T extends "string" ? string : Uint8Array<ArrayBuffer>;
-export function hexDecode(data?: string): string;
-export function hexDecode(data: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer>;
+export function hexDecode(data?: string | undefined): string;
+export function hexDecode(data: Uint8Array<ArrayBuffer> | undefined): Uint8Array<ArrayBuffer>;
 export function hexDecode(
-  data?: string | Uint8Array<ArrayBuffer>,
+  data?: string | Uint8Array<ArrayBuffer> | undefined,
   options?: { returnAs?: DecodeReturnAs },
 ): Uint8Array<ArrayBuffer> | string {
   const isBufferInput = data instanceof Uint8Array;

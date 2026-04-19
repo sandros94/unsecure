@@ -56,10 +56,11 @@ Commonly used for OTP secrets.
 ```ts
 base32Encode("foobar"); // "MZXW6YTBOI======"
 base32Encode(new Uint8Array([1, 2])); // padded base32 string
-base32Decode("MZXW6YTBOI"); // Uint8Array (case-insensitive, handles unpadded)
+base32Decode("MZXW6YTBOI"); // "foobar" (mirrors string input)
+base32Decode("MZXW6YTBOI", { returnAs: "uint8array" }); // raw bytes
 ```
 
-Note: `base32Decode` always returns `Uint8Array` (no string return mode).
+`base32Decode` matches `base64Decode` / `hexDecode`: decoding a `string` input returns a UTF-8 string by default; decoding a `Uint8Array` returns bytes by default. Use `returnAs` to override. Input is case-insensitive and ignores whitespace / padding.
 
 ## Shared Instances
 
@@ -72,12 +73,14 @@ const str = textDecoder.decode(bytes);
 
 ## Return Type Inference
 
-Decode functions (`hexDecode`, `base64Decode`, `base64UrlDecode`) mirror input type by default:
+All four decoders (`hexDecode`, `base64Decode`, `base64UrlDecode`, `base32Decode`) mirror input type by default:
 
-- `string` input → `string` output
-- `Uint8Array` input → `Uint8Array` output
+- `string` input → `string` output (decoded bytes interpreted as UTF-8)
+- `Uint8Array` input → `Uint8Array` output (raw decoded bytes)
 
-Override with `{ returnAs: "uint8array" | "string" }`.
+Override with `{ returnAs: "uint8array" | "bytes" | "string" }`.
+
+All four encoders (`hexEncode`, `base64Encode`, `base64UrlEncode`, `base32Encode`) accept `string`, `Uint8Array`, or `undefined` (returns `""`). This makes them safe to use on optional fields without pre-normalizing.
 
 ## Pitfall: Ignoring the returnAs Type System
 

@@ -235,7 +235,7 @@ describe("generateOTPSecret()", () => {
     const secret = generateOTPSecret(32);
     // 32 bytes → ceil(32 * 8 / 5) = 52 chars (with 4 padding chars stripped)
     // Actually: 32 bytes = 256 bits, 256/5 = 51.2, so 52 base32 chars, padded to 56, minus padding
-    const decoded = base32Decode(secret);
+    const decoded = base32Decode(secret, { returnAs: "uint8array" });
     expect(decoded).toHaveLength(32);
   });
 
@@ -247,7 +247,7 @@ describe("generateOTPSecret()", () => {
 
   it("should roundtrip through base32 decode", () => {
     const secret = generateOTPSecret();
-    const bytes = base32Decode(secret);
+    const bytes = base32Decode(secret, { returnAs: "uint8array" });
     expect(bytes).toHaveLength(20);
   });
 });
