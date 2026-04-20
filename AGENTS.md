@@ -42,7 +42,7 @@ Two entry points exported via `package.json` exports:
   - `src/otp.ts` — `hotp()`, `hotpVerify()`, `totp()`, `totpVerify()`, `generateOTPSecret()`, `otpauthURI()`: RFC 4226/6238 OTP
   - `src/generate.ts` — `secureGenerate()`: secure string/token generation with customizable charsets, buffered RNG
   - `src/compare.ts` — `secureCompare()`: constant-time comparison (returns `false` on empty/undefined `expected` by default; opt-in `strict: true` preserves the pre-0.2 throw)
-  - `src/entropy.ts` — `entropy()`: Shannon entropy analysis
+  - `src/entropy.ts` — `entropy()`: Shannon unigram entropy + bigram entropy (catches local structure) + longest-monotonic-run detection (catches sorted/reverse-sorted fakes). All additive; unigram fields unchanged.
   - `src/random.ts` — `createSecureRandomGenerator()`, `secureRandomNumber()`, `secureRandomBytes()`, `secureShuffle()`, `randomJitter()`
   - `src/sanitize.ts` — `sanitizeObject()` (in-place, single-pass), `sanitizeObjectCopy()` (non-mutating, cycle-preserving copy), `safeJsonParse()` (parse-time prototype-pollution reviver)
   - `src/uuid.ts` — `uuidv4()`, `uuidv7(timestamp?)`, `secureUUID` (alias of `uuidv7`), `createUUIDv7Generator()` (dual-clock: counter driven by `Date.now()` for per-process uniqueness, embedded ts honors the optional caller argument verbatim — RFC 9562 §6.2 Method 3 counter, safe for out-of-order backfills; a throwing `.next(invalid)` does not mutate state), `uuidv7Timestamp()`, `isUUIDv4()`, `isUUIDv7()`
