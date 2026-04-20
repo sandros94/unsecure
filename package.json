@@ -1,6 +1,6 @@
 {
   "name": "unsecure",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Low-level Security utilities",
   "license": "MIT",
   "author": {

@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.1
+
+[compare changes](https://github.com/sandros94/unsecure/compare/v0.2.0...v0.2.1)
+
+### 🩹 Fixes
+
+- Do not allow nullish base32/64/hex inputs ([5ebec0d](https://github.com/sandros94/unsecure/commit/5ebec0d))
+
+### ❤️ Contributors
+
+- Sandro Circi ([@sandros94](https://github.com/sandros94))
+
 ## v0.2.0
 
 [compare changes](https://github.com/sandros94/unsecure/compare/v0.1.0...v0.2.0)
