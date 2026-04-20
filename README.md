@@ -22,13 +22,11 @@ Import:
 ```js
 // Main functions
 import {
+  // Hashing / MAC / KDF
   hash,
   hmac,
   hmacVerify,
-  secureGenerate,
-  secureCompare,
-  entropy,
-  sanitizeObject,
+  hkdf,
   // OTP
   hotp,
   hotpVerify,
@@ -36,31 +34,53 @@ import {
   totpVerify,
   generateOTPSecret,
   otpauthURI,
+  // UUID
+  uuidv4,
+  uuidv7,
+  secureUUID,
+  createUUIDv7Generator,
+  uuidv7Timestamp,
+  isUUIDv4,
+  isUUIDv7,
+  // Generation / comparison / entropy
+  secureGenerate,
+  secureCompare,
+  entropy,
+  // Sanitization
+  sanitizeObject,
+  sanitizeObjectCopy,
+  safeJsonParse,
   // Randomness
   createSecureRandomGenerator,
   secureRandomNumber,
   secureRandomBytes,
   secureShuffle,
   randomJitter,
-} from "unsecure";
-// Utility functions
-import {
+  // Encoding (also available via `unsecure/utils`)
   hexEncode,
   hexDecode,
   base64Encode,
   base64Decode,
+  base64UrlEncode,
+  base64UrlDecode,
   base32Encode,
   base32Decode,
-  // ...
-} from "unsecure/utils";
+} from "unsecure";
 ```
 
 **CDN** (Deno, Bun and Browsers)
 
+For CDN delivery, prefer the per-module subpaths — each module ships as its own bundle so only the bytes you import are downloaded.
+
 ```js
-import { hash, hmac, totp, secureGenerate } from "https://esm.sh/unsecure";
-import { hexEncode, base64Encode, base32Encode } from "https://esm.sh/unsecure/utils";
+// Per-module — ships only what the module needs
+import { uuidv7, createUUIDv7Generator } from "https://esm.sh/unsecure/uuid";
+import { hkdf } from "https://esm.sh/unsecure/hkdf";
+import { totp, generateOTPSecret } from "https://esm.sh/unsecure/otp";
+import { base64Encode, base32Decode } from "https://esm.sh/unsecure/utils";
 ```
+
+Each of `compare`, `entropy`, `generate`, `hash`, `hkdf`, `hmac`, `otp`, `random`, `sanitize`, `uuid`, `utils` is an independent subpath.
 
 ### hash
 
@@ -130,6 +150,40 @@ const valid = await hmacVerify(secret, body, expectedBase64Sig, {
   returnAs: "base64",
 });
 ```
+
+### hkdf
+
+HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`. Extract-and-expand from **high-entropy** input keying material — shared secrets, ECDH output, seeds. For **password-based** derivation use PBKDF2/Argon2 instead; HKDF has no work factor.
+
+options:
+
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`)
+- **length**: output length in bytes (default `32`, max `255 * HashLen`)
+- **salt**: non-secret but strongly recommended (string or `BufferSource`, default empty)
+- **info**: context label for domain separation (string or `BufferSource`, default empty)
+- **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default `uint8array`)
+
+```ts
+import { hkdf } from "unsecure";
+
+// Derive a 256-bit key from a shared secret
+const key = await hkdf(sharedSecret, { salt, info: "my-app/auth/v1" });
+
+// 512-bit key, SHA-512, base64url output
+const keyB64 = await hkdf(ikm, {
+  algorithm: "SHA-512",
+  length: 64,
+  info: "encryption-key",
+  returnAs: "base64url",
+});
+
+// Domain separation — same IKM, different `info` → independent keys
+const encKey = await hkdf(ikm, { salt, info: "encrypt" });
+const macKey = await hkdf(ikm, { salt, info: "authenticate" });
+```
+
+> [!TIP]
+> A different `info` per usage site (ideally versioned, e.g. `"myapp/enc/v1"`) lets you rotate key derivation without breaking old data. Requests beyond `255 * HashLen` throw a `RangeError` before reaching Web Crypto.
 
 ### OTP (HOTP / TOTP)
 
@@ -290,31 +344,55 @@ const mac2 = new Uint8Array([1, 2, 3]);
 secureCompare(mac1, mac2); // true
 secureCompare(expected, mac2); // false
 
-// Handles undefined received gracefully (returns false)
+// Handles undefined / empty `expected` gracefully — returns false by default
 secureCompare(expected, undefined); // false
+secureCompare("", received); // false
+secureCompare(undefined, undefined); // false — never "empty matches empty"
+
+// Opt-in strict mode throws on empty / undefined `expected` (pre-0.2 behavior).
+// Useful during development to surface server-side config bugs — avoid in
+// attacker-reachable code paths since the throw itself is a side-channel.
+secureCompare(undefined, "x", { strict: true }); // throws
 ```
 
 ### entropy
 
-Computes Shannon entropy of a string or Uint8Array. Useful for measuring the quality of generated tokens, passwords, or random data.
+Computes three complementary quality signals for a string or `Uint8Array`: Shannon unigram entropy (frequency-based), bigram entropy (adjacent-pair structure), and the longest strictly-monotonic run (ascending/descending). Unigram entropy alone is blind to symbol order — `"abcdefghijklmnop"` scores the maximum for its alphabet despite being deterministic. The other two fields close that gap.
+
+Result fields:
+
+- **`bits` / `bitsPerSymbol` / `symbolCount` / `uniqueSymbols` / `maxBitsPerSymbol`**: classic Shannon entropy, unchanged.
+- **`bigramBits` / `bigramBitsPerSymbol`**: entropy over adjacent-pair frequencies. Catches sequential, alternating, and blocked patterns. Length-sensitive — see below.
+- **`longestRun` + `monotonicDirection`**: length of the longest strictly ascending or descending run, with its direction (`"ascending" | "descending" | "none"`). Reliable on any input length.
 
 ```ts
 import { entropy } from "unsecure";
 
-// Measure a generated token
+// Strong 16-char token — high across all metrics
 const result = entropy("Zk(p4@L!v9{g~8sB");
-console.log(result.bits); // ~60+ bits for a strong 16-char token
+console.log(result.bits); // ~60+ bits
 console.log(result.bitsPerSymbol); // entropy per character
-console.log(result.uniqueSymbols); // number of distinct characters
+console.log(result.uniqueSymbols); // distinct characters
+console.log(result.longestRun); // small
 
-// Detect a weak secret
-entropy("aaaaaaa").bitsPerSymbol; // 0 — completely predictable
+// Weak secret — low unigram entropy
+entropy("aaaaaaa").bitsPerSymbol; // 0
 
-// Analyze random bytes
+// Sorted-alphabet fake — caught by longestRun
+const fake = entropy("abcdefghijklmnop");
+fake.bitsPerSymbol; // 4 (maximum for 16 unique chars)
+fake.longestRun; // 16
+fake.monotonicDirection; // "ascending"
+fake.bigramBitsPerSymbol; // ~2.46 — noticeably low
+
+// Random bytes — near-max across the board
 const bytes = new Uint8Array(256);
 crypto.getRandomValues(bytes);
-entropy(bytes).bitsPerSymbol; // ~7.9+ (close to max of 8 for 256 byte values)
+entropy(bytes).bitsPerSymbol; // ~7.9+
 ```
+
+> [!TIP]
+> `bigramBitsPerSymbol` is length-sensitive: its ceiling is `log2(min(symbolCount - 1, k²))` where `k = uniqueSymbols`. Compare against a known-random control of the same length, or rely on `longestRun` for short inputs. For a password gate, requiring `longestRun < 5` rejects obvious keyboard-walk and sorted patterns that slip past unigram entropy.
 
 ### Randomness
 
@@ -368,57 +446,142 @@ await randomJitter(50); // 0-49ms
 await randomJitter(50, 100); // 50-99ms
 ```
 
+### UUID (v4 / v7)
+
+UUID generation per RFC 9562, backed by `crypto.getRandomValues`. `uuidv7()` is the default new-UUID choice — its timestamp prefix sorts chronologically, which is ideal for database primary keys (e.g. Postgres 18 native `uuidv7()` semantics).
+
+Neither version delegates to `crypto.randomUUID()`; the version/variant bits are set explicitly so the implementation is self-contained and won't shift if a runtime changes its shortcut behavior.
+
+```ts
+import {
+  uuidv4,
+  uuidv7,
+  secureUUID,
+  createUUIDv7Generator,
+  uuidv7Timestamp,
+  isUUIDv4,
+  isUUIDv7,
+} from "unsecure";
+
+// Pure random (122 bits of randomness)
+uuidv4(); // "8a7c…-4xxx-…"
+
+// Time-ordered; 48-bit Unix-ms prefix + 74 bits of random filler
+uuidv7(); // "0195c…-7xxx-…"
+
+// Alias of uuidv7 — use when the version isn't part of the contract
+secureUUID();
+
+// Embed a specific timestamp (tests, backfills, replay)
+uuidv7(new Date("2020-01-01"));
+uuidv7(1_609_459_200_000); // numeric ms
+
+// Read the embedded timestamp back
+const u = uuidv7();
+new Date(uuidv7Timestamp(u));
+
+// Type guards (case-insensitive; format + version + variant checks)
+if (isUUIDv7(input)) {
+  /* input: string */
+}
+if (isUUIDv4(input)) {
+  /* input: string */
+}
+```
+
+#### createUUIDv7Generator
+
+Stateful generator with a **dual-clock** design: the internal counter and its reference timestamp progress from `Date.now()` only (never perturbed by user-supplied arguments), while the embedded 48-bit timestamp field reflects either `Date.now()` or a caller-supplied value. Out-of-order backfills are safe — UUIDs for past events remain unique and sort by their embedded timestamp.
+
+```ts
+const gen = createUUIDv7Generator();
+
+gen.next(); // Counter monotonic per process
+gen.next(new Date("2020-01-01")); // Embeds that date; counter still advances
+gen.next(1_577_836_800_000); // Numeric ms
+```
+
+Key properties:
+
+- Counter follows RFC 9562 §6.2 Method 3 — 12-bit field in `rand_a`, reseeded randomly in `[0, 0x7ff]` each new wall-clock ms (≥2048 increments of headroom before overflow).
+- On counter overflow (>4095 calls within one wall-clock ms), the internal reference advances by 1 ms and the counter reseeds.
+- `Date.now()` regressions (NTP adjust, VM pause) hold the reference and keep incrementing the counter — output never goes backward.
+- A throwing `.next(invalidTs)` does **not** mutate internal state (validation runs before the counter advances).
+
+> [!NOTE]
+> Mixing `next()` and `next(pastTs)` calls gives UUIDs that sort by embedded timestamp, not call order — usually what you want for DB PKs. If you need "latest inserted sorts last," omit the argument or feed monotonic timestamps. For true backfills of past events, call the stateless `uuidv7(date)` instead.
+
 ### Utilities (`unsecure/utils`)
 
-A collection of supplementary utilities for encoding and decoding.
+A collection of supplementary encoding/decoding utilities: `hexEncode`/`hexDecode`, `base64Encode`/`base64Decode`, `base64UrlEncode`/`base64UrlDecode`, `base32Encode`/`base32Decode`, plus shared `textEncoder` / `textDecoder`. All three encoding families share the same shape:
 
-Includes `hexEncode`, `hexDecode`, `base64Encode`, `base64Decode`, `base64UrlEncode`, `base64UrlDecode`, `base32Encode`, and `base32Decode`.
+- **Encoders** accept `string | Uint8Array | undefined` and always return `string`. `undefined` returns `""` — safe to use on optional fields without pre-normalizing.
+- **Decoders** accept `string | Uint8Array | undefined`. The default return type mirrors the input: `string` in → UTF-8 `string` out (decoded bytes interpreted as UTF-8), `Uint8Array` in → `Uint8Array` out. Override with `{ returnAs: "uint8array" | "bytes" | "string" }`.
+
+Available both from the main barrel and from `unsecure/utils` (use the subpath for CDN delivery to ship only these helpers).
 
 ```ts
 import { hexEncode, hexDecode, base32Encode, base32Decode } from "unsecure/utils";
 
 const hex = hexEncode("hello"); // "68656c6c6f"
-const text = hexDecode(hex); // "hello"
+const text = hexDecode(hex); // "hello" (string → string by default)
+const bytes = hexDecode(hex, { returnAs: "uint8array" }); // Uint8Array
 
-// Base32 (RFC 4648) — commonly used for OTP secrets
+// Base32 (RFC 4648) — commonly used for OTP secrets; behaves identically
 const b32 = base32Encode("foobar"); // "MZXW6YTBOI======"
-const decoded = base32Decode("MZXW6YTBOI"); // "foobar" (mirrors string input)
-const bytes = base32Decode("MZXW6YTBOI", { returnAs: "uint8array" }); // raw bytes
+base32Decode("MZXW6YTBOI"); // "foobar"
+base32Decode("MZXW6YTBOI", { returnAs: "uint8array" }); // raw bytes
+
+// Nullish-safe — returns "" instead of throwing or coercing to "undefined"
+hexEncode(undefined); // ""
+base64Encode(undefined); // ""
+base32Encode(undefined); // ""
 ```
 
-### sanitizeObject
+### Sanitization (`sanitizeObject` / `sanitizeObjectCopy` / `safeJsonParse`)
 
-Remove prototype-pollution vectors from a plain record in-place. It strips the dangerous own properties `__proto__`, `prototype`, and `constructor` from the target and all nested objects/arrays. It returns the same reference you pass in.
+Three complementary tools for stripping prototype-pollution vectors (`__proto__`, `prototype`, `constructor`) from untrusted input.
 
-- Deep, in-place sanitization over objects and arrays
-- Cycle-safe (handles circular references)
-- Leaves non-objects, functions, Dates, Maps/Sets unchanged
+| If you…                              | Use                        |
+| ------------------------------------ | -------------------------- |
+| Receive JSON text — parse + sanitize | `safeJsonParse`            |
+| Already have a parsed object you own | `sanitizeObject` (fastest) |
+| Must preserve the caller's object    | `sanitizeObjectCopy`       |
+
+`safeJsonParse` is cheapest — a reviver drops dangerous keys during parsing so they never materialize on the result. `sanitizeObject` is the fastest post-parse variant: single-pass traversal, mutates in place, no intermediate allocations. `sanitizeObjectCopy` is the non-mutating alternative, cycle-safe via `WeakMap` (cycles in the input become cycles in the output pointing at the copied node, never at the original).
 
 ```ts
-import { sanitizeObject } from "unsecure";
+import { safeJsonParse, sanitizeObject, sanitizeObjectCopy } from "unsecure";
 
-const payload: Record<string, unknown> = {
+// 1. Parse + sanitize in one step — dangerous keys never exist on the result
+const payload = safeJsonParse<{ user: { name: string } }>(untrustedInput);
+
+// 2. Post-parse, mutate in place (cheapest on hot paths)
+const parsed = JSON.parse(untrustedInput);
+sanitizeObject(parsed); // returns the same reference
+
+// 3. Post-parse, keep the caller's object untouched
+const safe = sanitizeObjectCopy(req.body);
+
+// All three handle nested objects + arrays, and preserve cycles safely
+const data = {
   user: {
     name: "alice",
-    // potential pollution vectors
     __proto__: { hacked: true },
     profile: [{ constructor: "bad" }, { prototype: { x: 1 } }],
   },
 };
-
-sanitizeObject(payload); // returns the same reference
-
-// After sanitization
-Object.hasOwn(payload.user, "__proto__"); // false
-Object.hasOwn(payload.user.profile[0]!, "constructor"); // false
-Object.hasOwn(payload.user.profile[1]!, "prototype"); // false
+sanitizeObject(data);
+Object.hasOwn(data.user, "__proto__"); // false
+Object.hasOwn(data.user.profile[0]!, "constructor"); // false
 ```
 
 Notes:
 
 - Only own properties named exactly `__proto__`, `prototype`, and `constructor` are removed.
-- The function doesn't clone; it mutates the input value in-place for performance and memory efficiency.
-- Values like Date, Map, Set, functions, and primitives are returned unchanged (but still traversed through if found as nested values on a plain object/array).
+- `sanitizeObject` mutates in place for performance; use `sanitizeObjectCopy` if the caller may still hold a reference.
+- `sanitizeObjectCopy` rebuilds onto plain `Object.prototype` — even null-prototype input comes back rooted normally.
+- Values like `Date`, `Map`, `Set`, functions, and primitives are returned unchanged (but still traversed through if found as nested values on a plain object/array).
 
 ## Development
 
