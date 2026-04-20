@@ -29,7 +29,7 @@ Default character sets:
 ## Examples
 
 ```ts
-import { secureGenerate } from "unsecure";
+import { secureGenerate } from "unsecure/generate";
 
 // Default 16-char password with all character types
 const password = secureGenerate();
@@ -65,7 +65,8 @@ const dated = secureGenerate({ length: 24, timestamp: new Date("2023-01-01") });
 ## Use Case: Secure Password Generation with Quality Check
 
 ```ts
-import { secureGenerate, entropy } from "unsecure";
+import { secureGenerate } from "unsecure/generate";
+import { entropy } from "unsecure/entropy";
 
 function generateStrongPassword(minBits = 80) {
   let password: string;

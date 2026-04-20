@@ -1,8 +1,8 @@
 # Encoding Utilities (`unsecure/utils`)
 
-Supplementary encoding/decoding utilities for hex, base64, base64url, and base32 — available from the `unsecure/utils` entry point.
+Supplementary encoding/decoding utilities for hex, base64, base64url, and base32 — available from the `unsecure/utils` subpath.
 
-Also accessible as a namespace from the main entry: `import { utils } from "unsecure"`.
+Also re-exported flat from the main barrel: `import { hexEncode, base64Encode } from "unsecure"` works directly. For CDN delivery, prefer the `unsecure/utils` subpath so only these helpers are shipped; for bundler workflows either is fine (tree-shakes cleanly under `sideEffects: false`).
 
 ## Exports
 

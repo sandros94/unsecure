@@ -39,7 +39,7 @@ The Shannon (unigram) fields are unchanged from the previous design — this add
 ## Examples
 
 ```ts
-import { entropy } from "unsecure";
+import { entropy } from "unsecure/entropy";
 
 // A generated token — random across all three metrics.
 entropy("Zk(p4@L!v9{g~8sB");
@@ -70,7 +70,7 @@ entropy(""); // all zeros
 Combine unigram entropy with a run-length guard to reject sorted-alphabet fakes:
 
 ```ts
-import { entropy } from "unsecure";
+import { entropy } from "unsecure/entropy";
 
 function passesQualityGate(secret: string, minBits = 60): boolean {
   const r = entropy(secret);
@@ -84,7 +84,7 @@ function passesQualityGate(secret: string, minBits = 60): boolean {
 ## Use Case: Entropy-Gated Secret Acceptance
 
 ```ts
-import { entropy } from "unsecure";
+import { entropy } from "unsecure/entropy";
 
 function validateSecretStrength(secret: string): boolean {
   const { bitsPerSymbol, uniqueSymbols, longestRun } = entropy(secret);

@@ -28,7 +28,7 @@ async function hkdf(
 ## Examples
 
 ```ts
-import { hkdf } from "unsecure";
+import { hkdf } from "unsecure/hkdf";
 
 // Derive a 256-bit key from a shared secret
 const key = await hkdf(sharedSecret, { salt, info: "my-app/auth/v1" });
@@ -53,7 +53,7 @@ const derived = await hkdf("shared-secret-string", {
 The golden rule of HKDF: **one IKM, many keys via `info`.** Different `info` values produce cryptographically-independent keys, so a compromise of one does not compromise the others.
 
 ```ts
-import { hkdf } from "unsecure";
+import { hkdf } from "unsecure/hkdf";
 
 const ikm = sharedSecret; // e.g. from ECDH
 
@@ -66,7 +66,7 @@ const idKey = await hkdf(ikm, { salt, info: "derive-id" }); // for identifier
 ## Use Case: Session Key Expansion
 
 ```ts
-import { hkdf } from "unsecure";
+import { hkdf } from "unsecure/hkdf";
 
 async function deriveSessionKeys(sharedSecret: Uint8Array, sessionId: string) {
   // 64 bytes = two 256-bit keys concatenated

@@ -33,7 +33,7 @@ async function hmacVerify(
 ## Examples
 
 ```ts
-import { hmac, hmacVerify } from "unsecure";
+import { hmac, hmacVerify } from "unsecure/hmac";
 
 // Sign a string — returns hex by default
 const sig = await hmac("my-secret-key", "payload data");
@@ -56,7 +56,8 @@ const valid = await hmacVerify(secret, body, expectedBase64Sig, {
 ## Use Case: Webhook Signature Verification
 
 ```ts
-import { hmacVerify, randomJitter } from "unsecure";
+import { hmacVerify } from "unsecure/hmac";
+import { randomJitter } from "unsecure/random";
 
 async function handleWebhook(req: Request) {
   const signature = req.headers.get("x-signature")!;

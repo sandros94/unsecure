@@ -37,7 +37,7 @@ function safeJsonParse<T = unknown>(json: string): T;
 ## Examples
 
 ```ts
-import { safeJsonParse, sanitizeObject, sanitizeObjectCopy } from "unsecure";
+import { safeJsonParse, sanitizeObject, sanitizeObjectCopy } from "unsecure/sanitize";
 
 // 1. Parse + sanitize in one step
 const payload = safeJsonParse<{ user: { name: string } }>(untrustedInput);
@@ -53,7 +53,7 @@ const safe = sanitizeObjectCopy(caller.body);
 ## Use Case: Sanitizing Untrusted JSON Input (middleware)
 
 ```ts
-import { safeJsonParse, sanitizeObject } from "unsecure";
+import { safeJsonParse, sanitizeObject } from "unsecure/sanitize";
 
 // Express / Hono: mutate the body in place
 function sanitizeMiddleware(req, res, next) {

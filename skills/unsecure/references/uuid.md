@@ -44,7 +44,7 @@ import {
   createUUIDv7Generator,
   uuidv7Timestamp,
   isUUIDv7,
-} from "unsecure";
+} from "unsecure/uuid";
 
 // Pure random
 uuidv4(); // "8a7c…-4xxx-…"

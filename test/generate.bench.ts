@@ -1,5 +1,6 @@
 import { bench, describe } from "vitest";
-import { secureGenerate } from "../src/index.ts";
+import { secureGenerate } from "../src/generate.ts";
+import { uuidv4 } from "../src/uuid.ts";
 
 describe("bench token generation", () => {
   const shifty = new Shifty(true, 16);
@@ -72,6 +73,22 @@ describe("bench token generation", () => {
     bench("@deepsource/shifty", () => {
       shifty.generate(512);
     });
+  });
+});
+
+describe("bench UUID generation", () => {
+  const TIMES = 1000;
+
+  bench("unsecure", () => {
+    for (let i = 0; i < TIMES; i++) {
+      uuidv4();
+    }
+  });
+
+  bench("Web Crypto API", () => {
+    for (let i = 0; i < TIMES; i++) {
+      crypto.randomUUID();
+    }
   });
 });
 

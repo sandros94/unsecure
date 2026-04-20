@@ -3,6 +3,15 @@ import { encodeBytes } from "./_internal/encoding.ts";
 import { textEncoder } from "./utils/index.ts";
 import { secureCompare } from "./compare.ts";
 
+export interface HMACOptions<T extends DigestReturnAs = DigestReturnAs> extends DigestOptions {
+  /**
+   * Output format.
+   *
+   * @default "uint8array" for BufferSource input, "hex" for string input.
+   */
+  returnAs?: T;
+}
+
 /**
  * Compute an HMAC signature for the given data using a secret key.
  *
@@ -32,22 +41,22 @@ import { secureCompare } from "./compare.ts";
 export async function hmac<T extends DigestReturnAs>(
   secret: string | BufferSource,
   data: string | BufferSource,
-  options: DigestOptions & { returnAs: T },
+  options: HMACOptions<T>,
 ): Promise<T extends "uint8array" | "bytes" ? Uint8Array : string>;
 export async function hmac(
   secret: string | BufferSource,
   data: string,
-  options?: Omit<DigestOptions, "returnAs">,
+  options?: Omit<HMACOptions, "returnAs">,
 ): Promise<string>;
 export async function hmac(
   secret: string | BufferSource,
   data: BufferSource,
-  options?: Omit<DigestOptions, "returnAs">,
+  options?: Omit<HMACOptions, "returnAs">,
 ): Promise<Uint8Array>;
 export async function hmac(
   secret: string | BufferSource,
   data: string | BufferSource,
-  options: DigestOptions = {},
+  options: HMACOptions = {},
 ): Promise<Uint8Array | string> {
   const { algorithm = "SHA-256", returnAs } = options;
 
@@ -95,7 +104,7 @@ export async function hmacVerify(
   secret: string | BufferSource,
   data: string | BufferSource,
   signature: string | Uint8Array,
-  options?: DigestOptions,
+  options?: Omit<HMACOptions, "returnAs">,
 ): Promise<boolean> {
   const computed = await (hmac as Function)(secret, data, options);
   return secureCompare(computed as string | Uint8Array, signature);

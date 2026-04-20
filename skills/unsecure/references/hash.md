@@ -23,7 +23,7 @@ async function hash(
 ## Examples
 
 ```ts
-import { hash } from "unsecure";
+import { hash } from "unsecure/hash";
 
 // Default: SHA-256, returns hex string
 const hex = await hash("hello world");
@@ -47,7 +47,9 @@ const hashHexFromBuffer = await hash(buf, { returnAs: "hex" }); // string
 Never store raw tokens — store their hash instead:
 
 ```ts
-import { secureGenerate, secureCompare, hash } from "unsecure";
+import { hash } from "unsecure/hash";
+import { secureGenerate } from "unsecure/generate";
+import { secureCompare } from "unsecure/compare";
 
 // Generate a new API token
 const token = secureGenerate({ length: 48, specials: false });

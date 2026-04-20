@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { safeJsonParse, sanitizeObject, sanitizeObjectCopy } from "../src/index.ts";
+import { safeJsonParse, sanitizeObject, sanitizeObjectCopy } from "../src/sanitize.ts";
 
 function withDangerousKeys() {
   const o: Record<string, unknown> = {};

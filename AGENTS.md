@@ -33,26 +33,26 @@ When a task involves design decisions, ambiguity, or changes to the project visi
 
 ## Architecture
 
-Two entry points exported via `package.json` exports:
+**Per-module subpath exports, plus a convenience barrel.** Every public module is listed as its own bundle input in `build.config.ts` and mapped to an `./<name>` entry in `package.json` `exports`, producing one `dist/<name>.mjs` + `dist/<name>.d.mts` pair per module. CDN consumers (e.g. `https://esm.sh/unsecure/uuid`) tree-shake only what they import. Bundler consumers (Vite, etc.) can still use `import { x } from "unsecure"` via the barrel at `src/index.ts` — both paths coexist. Public modules:
 
-- **`unsecure`** (main) — `src/index.ts` re-exports from (also re-exports `utils` as a namespace via `export * as utils`):
-  - `src/hash.ts` — `hash()`: async hashing via `crypto.subtle.digest`
-  - `src/hmac.ts` — `hmac()`, `hmacVerify()`: HMAC signing and constant-time verification
-  - `src/hkdf.ts` — `hkdf()`: HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`, with `returnAs` matching `hash`/`hmac`
-  - `src/otp.ts` — `hotp()`, `hotpVerify()`, `totp()`, `totpVerify()`, `generateOTPSecret()`, `otpauthURI()`: RFC 4226/6238 OTP
-  - `src/generate.ts` — `secureGenerate()`: secure string/token generation with customizable charsets, buffered RNG
-  - `src/compare.ts` — `secureCompare()`: constant-time comparison (returns `false` on empty/undefined `expected` by default; opt-in `strict: true` preserves the pre-0.2 throw)
-  - `src/entropy.ts` — `entropy()`: Shannon unigram entropy + bigram entropy (catches local structure) + longest-monotonic-run detection (catches sorted/reverse-sorted fakes). All additive; unigram fields unchanged.
-  - `src/random.ts` — `createSecureRandomGenerator()`, `secureRandomNumber()`, `secureRandomBytes()`, `secureShuffle()`, `randomJitter()`
-  - `src/sanitize.ts` — `sanitizeObject()` (in-place, single-pass), `sanitizeObjectCopy()` (non-mutating, cycle-preserving copy), `safeJsonParse()` (parse-time prototype-pollution reviver)
-  - `src/uuid.ts` — `uuidv4()`, `uuidv7(timestamp?)`, `secureUUID` (alias of `uuidv7`), `createUUIDv7Generator()` (dual-clock: counter driven by `Date.now()` for per-process uniqueness, embedded ts honors the optional caller argument verbatim — RFC 9562 §6.2 Method 3 counter, safe for out-of-order backfills; a throwing `.next(invalid)` does not mutate state), `uuidv7Timestamp()`, `isUUIDv4()`, `isUUIDv7()`
-  - `src/internal/encoding.ts` — shared `encodeBytes(bytes, returnAs, source)` helper used by `hash`, `hmac`, and `hkdf` to keep `returnAs` behavior consistent
+- `src/compare.ts` → `unsecure/compare` — `secureCompare()`: constant-time comparison (returns `false` on empty/undefined `expected` by default; opt-in `strict: true` preserves the pre-0.2 throw)
+- `src/entropy.ts` → `unsecure/entropy` — `entropy()`: Shannon unigram entropy + bigram entropy (catches local structure) + longest-monotonic-run detection (catches sorted/reverse-sorted fakes). All additive; unigram fields unchanged.
+- `src/generate.ts` → `unsecure/generate` — `secureGenerate()`: secure string/token generation with customizable charsets, buffered RNG
+- `src/hash.ts` → `unsecure/hash` — `hash()`: async hashing via `crypto.subtle.digest`
+- `src/hkdf.ts` → `unsecure/hkdf` — `hkdf()`: HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`, with `returnAs` matching `hash`/`hmac`
+- `src/hmac.ts` → `unsecure/hmac` — `hmac()`, `hmacVerify()`: HMAC signing and constant-time verification
+- `src/otp.ts` → `unsecure/otp` — `hotp()`, `hotpVerify()`, `totp()`, `totpVerify()`, `generateOTPSecret()`, `otpauthURI()`: RFC 4226/6238 OTP
+- `src/random.ts` → `unsecure/random` — `createSecureRandomGenerator()`, `secureRandomNumber()`, `secureRandomBytes()`, `secureShuffle()`, `randomJitter()`
+- `src/sanitize.ts` → `unsecure/sanitize` — `sanitizeObject()` (in-place, single-pass), `sanitizeObjectCopy()` (non-mutating, cycle-preserving copy), `safeJsonParse()` (parse-time prototype-pollution reviver)
+- `src/uuid.ts` → `unsecure/uuid` — `uuidv4()`, `uuidv7(timestamp?)`, `secureUUID` (alias of `uuidv7`), `createUUIDv7Generator()` (dual-clock: counter driven by `Date.now()` for per-process uniqueness, embedded ts honors the optional caller argument verbatim — RFC 9562 §6.2 Method 3 counter, safe for out-of-order backfills; a throwing `.next(invalid)` does not mutate state), `uuidv7Timestamp()`, `isUUIDv4()`, `isUUIDv7()`
+- `src/utils/index.ts` → `unsecure/utils` — `hexEncode`/`hexDecode`, `base64Encode`/`base64Decode`, `base64UrlEncode`/`base64UrlDecode`, `base32Encode`/`base32Decode`, plus shared `textEncoder` / `textDecoder` instances. Also re-exported flat from the main barrel — tree-shakes cleanly under `sideEffects: false`. For CDN delivery prefer the subpath so only these helpers are shipped.
 
-- **`unsecure/utils`** — `src/utils.ts` re-exports from `src/internal/utils/`:
-  - `base32.ts` — base32 encode/decode (RFC 4648)
-  - `base64.ts` — base64/base64url encode/decode
-  - `hex.ts` — hex encode/decode
-  - Also provides shared `textEncoder` and `textDecoder`
+Internal-only (not exported, inlined into the bundles that import them):
+
+- `src/_internal/encoding.ts` — shared `encodeBytes(bytes, returnAs, source)` helper used by `hash`, `hmac`, and `hkdf` to keep `returnAs` behavior consistent
+- `src/utils/_buffer.ts` — Node `Buffer` fast-path detection for the encoding helpers
+
+When adding a new public module, three edits are required in lockstep: add the input to `build.config.ts`, add the `./<name>` entry to `package.json` `exports`, and (if user-facing) add a `skills/unsecure/references/<name>.md` entry plus `skills/unsecure/SKILL.md` link.
 
 The `src/random.ts` generator uses a 256-element `Uint32Array` buffer to batch `crypto.getRandomValues` calls, with rejection sampling to avoid modulo bias.
 
