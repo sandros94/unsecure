@@ -99,7 +99,7 @@ export async function hkdf<T extends DigestReturnAs>(
   ikm: string | BufferSource,
   options: HKDFOptions<T> = {},
 ): Promise<T extends "uint8array" | "bytes" ? Uint8Array<ArrayBuffer> : string> {
-  const { algorithm = "SHA-256", length = 32, salt, info, returnAs = ("uint8array" as T) } = options;
+  const { algorithm = "SHA-256", length = 32, salt, info, returnAs = "uint8array" as T } = options;
 
   if (!Number.isInteger(length) || length < 1) {
     throw new RangeError("length must be a positive integer.");
