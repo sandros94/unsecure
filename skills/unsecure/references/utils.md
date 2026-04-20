@@ -80,7 +80,9 @@ All four decoders (`hexDecode`, `base64Decode`, `base64UrlDecode`, `base32Decode
 
 Override with `{ returnAs: "uint8array" | "bytes" | "string" }`.
 
-All four encoders (`hexEncode`, `base64Encode`, `base64UrlEncode`, `base32Encode`) accept `string`, `Uint8Array`, or `undefined` (returns `""`). This makes them safe to use on optional fields without pre-normalizing.
+All four encoders (`hexEncode`, `base64Encode`, `base64UrlEncode`, `base32Encode`) accept `string` or `Uint8Array<ArrayBuffer>`. Empty input (`""` or `new Uint8Array(0)`) returns `""`. `null` / `undefined` throws a `TypeError` — for optional fields, normalize at the call site (`base64Encode(maybeValue ?? "")`).
+
+All four decoders follow the same contract: `string | Uint8Array<ArrayBuffer>` in, `null` / `undefined` throws. Empty input decodes to `""` or `new Uint8Array(0)` depending on `returnAs`.
 
 ## Pitfall: Ignoring the returnAs Type System
 

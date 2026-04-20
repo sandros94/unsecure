@@ -5,13 +5,16 @@ const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 /**
  * Encode binary data to a Base32 string (RFC 4648).
  *
- * Accepts `string` or raw bytes. `undefined` and empty input return `""`.
+ * Accepts `string` or raw bytes. Throws `TypeError` on `null`/`undefined`.
+ * Empty strings and empty `Uint8Array` return `""`.
  *
  * @param data Raw bytes or a string to encode.
  * @returns A padded Base32-encoded string.
  */
-export function base32Encode(data?: Uint8Array<ArrayBuffer> | string): string {
-  if (!data) return "";
+export function base32Encode(data: Uint8Array<ArrayBuffer> | string): string {
+  if (data == null) {
+    throw new TypeError("base32Encode: data must be a string or Uint8Array.");
+  }
   const bytes = typeof data === "string" ? textEncoder.encode(data) : data;
   if (bytes.length === 0) return "";
 
@@ -54,12 +57,15 @@ export function base32Decode<T extends DecodeReturnAs>(
   data: string | Uint8Array<ArrayBuffer>,
   options: { returnAs: T },
 ): T extends "string" ? string : Uint8Array<ArrayBuffer>;
-export function base32Decode(data?: string | undefined): string;
-export function base32Decode(data: Uint8Array<ArrayBuffer> | undefined): Uint8Array<ArrayBuffer>;
+export function base32Decode(data: string): string;
+export function base32Decode(data: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer>;
 export function base32Decode(
-  data?: string | Uint8Array<ArrayBuffer> | undefined,
+  data: string | Uint8Array<ArrayBuffer>,
   options?: { returnAs?: DecodeReturnAs },
 ): Uint8Array<ArrayBuffer> | string {
+  if (data == null) {
+    throw new TypeError("base32Decode: data must be a string or Uint8Array.");
+  }
   const isBufferInput = data instanceof Uint8Array;
   const str = isBufferInput ? textDecoder.decode(data) : data;
   const effectiveReturnAs = options?.returnAs ?? (isBufferInput ? "uint8array" : "string");

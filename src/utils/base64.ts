@@ -15,10 +15,13 @@ const _b64UrlDecOpts = /* @__PURE__ */ Object.freeze({ alphabet: "base64url" });
 // #region Public API
 
 /**
- * Base64 encoding. Accepts `string`, raw bytes, or `undefined` (returns `""`).
+ * Base64 encoding. Accepts `string` or raw bytes; throws `TypeError` on
+ * `null`/`undefined`. Empty strings and empty `Uint8Array` return `""`.
  */
-export function base64Encode(data?: Uint8Array<ArrayBuffer> | string): string {
-  if (!data) return "";
+export function base64Encode(data: Uint8Array<ArrayBuffer> | string): string {
+  if (data == null) {
+    throw new TypeError("base64Encode: data must be a string or Uint8Array.");
+  }
   if (_hasBuffer) {
     return _toBuffer(data).toString("base64");
   }
@@ -30,11 +33,13 @@ export function base64Encode(data?: Uint8Array<ArrayBuffer> | string): string {
 }
 
 /**
- * Base64 URL-safe encoding (no padding). Accepts `string`, raw bytes,
- * or `undefined` (returns `""`).
+ * Base64 URL-safe encoding (no padding). Accepts `string` or raw bytes;
+ * throws `TypeError` on `null`/`undefined`. Empty inputs return `""`.
  */
-export function base64UrlEncode(data?: Uint8Array<ArrayBuffer> | string): string {
-  if (!data) return "";
+export function base64UrlEncode(data: Uint8Array<ArrayBuffer> | string): string {
+  if (data == null) {
+    throw new TypeError("base64UrlEncode: data must be a string or Uint8Array.");
+  }
   if (_hasBuffer) {
     return _toBuffer(data).toString("base64url");
   }
@@ -53,12 +58,15 @@ export function base64Decode<T extends DecodeReturnAs>(
   data: string | Uint8Array<ArrayBuffer>,
   options: { returnAs: T },
 ): T extends "string" ? string : Uint8Array<ArrayBuffer>;
-export function base64Decode(data?: string | undefined): string;
-export function base64Decode(data: Uint8Array<ArrayBuffer> | undefined): Uint8Array<ArrayBuffer>;
+export function base64Decode(data: string): string;
+export function base64Decode(data: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer>;
 export function base64Decode(
-  data?: string | Uint8Array<ArrayBuffer> | undefined,
+  data: string | Uint8Array<ArrayBuffer>,
   options?: { returnAs?: DecodeReturnAs },
 ): Uint8Array<ArrayBuffer> | string {
+  if (data == null) {
+    throw new TypeError("base64Decode: data must be a string or Uint8Array.");
+  }
   const isBufferInput = data instanceof Uint8Array;
   const str = isBufferInput ? textDecoder.decode(data) : data;
   const effectiveReturnAs = options?.returnAs ?? (isBufferInput ? "uint8array" : "string");
@@ -87,12 +95,15 @@ export function base64UrlDecode<T extends DecodeReturnAs>(
   data: string | Uint8Array<ArrayBuffer>,
   options: { returnAs: T },
 ): T extends "string" ? string : Uint8Array<ArrayBuffer>;
-export function base64UrlDecode(data?: string | undefined): string;
-export function base64UrlDecode(data: Uint8Array<ArrayBuffer> | undefined): Uint8Array<ArrayBuffer>;
+export function base64UrlDecode(data: string): string;
+export function base64UrlDecode(data: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer>;
 export function base64UrlDecode(
-  data?: string | Uint8Array<ArrayBuffer> | undefined,
+  data: string | Uint8Array<ArrayBuffer>,
   options?: { returnAs?: DecodeReturnAs },
 ): Uint8Array<ArrayBuffer> | string {
+  if (data == null) {
+    throw new TypeError("base64UrlDecode: data must be a string or Uint8Array.");
+  }
   const isBufferInput = data instanceof Uint8Array;
   let str = isBufferInput ? textDecoder.decode(data) : data;
   const effectiveReturnAs = options?.returnAs ?? (isBufferInput ? "uint8array" : "string");

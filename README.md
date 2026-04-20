@@ -515,8 +515,8 @@ Key properties:
 
 A collection of supplementary encoding/decoding utilities: `hexEncode`/`hexDecode`, `base64Encode`/`base64Decode`, `base64UrlEncode`/`base64UrlDecode`, `base32Encode`/`base32Decode`, plus shared `textEncoder` / `textDecoder`. All three encoding families share the same shape:
 
-- **Encoders** accept `string | Uint8Array | undefined` and always return `string`. `undefined` returns `""` — safe to use on optional fields without pre-normalizing.
-- **Decoders** accept `string | Uint8Array | undefined`. The default return type mirrors the input: `string` in → UTF-8 `string` out (decoded bytes interpreted as UTF-8), `Uint8Array` in → `Uint8Array` out. Override with `{ returnAs: "uint8array" | "bytes" | "string" }`.
+- **Encoders** accept `string | Uint8Array<ArrayBuffer>` and always return `string`. Empty input (`""` or `new Uint8Array(0)`) returns `""`. `null` / `undefined` throws `TypeError` — for optional fields, normalize at the call site with `?? ""`.
+- **Decoders** accept `string | Uint8Array<ArrayBuffer>`. The default return type mirrors the input: `string` in → UTF-8 `string` out (decoded bytes interpreted as UTF-8), `Uint8Array` in → `Uint8Array` out. Override with `{ returnAs: "uint8array" | "bytes" | "string" }`. `null` / `undefined` throws `TypeError`.
 
 Available both from the main barrel and from `unsecure/utils` (use the subpath for CDN delivery to ship only these helpers).
 
@@ -532,10 +532,9 @@ const b32 = base32Encode("foobar"); // "MZXW6YTBOI======"
 base32Decode("MZXW6YTBOI"); // "foobar"
 base32Decode("MZXW6YTBOI", { returnAs: "uint8array" }); // raw bytes
 
-// Nullish-safe — returns "" instead of throwing or coercing to "undefined"
-hexEncode(undefined); // ""
-base64Encode(undefined); // ""
-base32Encode(undefined); // ""
+// Normalize optional fields at the call site rather than relying on coercion
+hexEncode(optionalField ?? ""); // "" when field is null/undefined
+base64Encode(optionalBuffer ?? new Uint8Array(0));
 ```
 
 ### Sanitization (`sanitizeObject` / `sanitizeObjectCopy` / `safeJsonParse`)

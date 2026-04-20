@@ -39,8 +39,9 @@ describe.concurrent("Utility Functions", () => {
         expect(base32Encode("")).toBe("");
       });
 
-      it("should handle undefined", () => {
-        expect(base32Encode(undefined)).toBe("");
+      it("should throw TypeError on null or undefined", () => {
+        expect(() => base32Encode(undefined as any)).toThrow(TypeError);
+        expect(() => base32Encode(null as any)).toThrow(TypeError);
       });
 
       it("should handle single byte values", () => {
@@ -97,11 +98,10 @@ describe.concurrent("Utility Functions", () => {
         expect(base32Decode("MzXw6YtBoI")).toBe("foobar");
       });
 
-      it("should handle undefined input", () => {
-        expect(base32Decode(undefined)).toBe("");
-        expect(base32Decode(undefined as any, { returnAs: "uint8array" })).toEqual(
-          new Uint8Array(0),
-        );
+      it("should throw TypeError on null or undefined", () => {
+        expect(() => base32Decode(undefined as any)).toThrow(TypeError);
+        expect(() => base32Decode(null as any)).toThrow(TypeError);
+        expect(() => base32Decode(undefined as any, { returnAs: "uint8array" })).toThrow(TypeError);
       });
 
       it("should handle empty string input", () => {
@@ -149,8 +149,9 @@ describe.concurrent("Utility Functions", () => {
         expect(base64Encode("")).toBe("");
       });
 
-      it("should handle undefined", () => {
-        expect(base64Encode(undefined)).toBe("");
+      it("should throw TypeError on null or undefined", () => {
+        expect(() => base64Encode(undefined as any)).toThrow(TypeError);
+        expect(() => base64Encode(null as any)).toThrow(TypeError);
       });
     });
 
@@ -177,8 +178,9 @@ describe.concurrent("Utility Functions", () => {
         expect(base64UrlEncode("")).toBe("");
       });
 
-      it("should handle undefined", () => {
-        expect(base64UrlEncode(undefined)).toBe("");
+      it("should throw TypeError on null or undefined", () => {
+        expect(() => base64UrlEncode(undefined as any)).toThrow(TypeError);
+        expect(() => base64UrlEncode(null as any)).toThrow(TypeError);
       });
     });
 
@@ -222,8 +224,9 @@ describe.concurrent("Utility Functions", () => {
         expect(base64Decode("", { returnAs: "uint8array" })).toEqual(new Uint8Array(0));
       });
 
-      it("should handle undefined input", () => {
-        expect(base64Decode(undefined)).toBe("");
+      it("should throw TypeError on null or undefined", () => {
+        expect(() => base64Decode(undefined as any)).toThrow(TypeError);
+        expect(() => base64Decode(null as any)).toThrow(TypeError);
       });
     });
 
@@ -271,8 +274,9 @@ describe.concurrent("Utility Functions", () => {
         expect(base64UrlDecode("", { returnAs: "uint8array" })).toEqual(new Uint8Array(0));
       });
 
-      it("should handle undefined input", () => {
-        expect(base64UrlDecode(undefined)).toBe("");
+      it("should throw TypeError on null or undefined", () => {
+        expect(() => base64UrlDecode(undefined as any)).toThrow(TypeError);
+        expect(() => base64UrlDecode(null as any)).toThrow(TypeError);
       });
 
       it("should correctly pad and decode URL-safe strings without padding", () => {
@@ -308,8 +312,9 @@ describe.concurrent("Utility Functions", () => {
         expect(hexEncode("")).toBe("");
       });
 
-      it("should handle undefined", () => {
-        expect(hexEncode(undefined)).toBe("");
+      it("should throw TypeError on null or undefined", () => {
+        expect(() => hexEncode(undefined as any)).toThrow(TypeError);
+        expect(() => hexEncode(null as any)).toThrow(TypeError);
       });
     });
 
@@ -352,8 +357,9 @@ describe.concurrent("Utility Functions", () => {
         expect(hexDecode("", { returnAs: "uint8array" })).toEqual(new Uint8Array(0));
       });
 
-      it("should handle undefined input", () => {
-        expect(hexDecode(undefined)).toBe("");
+      it("should throw TypeError on null or undefined", () => {
+        expect(() => hexDecode(undefined as any)).toThrow(TypeError);
+        expect(() => hexDecode(null as any)).toThrow(TypeError);
       });
 
       it("should decode hex strings with mixed case characters", () => {
