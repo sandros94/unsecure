@@ -10,7 +10,7 @@ const _HASH_LEN: Record<DigestAlgorithm, number> = {
   "SHA-512": 64,
 };
 
-export interface HKDFOptions {
+export interface HKDFOptions<T extends DigestReturnAs = DigestReturnAs> {
   /**
    * Hash algorithm used by the underlying HMAC.
    *
@@ -48,7 +48,7 @@ export interface HKDFOptions {
    *
    * @default "uint8array"
    */
-  returnAs?: DigestReturnAs;
+  returnAs?: T;
 }
 
 /**
@@ -89,17 +89,17 @@ export interface HKDFOptions {
  */
 export async function hkdf<T extends DigestReturnAs>(
   ikm: string | BufferSource,
-  options: HKDFOptions & { returnAs: T },
+  options?: HKDFOptions<T>,
 ): Promise<T extends "uint8array" | "bytes" ? Uint8Array<ArrayBuffer> : string>;
 export async function hkdf(
   ikm: string | BufferSource,
   options?: Omit<HKDFOptions, "returnAs">,
 ): Promise<Uint8Array<ArrayBuffer>>;
-export async function hkdf(
+export async function hkdf<T extends DigestReturnAs>(
   ikm: string | BufferSource,
-  options: HKDFOptions = {},
-): Promise<Uint8Array<ArrayBuffer> | string> {
-  const { algorithm = "SHA-256", length = 32, salt, info, returnAs = "uint8array" } = options;
+  options: HKDFOptions<T> = {},
+): Promise<T extends "uint8array" | "bytes" ? Uint8Array<ArrayBuffer> : string> {
+  const { algorithm = "SHA-256", length = 32, salt, info, returnAs = ("uint8array" as T) } = options;
 
   if (!Number.isInteger(length) || length < 1) {
     throw new RangeError("length must be a positive integer.");
@@ -129,7 +129,7 @@ export async function hkdf(
   );
 
   const bytes = new Uint8Array(derivedBits);
-  return encodeBytes(bytes, returnAs, "hkdf");
+  return encodeBytes<T>(bytes, returnAs, "hkdf");
 }
 
 function _coerceOptionalBytes(value: string | BufferSource | undefined): BufferSource {

@@ -41,7 +41,7 @@ export interface HMACOptions<T extends DigestReturnAs = DigestReturnAs> extends 
 export async function hmac<T extends DigestReturnAs>(
   secret: string | BufferSource,
   data: string | BufferSource,
-  options: HMACOptions<T>,
+  options?: HMACOptions<T>,
 ): Promise<T extends "uint8array" | "bytes" ? Uint8Array : string>;
 export async function hmac(
   secret: string | BufferSource,
@@ -53,11 +53,11 @@ export async function hmac(
   data: BufferSource,
   options?: Omit<HMACOptions, "returnAs">,
 ): Promise<Uint8Array>;
-export async function hmac(
+export async function hmac<T extends DigestReturnAs>(
   secret: string | BufferSource,
   data: string | BufferSource,
-  options: HMACOptions = {},
-): Promise<Uint8Array | string> {
+  options: HMACOptions<T> = {},
+): Promise<T extends "uint8array" | "bytes" ? Uint8Array : string> {
   const { algorithm = "SHA-256", returnAs } = options;
 
   const keyBuffer = typeof secret === "string" ? textEncoder.encode(secret) : secret;
@@ -74,9 +74,9 @@ export async function hmac(
 
   const signature = new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, dataBuffer));
 
-  const effectiveReturnAs = returnAs ?? (isBufferInput ? "uint8array" : "hex");
+  const effectiveReturnAs = (returnAs ?? (isBufferInput ? "uint8array" : "hex")) as T;
 
-  return encodeBytes(signature, effectiveReturnAs, "hmac");
+  return encodeBytes<T>(signature, effectiveReturnAs, "hmac");
 }
 
 /**
@@ -104,8 +104,8 @@ export async function hmacVerify(
   secret: string | BufferSource,
   data: string | BufferSource,
   signature: string | Uint8Array,
-  options?: Omit<HMACOptions, "returnAs">,
+  options?: HMACOptions,
 ): Promise<boolean> {
-  const computed = await (hmac as Function)(secret, data, options);
-  return secureCompare(computed as string | Uint8Array, signature);
+  const computed = await hmac(secret, data, options);
+  return secureCompare(computed, signature);
 }

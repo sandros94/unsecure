@@ -13,26 +13,32 @@ import type { DigestReturnAs } from "../hash.ts";
  *               the error message when `returnAs` is unsupported.
  * @throws {Error} If `returnAs` is not a recognized value.
  */
-export function encodeBytes(
+export function encodeBytes<T extends DigestReturnAs>(
   bytes: Uint8Array<ArrayBuffer>,
-  returnAs: DigestReturnAs,
+  returnAs: T,
   source: string,
-): Uint8Array<ArrayBuffer> | string {
+): T extends "uint8array" | "bytes" ? Uint8Array<ArrayBuffer> : string {
   switch (returnAs) {
     case "bytes":
     case "uint8array": {
-      return bytes;
+      return bytes as T extends "uint8array" | "bytes" ? Uint8Array<ArrayBuffer> : string;
     }
     case "hex": {
-      return hexEncode(bytes);
+      return hexEncode(bytes) as T extends "uint8array" | "bytes"
+        ? Uint8Array<ArrayBuffer>
+        : string;
     }
     case "b64":
     case "base64": {
-      return base64Encode(bytes);
+      return base64Encode(bytes) as T extends "uint8array" | "bytes"
+        ? Uint8Array<ArrayBuffer>
+        : string;
     }
     case "b64url":
     case "base64url": {
-      return base64UrlEncode(bytes);
+      return base64UrlEncode(bytes) as T extends "uint8array" | "bytes"
+        ? Uint8Array<ArrayBuffer>
+        : string;
     }
     default: {
       throw new Error(`Unsupported ${source} "returnAs" option: ${returnAs}`);
