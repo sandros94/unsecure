@@ -68,6 +68,7 @@
   },
   "scripts": {
     "build": "obuild",
+    "dev:prepare": "obuild --stub && pnpm simple-git-hooks",
     "lint": "oxlint . && oxfmt --check .",
     "fmt": "automd && oxlint --fix . && oxfmt .",
     "prepack": "pnpm build",
@@ -84,11 +85,24 @@
     "@vitest/coverage-v8": "^4.1.4",
     "automd": "^0.4.3",
     "changelogen": "^0.6.2",
+    "nano-staged": "^1.0.2",
     "obuild": "^0.4.33",
     "oxfmt": "^0.45.0",
     "oxlint": "^1.60.0",
+    "simple-git-hooks": "^2.13.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.4"
+  },
+  "resolutions": {
+    "unsecure": "link:."
+  },
+  "simple-git-hooks": {
+    "pre-commit": "./node_modules/.bin/nano-staged"
+  },
+  "nano-staged": {
+    "*.{js,ts,mjs,cjs,json,yml,md}": [
+      "pnpm run fmt"
+    ]
   },
   "packageManager": "pnpm@10.33.0"
 }
