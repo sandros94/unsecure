@@ -1,5 +1,50 @@
 # Changelog
 
+## v0.2.0
+
+[compare changes](https://github.com/sandros94/unsecure/compare/v0.1.0...v0.2.0)
+
+### 🚀 Enhancements
+
+- Add skill ([68458c0](https://github.com/sandros94/unsecure/commit/68458c0))
+- **sanitize:** New `safeJsonParse` and `sanitizeObjectCopy` utils ([3bd053d](https://github.com/sandros94/unsecure/commit/3bd053d))
+- New hkdf utility ([2be58ec](https://github.com/sandros94/unsecure/commit/2be58ec))
+- New UUID v4 and v7 utils ([19a8976](https://github.com/sandros94/unsecure/commit/19a8976))
+- **entropy:** Add bigram entropy and monotonic-run detection ([ff3d064](https://github.com/sandros94/unsecure/commit/ff3d064))
+
+### 🩹 Fixes
+
+- **compare:** Do not throw on nullish reference but opt-in ([aeed822](https://github.com/sandros94/unsecure/commit/aeed822))
+- Normalize base32/64/hex api ([52a7e0b](https://github.com/sandros94/unsecure/commit/52a7e0b))
+
+### 💅 Refactors
+
+- ⚠️ Module path and exports ([baacc2f](https://github.com/sandros94/unsecure/commit/baacc2f))
+
+### 📖 Documentation
+
+- Update readme ([02ddc8c](https://github.com/sandros94/unsecure/commit/02ddc8c))
+
+### 📦 Build
+
+- Refactor project structure ([b1e2ee7](https://github.com/sandros94/unsecure/commit/b1e2ee7))
+
+### 🏡 Chore
+
+- Update deps ([f9ce703](https://github.com/sandros94/unsecure/commit/f9ce703))
+- Change script to fmt ([0d6b606](https://github.com/sandros94/unsecure/commit/0d6b606))
+- Update AGENTS.md ([aaeccb4](https://github.com/sandros94/unsecure/commit/aaeccb4))
+- Update gitignore ([951ce0c](https://github.com/sandros94/unsecure/commit/951ce0c))
+- Setup git hooks ([e643734](https://github.com/sandros94/unsecure/commit/e643734))
+
+#### ⚠️ Breaking Changes
+
+- ⚠️ Module path and exports ([baacc2f](https://github.com/sandros94/unsecure/commit/baacc2f))
+
+### ❤️ Contributors
+
+- Sandro Circi ([@sandros94](https://github.com/sandros94))
+
 ## v0.1.0
 
 [compare changes](https://github.com/sandros94/unsecure/compare/v0.0.7...v0.1.0)
