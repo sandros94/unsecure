@@ -7,4 +7,5 @@ export * from "./hmac.ts";
 export * from "./otp.ts";
 export * from "./random.ts";
 export * from "./sanitize.ts";
+export * from "./uuid.ts";
 export * as utils from "./utils/index.ts";

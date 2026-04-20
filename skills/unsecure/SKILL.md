@@ -70,6 +70,10 @@ Randomness utilities. Load when working with `createSecureRandomGenerator()`, `s
 
 Prototype-pollution sanitization. Load when working with `sanitizeObject()`, `sanitizeObjectCopy()`, `safeJsonParse()`, untrusted JSON input, or request body sanitization middleware.
 
+### [uuid.md](./references/uuid.md)
+
+UUID generation (RFC 9562). Load when working with `uuidv4()`, `uuidv7()`, `secureUUID()`, `createUUIDv7Generator()`, `uuidv7Timestamp()`, `isUUIDv7()`, time-ordered IDs, database primary keys, or UUID parsing/validation.
+
 ### [utils.md](./references/utils.md)
 
 Encoding/decoding utilities. Load when working with `hexEncode`/`hexDecode`, `base64Encode`/`base64Decode`, `base64UrlEncode`/`base64UrlDecode`, `base32Encode`/`base32Decode`, `textEncoder`/`textDecoder`, or the `unsecure/utils` entry point.

@@ -45,6 +45,7 @@ Two entry points exported via `package.json` exports:
   - `src/entropy.ts` — `entropy()`: Shannon entropy analysis
   - `src/random.ts` — `createSecureRandomGenerator()`, `secureRandomNumber()`, `secureRandomBytes()`, `secureShuffle()`, `randomJitter()`
   - `src/sanitize.ts` — `sanitizeObject()` (in-place, single-pass), `sanitizeObjectCopy()` (non-mutating, cycle-preserving copy), `safeJsonParse()` (parse-time prototype-pollution reviver)
+  - `src/uuid.ts` — `uuidv4()`, `uuidv7(timestamp?)`, `secureUUID` (alias of `uuidv7`), `createUUIDv7Generator()` (dual-clock: counter driven by `Date.now()` for per-process uniqueness, embedded ts honors the optional caller argument verbatim — RFC 9562 §6.2 Method 3 counter, safe for out-of-order backfills; a throwing `.next(invalid)` does not mutate state), `uuidv7Timestamp()`, `isUUIDv4()`, `isUUIDv7()`
   - `src/internal/encoding.ts` — shared `encodeBytes(bytes, returnAs, source)` helper used by `hash`, `hmac`, and `hkdf` to keep `returnAs` behavior consistent
 
 - **`unsecure/utils`** — `src/utils.ts` re-exports from `src/internal/utils/`:
