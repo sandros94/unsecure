@@ -432,6 +432,33 @@ describe.concurrent("Liberal inputs / tight outputs", () => {
       expect(out.buffer).toBeInstanceOf(ArrayBuffer);
     });
   });
+
+  // Regression guard: Node's `Buffer.from(str, 'hex'|'base64'|'base64url')`
+  // allocates from an internal 8KB pool for small inputs. The naive pattern
+  // `new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)` returns a
+  // view into that shared pool, pinning it alive and sharing its ArrayBuffer
+  // with unrelated Buffer allocations. Our decoders copy out with
+  // `new Uint8Array(buf)`; this asserts the copy landed in a fresh,
+  // exactly-sized ArrayBuffer rather than a pool view.
+  describe("decoders copy out of the Node Buffer pool", () => {
+    it("hexDecode", () => {
+      const out = hexDecode("deadbeef", { returnAs: "uint8array" });
+      expect(out.byteOffset).toBe(0);
+      expect(out.buffer.byteLength).toBe(out.byteLength);
+    });
+
+    it("base64Decode", () => {
+      const out = base64Decode("Zm9vYmFy", { returnAs: "uint8array" });
+      expect(out.byteOffset).toBe(0);
+      expect(out.buffer.byteLength).toBe(out.byteLength);
+    });
+
+    it("base64UrlDecode", () => {
+      const out = base64UrlDecode("Zm9vYmFy", { returnAs: "uint8array" });
+      expect(out.byteOffset).toBe(0);
+      expect(out.buffer.byteLength).toBe(out.byteLength);
+    });
+  });
 });
 
 function b64Encode(data: string | Uint8Array): string {

@@ -53,9 +53,7 @@ export function hexDecode(
 
   if (_hasBuffer) {
     const buf = _Buffer!.from(str, "hex");
-    return decodeToString
-      ? buf.toString("utf8")
-      : new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+    return decodeToString ? buf.toString("utf8") : new Uint8Array(buf);
   }
 
   const decoded: Uint8Array<ArrayBuffer> = _hasFromHex

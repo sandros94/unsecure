@@ -78,9 +78,7 @@ export function base64Decode(
 
   if (_hasBuffer) {
     const buf = _Buffer!.from(str, "base64");
-    return decodeToString
-      ? buf.toString("utf8")
-      : new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+    return decodeToString ? buf.toString("utf8") : new Uint8Array(buf);
   }
 
   const decoded: Uint8Array<ArrayBuffer> = _hasFromBase64
@@ -115,9 +113,7 @@ export function base64UrlDecode(
 
   if (_hasBuffer) {
     const buf = _Buffer!.from(str, "base64url");
-    return decodeToString
-      ? buf.toString("utf8")
-      : new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+    return decodeToString ? buf.toString("utf8") : new Uint8Array(buf);
   }
 
   let decoded: Uint8Array<ArrayBuffer>;
