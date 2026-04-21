@@ -299,13 +299,32 @@ export function secureShuffle<T>(array: Array<T>, generator?: SecureRandomGenera
  * - `randomJitter()` — delay between 0 and 99ms
  * - `randomJitter(maxMs)` — delay between 0 and `maxMs - 1`
  * - `randomJitter(minMs, maxMs)` — delay between `minMs` and `maxMs - 1`
+ *
+ * @throws {RangeError} If `minMs` or `maxMs` is not a finite number, if `minMs`
+ *                      is negative, or if `maxMs` is less than `minMs`.
  */
 export function randomJitter(maxMs?: number): Promise<void>;
 export function randomJitter(minMs: number, maxMs: number): Promise<void>;
 export function randomJitter(minOrMax = 100, maxMs?: number): Promise<void> {
   const min = maxMs === undefined ? 0 : minOrMax;
   const max = maxMs === undefined ? minOrMax : maxMs;
+
+  if (!Number.isFinite(min) || !Number.isFinite(max)) {
+    throw new RangeError("minMs and maxMs must be finite numbers.");
+  }
+  if (min < 0) {
+    throw new RangeError("minMs must be non-negative.");
+  }
+  if (max < min) {
+    throw new RangeError("maxMs must be greater than or equal to minMs.");
+  }
+
+  const range = max - min;
+  if (range === 0) {
+    return new Promise((resolve) => setTimeout(resolve, min));
+  }
+
   const buf = new Uint32Array(1);
   crypto.getRandomValues(buf);
-  return new Promise((resolve) => setTimeout(resolve, min + (buf[0] % (max - min))));
+  return new Promise((resolve) => setTimeout(resolve, min + (buf[0]! % range)));
 }

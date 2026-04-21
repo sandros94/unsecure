@@ -492,4 +492,45 @@ describe("randomJitter", () => {
     vi.advanceTimersByTime(1);
     await expect(promise).resolves.toBeUndefined();
   });
+
+  it("should delay exactly minMs when maxMs === minMs (no jitter)", async () => {
+    // Fail loudly if we ever call the RNG in the zero-range path.
+    const spy = vi.spyOn(crypto, "getRandomValues");
+
+    const promise = randomJitter(42, 42);
+    vi.advanceTimersByTime(41);
+    await expect(Promise.race([promise, Promise.resolve("pending")])).resolves.toBe("pending");
+    vi.advanceTimersByTime(1);
+    await expect(promise).resolves.toBeUndefined();
+    expect(spy).not.toHaveBeenCalled();
+
+    spy.mockRestore();
+  });
+
+  describe("input validation", () => {
+    beforeEach(() => {
+      // Don't advance timers during synchronous validation; real timers are fine.
+      vi.useRealTimers();
+    });
+
+    it("throws RangeError when maxMs < minMs", () => {
+      expect(() => randomJitter(100, 50)).toThrow(RangeError);
+    });
+
+    it("throws RangeError when minMs is negative", () => {
+      expect(() => randomJitter(-1, 10)).toThrow(RangeError);
+      expect(() => randomJitter(-1)).toThrow(RangeError);
+    });
+
+    it("throws RangeError when maxMs is negative (single-arg form)", () => {
+      expect(() => randomJitter(-5)).toThrow(RangeError);
+    });
+
+    it("throws RangeError when minMs or maxMs is non-finite", () => {
+      expect(() => randomJitter(Number.NaN)).toThrow(RangeError);
+      expect(() => randomJitter(Number.POSITIVE_INFINITY)).toThrow(RangeError);
+      expect(() => randomJitter(0, Number.NaN)).toThrow(RangeError);
+      expect(() => randomJitter(0, Number.POSITIVE_INFINITY)).toThrow(RangeError);
+    });
+  });
 });
