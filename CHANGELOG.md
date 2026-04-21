@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.2.2
+
+[compare changes](https://github.com/sandros94/unsecure/compare/v0.2.1...v0.2.2)
+
+### 🔥 Performance
+
+- Optimize bigram observation for local group ([6c55be7](https://github.com/sandros94/unsecure/commit/6c55be7))
+
+### 🩹 Fixes
+
+- Prevent Node 8KB pool view ([e68eb7b](https://github.com/sandros94/unsecure/commit/e68eb7b))
+- `randomJitter` range validation ([407026e](https://github.com/sandros94/unsecure/commit/407026e))
+- Base64 65KiB destructure limit ([862b8e2](https://github.com/sandros94/unsecure/commit/862b8e2))
+
+### 📖 Documentation
+
+- Update readme ([366fe51](https://github.com/sandros94/unsecure/commit/366fe51))
+
+### ❤️ Contributors
+
+- Sandro Circi ([@sandros94](https://github.com/sandros94))
+
 ## v0.2.1
 
 [compare changes](https://github.com/sandros94/unsecure/compare/v0.2.0...v0.2.1)
