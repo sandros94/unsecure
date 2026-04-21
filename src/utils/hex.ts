@@ -12,7 +12,7 @@ const _hasFromHex = !_hasBuffer && typeof (Uint8Array as any).fromHex === "funct
  * Hex encoding. Accepts `string` or raw bytes; throws `TypeError` on
  * `null`/`undefined`. Empty strings and empty `Uint8Array` return `""`.
  */
-export function hexEncode(data: Uint8Array<ArrayBuffer> | string): string {
+export function hexEncode(data: Uint8Array | string): string {
   if (data == null) {
     throw new TypeError("hexEncode: data must be a string or Uint8Array.");
   }
@@ -30,13 +30,13 @@ export function hexEncode(data: Uint8Array<ArrayBuffer> | string): string {
 
 /* Hex decoding function */
 export function hexDecode<T extends DecodeReturnAs>(
-  data: string | Uint8Array<ArrayBuffer>,
+  data: string | Uint8Array,
   options: { returnAs: T },
 ): T extends "string" ? string : Uint8Array<ArrayBuffer>;
 export function hexDecode(data: string): string;
-export function hexDecode(data: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer>;
+export function hexDecode(data: Uint8Array): Uint8Array<ArrayBuffer>;
 export function hexDecode(
-  data: string | Uint8Array<ArrayBuffer>,
+  data: string | Uint8Array,
   options?: { returnAs?: DecodeReturnAs },
 ): Uint8Array<ArrayBuffer> | string {
   if (data == null) {

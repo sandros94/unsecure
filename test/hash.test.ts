@@ -143,4 +143,9 @@ describe("hash utility", () => {
       'Unsupported hash "returnAs" option: unsupported',
     );
   });
+
+  it("should return ArrayBuffer-backed Uint8Array (not SharedArrayBuffer)", async () => {
+    const result = await hash(testString, { returnAs: "uint8array" });
+    expect(result.buffer).toBeInstanceOf(ArrayBuffer);
+  });
 });

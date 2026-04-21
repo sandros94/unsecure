@@ -201,4 +201,9 @@ describe("hkdf API", () => {
       'Unsupported hkdf "returnAs" option: unsupported',
     );
   });
+
+  it("returns ArrayBuffer-backed Uint8Array", async () => {
+    const out = await hkdf(ikm, { length: 16, salt, info, returnAs: "uint8array" });
+    expect(out.buffer).toBeInstanceOf(ArrayBuffer);
+  });
 });

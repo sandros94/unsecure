@@ -328,6 +328,11 @@ describe.concurrent("Random-based Functions", () => {
       expect(bytes.length).toBe(32);
     });
 
+    it("should return an ArrayBuffer-backed Uint8Array", () => {
+      const bytes = secureRandomBytes(32);
+      expect(bytes.buffer).toBeInstanceOf(ArrayBuffer);
+    });
+
     it("should return an empty Uint8Array for length 0", () => {
       const bytes = secureRandomBytes(0);
       expect(bytes).toBeInstanceOf(Uint8Array);

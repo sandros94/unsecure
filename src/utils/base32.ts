@@ -11,7 +11,7 @@ const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
  * @param data Raw bytes or a string to encode.
  * @returns A padded Base32-encoded string.
  */
-export function base32Encode(data: Uint8Array<ArrayBuffer> | string): string {
+export function base32Encode(data: Uint8Array | string): string {
   if (data == null) {
     throw new TypeError("base32Encode: data must be a string or Uint8Array.");
   }
@@ -54,13 +54,13 @@ export function base32Encode(data: Uint8Array<ArrayBuffer> | string): string {
  * or `{ returnAs: "string" }` to always get a UTF-8 string.
  */
 export function base32Decode<T extends DecodeReturnAs>(
-  data: string | Uint8Array<ArrayBuffer>,
+  data: string | Uint8Array,
   options: { returnAs: T },
 ): T extends "string" ? string : Uint8Array<ArrayBuffer>;
 export function base32Decode(data: string): string;
-export function base32Decode(data: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer>;
+export function base32Decode(data: Uint8Array): Uint8Array<ArrayBuffer>;
 export function base32Decode(
-  data: string | Uint8Array<ArrayBuffer>,
+  data: string | Uint8Array,
   options?: { returnAs?: DecodeReturnAs },
 ): Uint8Array<ArrayBuffer> | string {
   if (data == null) {

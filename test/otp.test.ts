@@ -45,6 +45,14 @@ describe("HOTP (RFC 4226)", () => {
       const code = await hotp(b32, 0);
       expect(code).toBe("755224");
     });
+
+    it("should accept SharedArrayBuffer-backed Uint8Array secret", async () => {
+      const sab = new SharedArrayBuffer(RFC4226_SECRET.length);
+      const view = new Uint8Array(sab);
+      view.set(RFC4226_SECRET);
+      const code = await hotp(view, 0);
+      expect(code).toBe("755224");
+    });
   });
 
   describe("hotpVerify()", () => {

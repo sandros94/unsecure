@@ -384,6 +384,56 @@ describe.concurrent("Utility Functions", () => {
   });
 });
 
+describe.concurrent("Liberal inputs / tight outputs", () => {
+  // A Uint8Array<SharedArrayBuffer> containing "foobar".
+  function makeSharedView(): Uint8Array<SharedArrayBuffer> {
+    const sab = new SharedArrayBuffer(6);
+    const view = new Uint8Array(sab);
+    view.set([102, 111, 111, 98, 97, 114]); // "foobar"
+    return view;
+  }
+
+  describe("encoders accept SharedArrayBuffer-backed Uint8Array", () => {
+    it("hexEncode", () => {
+      expect(hexEncode(makeSharedView())).toBe("666f6f626172");
+    });
+
+    it("base64Encode", () => {
+      expect(base64Encode(makeSharedView())).toBe("Zm9vYmFy");
+    });
+
+    it("base64UrlEncode", () => {
+      expect(base64UrlEncode(makeSharedView())).toBe("Zm9vYmFy");
+    });
+
+    it("base32Encode", () => {
+      expect(base32Encode(makeSharedView())).toBe("MZXW6YTBOI======");
+    });
+  });
+
+  describe("decoders return ArrayBuffer-backed Uint8Array", () => {
+    it("hexDecode", () => {
+      const out = hexDecode("666f6f", { returnAs: "uint8array" });
+      expect(out.buffer).toBeInstanceOf(ArrayBuffer);
+    });
+
+    it("base64Decode", () => {
+      const out = base64Decode("Zm9v", { returnAs: "uint8array" });
+      expect(out.buffer).toBeInstanceOf(ArrayBuffer);
+    });
+
+    it("base64UrlDecode", () => {
+      const out = base64UrlDecode("Zm9v", { returnAs: "uint8array" });
+      expect(out.buffer).toBeInstanceOf(ArrayBuffer);
+    });
+
+    it("base32Decode", () => {
+      const out = base32Decode("MZXW6===", { returnAs: "uint8array" });
+      expect(out.buffer).toBeInstanceOf(ArrayBuffer);
+    });
+  });
+});
+
 function b64Encode(data: string | Uint8Array): string {
   // @ts-ignore
   return Buffer.from(data).toString("base64");

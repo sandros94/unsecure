@@ -94,11 +94,18 @@ function _dynamicTruncate(hmacResult: Uint8Array, digits: number): string {
   return (code % 10 ** digits).toString().padStart(digits, "0");
 }
 
-/** Resolve a secret to raw bytes. Strings are treated as base32. */
+/**
+ * Resolve a secret to raw ArrayBuffer-backed bytes. Strings are treated as base32.
+ * Clones `SharedArrayBuffer`-backed inputs so the result is always safe to pass
+ * to Web Crypto (which requires `ArrayBuffer`-backed views).
+ */
 function _resolveSecret(secret: Uint8Array | string): Uint8Array<ArrayBuffer> {
-  return typeof secret === "string"
-    ? base32Decode(secret, { returnAs: "uint8array" })
-    : (secret as Uint8Array<ArrayBuffer>);
+  if (typeof secret === "string") {
+    return base32Decode(secret, { returnAs: "uint8array" });
+  }
+  return secret.buffer instanceof ArrayBuffer
+    ? (secret as Uint8Array<ArrayBuffer>)
+    : new Uint8Array(secret);
 }
 
 /** Algorithm name mapping for otpauth URIs (no hyphens). */
@@ -264,7 +271,7 @@ export function otpauthURI(options: OTPAuthURIOptions): string {
   const secretB32 =
     typeof secret === "string"
       ? secret.replace(/=+$/, "")
-      : base32Encode(secret as Uint8Array<ArrayBuffer>).replace(/=+$/, "");
+      : base32Encode(secret).replace(/=+$/, "");
 
   const label = issuer
     ? `${encodeURIComponent(issuer)}:${encodeURIComponent(account)}`

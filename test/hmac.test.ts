@@ -203,5 +203,10 @@ describe("hmac", () => {
       const valid = await hmacVerify(secretBytes, message, sig);
       expect(valid).toBe(true);
     });
+
+    it("should return ArrayBuffer-backed Uint8Array", async () => {
+      const sig = await hmac(secret, message, { returnAs: "uint8array" });
+      expect(sig.buffer).toBeInstanceOf(ArrayBuffer);
+    });
   });
 });
