@@ -114,12 +114,23 @@ describe("hkdf API", () => {
     const stringRun = await hkdf("my-secret", {
       salt: "a-pinch-of-salt",
       info: "ctx",
+      returnAs: "uint8array",
     });
     const bytesRun = await hkdf(new TextEncoder().encode("my-secret"), {
       salt: new TextEncoder().encode("a-pinch-of-salt"),
       info: new TextEncoder().encode("ctx"),
     });
     expect(hexEncode(stringRun)).toBe(hexEncode(bytesRun));
+  });
+
+  it("mirrors string ikm -> hex output when returnAs is omitted", async () => {
+    const hexOut = await hkdf("my-secret", { salt: "a-pinch-of-salt", info: "ctx" });
+    const bytesOut = await hkdf(new TextEncoder().encode("my-secret"), {
+      salt: "a-pinch-of-salt",
+      info: "ctx",
+    });
+    expect(typeof hexOut).toBe("string");
+    expect(hexOut).toBe(hexEncode(bytesOut));
   });
 
   it("treats omitted salt as empty (matches RFC 5869 A.3)", async () => {

@@ -35,20 +35,20 @@ export interface DigestOptions {
  *
  * When `returnAs` is not specified, the return type mirrors the input:
  * - `string` input returns a hex `string`
- * - `BufferSource` input returns a `Uint8Array`
+ * - `BufferSource` input returns a `Uint8Array<ArrayBuffer>`
  *
  * Use the `returnAs` option to explicitly override the output format.
  *
  * @param data The input data to hash. Can be a string or any BufferSource
  * (e.g., Uint8Array, ArrayBuffer).
  * @param options Configuration options for the hashing operation.
- * @returns A Promise that resolves to a string (HEX, Base64, Base64URL) or Uint8Array containing the raw hash.
+ * @returns A Promise that resolves to a string (HEX, Base64, Base64URL) or Uint8Array<ArrayBuffer> containing the raw hash.
  *
  * @example
  * // Hash a string — returns hex string by default
  * const hashHex = await hash('hello world');
  *
- * // Hash a Uint8Array — returns Uint8Array by default
+ * // Hash a Uint8Array — returns Uint8Array<ArrayBuffer> by default
  * const buffer = new TextEncoder().encode('some binary data');
  * const hashBytes = await hash(buffer);
  *
@@ -59,7 +59,7 @@ export interface DigestOptions {
 export async function hash<T extends DigestReturnAs>(
   data: string | BufferSource,
   options: DigestOptions & { returnAs: T },
-): Promise<T extends "uint8array" | "bytes" ? Uint8Array : string>;
+): Promise<T extends "uint8array" | "bytes" ? Uint8Array<ArrayBuffer> : string>;
 export async function hash(
   data: string,
   options?: Omit<DigestOptions, "returnAs">,
@@ -67,11 +67,15 @@ export async function hash(
 export async function hash(
   data: BufferSource,
   options?: Omit<DigestOptions, "returnAs">,
-): Promise<Uint8Array>;
+): Promise<Uint8Array<ArrayBuffer>>;
+export async function hash(
+  data: string | BufferSource,
+  options?: Omit<DigestOptions, "returnAs">,
+): Promise<Uint8Array<ArrayBuffer> | string>;
 export async function hash(
   data: string | BufferSource,
   options: DigestOptions = {},
-): Promise<Uint8Array | string> {
+): Promise<Uint8Array<ArrayBuffer> | string> {
   const { algorithm = "SHA-256", returnAs } = options;
 
   const isBufferInput = typeof data !== "string";

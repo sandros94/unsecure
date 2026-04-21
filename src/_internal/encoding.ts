@@ -17,28 +17,27 @@ export function encodeBytes<T extends DigestReturnAs>(
   bytes: Uint8Array<ArrayBuffer>,
   returnAs: T,
   source: string,
-): T extends "uint8array" | "bytes" ? Uint8Array<ArrayBuffer> : string {
+): T extends "uint8array" | "bytes" ? Uint8Array<ArrayBuffer> : string;
+export function encodeBytes(
+  bytes: Uint8Array<ArrayBuffer>,
+  returnAs: DigestReturnAs,
+  source: string,
+): Uint8Array<ArrayBuffer> | string {
   switch (returnAs) {
     case "bytes":
     case "uint8array": {
-      return bytes as T extends "uint8array" | "bytes" ? Uint8Array<ArrayBuffer> : string;
+      return bytes;
     }
     case "hex": {
-      return hexEncode(bytes) as T extends "uint8array" | "bytes"
-        ? Uint8Array<ArrayBuffer>
-        : string;
+      return hexEncode(bytes);
     }
     case "b64":
     case "base64": {
-      return base64Encode(bytes) as T extends "uint8array" | "bytes"
-        ? Uint8Array<ArrayBuffer>
-        : string;
+      return base64Encode(bytes);
     }
     case "b64url":
     case "base64url": {
-      return base64UrlEncode(bytes) as T extends "uint8array" | "bytes"
-        ? Uint8Array<ArrayBuffer>
-        : string;
+      return base64UrlEncode(bytes);
     }
     default: {
       throw new Error(`Unsupported ${source} "returnAs" option: ${returnAs}`);

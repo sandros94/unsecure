@@ -46,7 +46,9 @@ export interface HKDFOptions<T extends DigestReturnAs = DigestReturnAs> {
   /**
    * Output format.
    *
-   * @default "uint8array"
+   * When not specified, mirrors the `ikm` input type:
+   * - `string` ikm defaults to `'hex'`
+   * - `BufferSource` ikm defaults to `'uint8array'`
    */
   returnAs?: T;
 }
@@ -59,18 +61,24 @@ export interface HKDFOptions<T extends DigestReturnAs = DigestReturnAs> {
  * an `expand` step produces `length` bytes of output keyed with optional
  * `info` for domain separation.
  *
+ * When `returnAs` is not specified, the return type mirrors the `ikm` input:
+ * - `string` ikm returns a hex `string`
+ * - `BufferSource` ikm returns a `Uint8Array<ArrayBuffer>`
+ *
+ * Use the `returnAs` option to explicitly override the output format.
+ *
  * @param ikm Input keying material. Use a high-entropy secret — a shared
  *            secret, ECDH output, or seed. Do not pass a low-entropy
  *            password; use PBKDF2/Argon2 for password → key derivation.
  * @param options Algorithm, length, salt, info, and output format.
- * @returns Derived bytes as a {@link Uint8Array} (default) or the encoded
- *          form selected by `returnAs`.
+ * @returns Derived bytes encoded according to `returnAs`, or mirroring the
+ *          `ikm` input type when `returnAs` is omitted.
  *
  * @throws {RangeError} If `length` is not a positive integer or exceeds
  *                      `255 * HashLen` for the chosen algorithm.
  *
  * @example
- * // Raw bytes (default)
+ * // BufferSource ikm -> Uint8Array output (default)
  * const key = await hkdf(sharedSecret, { salt, info: "my-app/auth/v1" });
  *
  * @example
@@ -89,17 +97,22 @@ export interface HKDFOptions<T extends DigestReturnAs = DigestReturnAs> {
  */
 export async function hkdf<T extends DigestReturnAs>(
   ikm: string | BufferSource,
-  options?: HKDFOptions<T>,
+  options: HKDFOptions<T> & { returnAs: T },
 ): Promise<T extends "uint8array" | "bytes" ? Uint8Array<ArrayBuffer> : string>;
+export async function hkdf(ikm: string, options?: Omit<HKDFOptions, "returnAs">): Promise<string>;
+export async function hkdf(
+  ikm: BufferSource,
+  options?: Omit<HKDFOptions, "returnAs">,
+): Promise<Uint8Array<ArrayBuffer>>;
 export async function hkdf(
   ikm: string | BufferSource,
   options?: Omit<HKDFOptions, "returnAs">,
-): Promise<Uint8Array<ArrayBuffer>>;
-export async function hkdf<T extends DigestReturnAs>(
+): Promise<Uint8Array<ArrayBuffer> | string>;
+export async function hkdf(
   ikm: string | BufferSource,
-  options: HKDFOptions<T> = {},
-): Promise<T extends "uint8array" | "bytes" ? Uint8Array<ArrayBuffer> : string> {
-  const { algorithm = "SHA-256", length = 32, salt, info, returnAs = "uint8array" as T } = options;
+  options: HKDFOptions = {},
+): Promise<Uint8Array<ArrayBuffer> | string> {
+  const { algorithm = "SHA-256", length = 32, salt, info, returnAs } = options;
 
   if (!Number.isInteger(length) || length < 1) {
     throw new RangeError("length must be a positive integer.");
@@ -111,7 +124,8 @@ export async function hkdf<T extends DigestReturnAs>(
     );
   }
 
-  const ikmBytes = typeof ikm === "string" ? textEncoder.encode(ikm) : ikm;
+  const isBufferInput = typeof ikm !== "string";
+  const ikmBytes = isBufferInput ? ikm : textEncoder.encode(ikm);
   const saltBytes = _coerceOptionalBytes(salt);
   const infoBytes = _coerceOptionalBytes(info);
 
@@ -129,7 +143,8 @@ export async function hkdf<T extends DigestReturnAs>(
   );
 
   const bytes = new Uint8Array(derivedBits);
-  return encodeBytes<T>(bytes, returnAs, "hkdf");
+  const effectiveReturnAs = returnAs ?? (isBufferInput ? "uint8array" : "hex");
+  return encodeBytes(bytes, effectiveReturnAs, "hkdf");
 }
 
 function _coerceOptionalBytes(value: string | BufferSource | undefined): BufferSource {

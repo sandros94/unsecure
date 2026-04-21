@@ -7,7 +7,9 @@ export interface HMACOptions<T extends DigestReturnAs = DigestReturnAs> extends 
   /**
    * Output format.
    *
-   * @default "uint8array" for BufferSource input, "hex" for string input.
+   * When not specified, mirrors the `data` input type:
+   * - `string` data defaults to `'hex'`
+   * - `BufferSource` data defaults to `'uint8array'`
    */
   returnAs?: T;
 }
@@ -17,7 +19,7 @@ export interface HMACOptions<T extends DigestReturnAs = DigestReturnAs> extends 
  *
  * When `returnAs` is not specified, the return type mirrors the `data` input:
  * - `string` data returns a hex `string`
- * - `BufferSource` data returns a `Uint8Array`
+ * - `BufferSource` data returns a `Uint8Array<ArrayBuffer>`
  *
  * Use the `returnAs` option to explicitly override the output format.
  *
@@ -41,8 +43,8 @@ export interface HMACOptions<T extends DigestReturnAs = DigestReturnAs> extends 
 export async function hmac<T extends DigestReturnAs>(
   secret: string | BufferSource,
   data: string | BufferSource,
-  options?: HMACOptions<T>,
-): Promise<T extends "uint8array" | "bytes" ? Uint8Array : string>;
+  options: HMACOptions<T> & { returnAs: T },
+): Promise<T extends "uint8array" | "bytes" ? Uint8Array<ArrayBuffer> : string>;
 export async function hmac(
   secret: string | BufferSource,
   data: string,
@@ -52,12 +54,17 @@ export async function hmac(
   secret: string | BufferSource,
   data: BufferSource,
   options?: Omit<HMACOptions, "returnAs">,
-): Promise<Uint8Array>;
-export async function hmac<T extends DigestReturnAs>(
+): Promise<Uint8Array<ArrayBuffer>>;
+export async function hmac(
   secret: string | BufferSource,
   data: string | BufferSource,
-  options: HMACOptions<T> = {},
-): Promise<T extends "uint8array" | "bytes" ? Uint8Array : string> {
+  options?: Omit<HMACOptions, "returnAs">,
+): Promise<Uint8Array<ArrayBuffer> | string>;
+export async function hmac(
+  secret: string | BufferSource,
+  data: string | BufferSource,
+  options: HMACOptions = {},
+): Promise<Uint8Array<ArrayBuffer> | string> {
   const { algorithm = "SHA-256", returnAs } = options;
 
   const keyBuffer = typeof secret === "string" ? textEncoder.encode(secret) : secret;
@@ -74,9 +81,9 @@ export async function hmac<T extends DigestReturnAs>(
 
   const signature = new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, dataBuffer));
 
-  const effectiveReturnAs = (returnAs ?? (isBufferInput ? "uint8array" : "hex")) as T;
+  const effectiveReturnAs = returnAs ?? (isBufferInput ? "uint8array" : "hex");
 
-  return encodeBytes<T>(signature, effectiveReturnAs, "hmac");
+  return encodeBytes(signature, effectiveReturnAs, "hmac");
 }
 
 /**
