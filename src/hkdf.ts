@@ -10,7 +10,7 @@ const _HASH_LEN: Record<DigestAlgorithm, number> = {
   "SHA-512": 64,
 };
 
-export interface HKDFOptions<T extends DigestReturnAs = DigestReturnAs> {
+export interface HKDFOptions {
   /**
    * Hash algorithm used by the underlying HMAC.
    *
@@ -50,7 +50,7 @@ export interface HKDFOptions<T extends DigestReturnAs = DigestReturnAs> {
    * - `string` ikm defaults to `'hex'`
    * - `BufferSource` ikm defaults to `'uint8array'`
    */
-  returnAs?: T;
+  returnAs?: DigestReturnAs;
 }
 
 /**
@@ -97,7 +97,7 @@ export interface HKDFOptions<T extends DigestReturnAs = DigestReturnAs> {
  */
 export async function hkdf<T extends DigestReturnAs>(
   ikm: string | BufferSource,
-  options: HKDFOptions<T> & { returnAs: T },
+  options: HKDFOptions & { returnAs: T },
 ): Promise<T extends "uint8array" | "bytes" ? Uint8Array<ArrayBuffer> : string>;
 export async function hkdf(ikm: string, options?: Omit<HKDFOptions, "returnAs">): Promise<string>;
 export async function hkdf(

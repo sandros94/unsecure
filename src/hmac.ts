@@ -3,16 +3,7 @@ import { encodeBytes } from "./_internal/encoding.ts";
 import { textEncoder } from "./utils/index.ts";
 import { secureCompare } from "./compare.ts";
 
-export interface HMACOptions<T extends DigestReturnAs = DigestReturnAs> extends DigestOptions {
-  /**
-   * Output format.
-   *
-   * When not specified, mirrors the `data` input type:
-   * - `string` data defaults to `'hex'`
-   * - `BufferSource` data defaults to `'uint8array'`
-   */
-  returnAs?: T;
-}
+export type HMACOptions = DigestOptions;
 
 /**
  * Compute an HMAC signature for the given data using a secret key.
@@ -43,7 +34,7 @@ export interface HMACOptions<T extends DigestReturnAs = DigestReturnAs> extends 
 export async function hmac<T extends DigestReturnAs>(
   secret: string | BufferSource,
   data: string | BufferSource,
-  options: HMACOptions<T> & { returnAs: T },
+  options: HMACOptions & { returnAs: T },
 ): Promise<T extends "uint8array" | "bytes" ? Uint8Array<ArrayBuffer> : string>;
 export async function hmac(
   secret: string | BufferSource,
