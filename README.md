@@ -515,8 +515,8 @@ Key properties:
 
 A collection of supplementary encoding/decoding utilities: `hexEncode`/`hexDecode`, `base64Encode`/`base64Decode`, `base64UrlEncode`/`base64UrlDecode`, `base32Encode`/`base32Decode`, plus shared `textEncoder` / `textDecoder`. All three encoding families share the same shape:
 
-- **Encoders** accept `string | Uint8Array<ArrayBuffer>` and always return `string`. Empty input (`""` or `new Uint8Array(0)`) returns `""`. `null` / `undefined` throws `TypeError` — for optional fields, normalize at the call site with `?? ""`.
-- **Decoders** accept `string | Uint8Array<ArrayBuffer>`. The default return type mirrors the input: `string` in → UTF-8 `string` out (decoded bytes interpreted as UTF-8), `Uint8Array` in → `Uint8Array` out. Override with `{ returnAs: "uint8array" | "bytes" | "string" }`. `null` / `undefined` throws `TypeError`.
+- **Encoders** accept `string | Uint8Array` (any backing buffer, including `SharedArrayBuffer`-backed views) and always return `string`. Empty input (`""` or `new Uint8Array(0)`) returns `""`. `null` / `undefined` throws `TypeError` — for optional fields, normalize at the call site with `?? ""`.
+- **Decoders** accept `string | Uint8Array` (any backing buffer). The default return type mirrors the input: `string` in → UTF-8 `string` out (decoded bytes interpreted as UTF-8), `Uint8Array` in → `Uint8Array<ArrayBuffer>` out. When returning bytes, the output is always a freshly-allocated `ArrayBuffer`-backed `Uint8Array` — never a view into Node's internal `Buffer` pool. Override with `{ returnAs: "uint8array" | "bytes" | "string" }`. `null` / `undefined` throws `TypeError`.
 
 Available both from the main barrel and from `unsecure/utils` (use the subpath for CDN delivery to ship only these helpers).
 
