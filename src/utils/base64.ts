@@ -12,6 +12,14 @@ const _hasFromBase64 = !_hasBuffer && typeof (Uint8Array as any).fromBase64 === 
 const _b64UrlEncOpts = /* @__PURE__ */ Object.freeze({ alphabet: "base64url", omitPadding: true });
 const _b64UrlDecOpts = /* @__PURE__ */ Object.freeze({ alphabet: "base64url" });
 
+function _bytesToBase64Fallback(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]!);
+  }
+  return btoa(binary);
+}
+
 // #region Public API
 
 /**
@@ -29,7 +37,7 @@ export function base64Encode(data: Uint8Array | string): string {
   if (_hasToBase64) {
     return (encodedData as any).toBase64();
   }
-  return btoa(String.fromCodePoint(...encodedData));
+  return _bytesToBase64Fallback(encodedData);
 }
 
 /**
@@ -47,7 +55,7 @@ export function base64UrlEncode(data: Uint8Array | string): string {
   if (_hasToBase64) {
     return (encodedData as any).toBase64(_b64UrlEncOpts);
   }
-  return btoa(String.fromCodePoint(...encodedData))
+  return _bytesToBase64Fallback(encodedData)
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=/g, "");
