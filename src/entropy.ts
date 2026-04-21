@@ -111,8 +111,7 @@ export interface EntropyResult {
  *
  * @example
  * // Analyze random bytes
- * const bytes = new Uint8Array(256);
- * crypto.getRandomValues(bytes);
+ * const bytes = secureRandomBytes(256);
  * entropy(bytes).bitsPerSymbol; // ~7.9+ (close to max of 8 for 256 byte values)
  */
 export function entropy(data: string | Uint8Array | null | undefined): EntropyResult {
@@ -141,16 +140,14 @@ export function entropy(data: string | Uint8Array | null | undefined): EntropyRe
   let prev = -1;
   let havePrev = false;
 
-  const observePair = (p: number, c: number): void => {
-    // Bigram key: combine `prev` and `curr` into a single JS number.
-    // - Bytes fit in 16 bits total (max 0xFFFF) — safe via `(p << 8) | c`,
-    //   but we use the same multiplicative key for uniformity, since
-    //   multiplication stays in the JS-number domain without a 32-bit cap.
-    // - Code points go up to 0x10FFFF (21 bits). `p * 2^21 + c` produces a
-    //   unique key in ≤ 42 bits, well within `Number.MAX_SAFE_INTEGER` (53).
-    const key = p * 0x200000 + c;
-    bigramFreq.set(key, (bigramFreq.get(key) ?? 0) + 1);
-
+  // Monotonic-run update is shared across both input paths. The bigram key
+  // is computed inline per branch so each path uses the fastest encoding:
+  // - Bytes fit in 16 bits, so `(p << 8) | c` stays in int32 range and is
+  //   cheaper than multiplication.
+  // - Code points go up to 0x10FFFF (21 bits), which overflows bitwise ops;
+  //   `p * 2^21 + c` produces a unique key in ≤ 42 bits, well within
+  //   `Number.MAX_SAFE_INTEGER` (53).
+  const observeMonotonic = (p: number, c: number): void => {
     if (c > p) {
       currentAsc++;
       currentDesc = 1;
@@ -170,7 +167,11 @@ export function entropy(data: string | Uint8Array | null | undefined): EntropyRe
       const cp = char.codePointAt(0)!;
       frequencies.set(cp, (frequencies.get(cp) ?? 0) + 1);
       symbolCount++;
-      if (havePrev) observePair(prev, cp);
+      if (havePrev) {
+        const key = prev * 0x200000 + cp;
+        bigramFreq.set(key, (bigramFreq.get(key) ?? 0) + 1);
+        observeMonotonic(prev, cp);
+      }
       prev = cp;
       havePrev = true;
     }
@@ -179,7 +180,11 @@ export function entropy(data: string | Uint8Array | null | undefined): EntropyRe
     for (let i = 0; i < data.length; i++) {
       const b = data[i]!;
       frequencies.set(b, (frequencies.get(b) ?? 0) + 1);
-      if (havePrev) observePair(prev, b);
+      if (havePrev) {
+        const key = (prev << 8) | b;
+        bigramFreq.set(key, (bigramFreq.get(key) ?? 0) + 1);
+        observeMonotonic(prev, b);
+      }
       prev = b;
       havePrev = true;
     }
