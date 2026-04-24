@@ -50,7 +50,7 @@ const fake = entropy("abcdefghijklmnop");
 fake.bitsPerSymbol; // 4 (maximum for 16 unique chars)
 fake.longestRun; // 16
 fake.monotonicDirection; // "ascending"
-fake.bigramBitsPerSymbol; // ≈ 2.46 — noticeably low
+fake.bigramBitsPerSymbol; // ≈ 3.66 — well below 2 * bitsPerSymbol = 8 that a truly random source would approach
 
 // All-equal input — low across the board
 entropy("aaaaaaa");

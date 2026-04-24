@@ -9,7 +9,7 @@ async function hash(
   data: string | BufferSource,
   options?: {
     algorithm?: "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512"; // default: "SHA-256"
-    returnAs?: "hex" | "base64" | "base64url" | "bytes" | "uint8array";
+    returnAs?: "hex" | "base64" | "b64" | "base64url" | "b64url" | "uint8array" | "bytes";
   },
 ): Promise<string | Uint8Array>;
 ```

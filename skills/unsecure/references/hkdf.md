@@ -14,14 +14,14 @@ async function hkdf(
     length?: number; // output bytes, default: 32, max: 255 * HashLen
     salt?: string | BufferSource; // default: empty (RFC 5869 §2.2 "no salt")
     info?: string | BufferSource; // default: empty
-    returnAs?: "hex" | "base64" | "base64url" | "bytes" | "uint8array"; // default: "uint8array"
+    returnAs?: "hex" | "base64" | "b64" | "base64url" | "b64url" | "uint8array" | "bytes"; // mirrors ikm type
   },
 ): Promise<string | Uint8Array>;
 ```
 
 **Defaults:**
 
-- Output is raw `Uint8Array` by default (key material is usually consumed as bytes).
+- `returnAs` mirrors the `ikm` input type when omitted: `string` ikm → hex `string` output; `BufferSource` ikm → `Uint8Array<ArrayBuffer>` output. Pass `returnAs` explicitly when the IKM shape and the desired output shape don't line up — key material is typically consumed as bytes, so pass `returnAs: "uint8array"` (or `"bytes"`) when deriving from a string IKM.
 - `length` default is `32` (256-bit key — fits SHA-256, AES-256, etc.).
 - `algorithm` default is `"SHA-256"`.
 
@@ -113,4 +113,4 @@ RFC 5869 caps the output at `255 * HashLen` bytes per derivation (8160 for SHA-2
 
 ## Note
 
-Returning `Uint8Array` by default is intentional: HKDF output is typically fed into another primitive (AES, HMAC, …) as bytes. Pick `returnAs: "base64url"` only for transport/storage.
+Because `returnAs` mirrors `ikm` when omitted, deriving from a `string` IKM returns a hex string — which is rarely what you want for raw key material. Pass `returnAs: "uint8array"` when deriving from strings and the bytes are about to be fed into another primitive (AES, HMAC, …). Pick `returnAs: "base64url"` only for transport/storage.

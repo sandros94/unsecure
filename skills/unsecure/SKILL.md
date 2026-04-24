@@ -4,7 +4,7 @@ description: "Expert knowledge for working with unsecure — a zero-dependency, 
 metadata:
   version: 0.1.0
   library: unsecure
-  library-version: 0.1.0
+  library-version: 0.2.2
   org: sandros94
   documentation: https://github.com/sandros94/unsecure
 ---
@@ -16,16 +16,30 @@ metadata:
 **Package:** `unsecure` (npm)
 **Requires:** Node.js ^22.12 or >=24, or any runtime with Web Crypto (Bun, Deno, browsers)
 
-**Two entry points:**
+**Entry points — per-module subpaths + a convenience barrel:**
 
-- `unsecure` — all crypto utilities (also re-exports `utils` as a namespace)
-- `unsecure/utils` — encoding helpers (hex, base64, base32)
+Every public module is also its own subpath so CDN / browser consumers only ship the bytes they import. The main barrel (`unsecure`) re-exports everything for bundler workflows (Vite, webpack, etc.) where `sideEffects: false` tree-shakes unused symbols.
 
-**CDN usage** (browsers, Deno, Bun):
+- `unsecure` — barrel re-exporting every module below
+- `unsecure/compare` — `secureCompare`
+- `unsecure/entropy` — `entropy`
+- `unsecure/generate` — `secureGenerate`
+- `unsecure/hash` — `hash`
+- `unsecure/hkdf` — `hkdf`
+- `unsecure/hmac` — `hmac`, `hmacVerify`
+- `unsecure/otp` — `hotp`, `hotpVerify`, `totp`, `totpVerify`, `generateOTPSecret`, `otpauthURI`
+- `unsecure/random` — `createSecureRandomGenerator`, `secureRandomNumber`, `secureRandomBytes`, `secureShuffle`, `randomJitter`
+- `unsecure/sanitize` — `sanitizeObject`, `sanitizeObjectCopy`, `safeJsonParse`
+- `unsecure/uuid` — `uuidv4`, `uuidv7`, `secureUUID`, `createUUIDv7Generator`, `uuidv7Timestamp`, `isUUIDv4`, `isUUIDv7`
+- `unsecure/utils` — `hexEncode`/`hexDecode`, `base64Encode`/`base64Decode`, `base64UrlEncode`/`base64UrlDecode`, `base32Encode`/`base32Decode`, `textEncoder`, `textDecoder`
+
+**CDN usage** (browsers, Deno, Bun) — prefer per-module subpaths so only the imported module is downloaded:
 
 ```ts
-import { hash, hmac, totp } from "https://esm.sh/unsecure";
-import { hexEncode, base64Encode } from "https://esm.sh/unsecure/utils";
+import { uuidv7 } from "https://esm.sh/unsecure/uuid";
+import { hkdf } from "https://esm.sh/unsecure/hkdf";
+import { totp, generateOTPSecret } from "https://esm.sh/unsecure/otp";
+import { base64Encode } from "https://esm.sh/unsecure/utils";
 ```
 
 ---
