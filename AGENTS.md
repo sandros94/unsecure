@@ -24,7 +24,7 @@ When a task involves design decisions, ambiguity, or changes to the project visi
 - **Build:** `pnpm build` (uses `obuild`)
 - **Dev prepare:** `pnpm dev:prepare` (runs `obuild --stub` for development stubs)
 - **Lint:** `pnpm lint` (runs `oxlint` then `oxfmt --check`)
-- **Format:** `pnpm fmt` (runs `automd`, `oxlint --fix`, `oxfmt`)
+- **Format:** `pnpm fmt` (runs `oxlint --fix`, `oxfmt`)
 - **Typecheck:** `pnpm typecheck` (uses `tsgo --noEmit`)
 - **Test all:** `pnpm test` (vitest run)
 - **Test single file:** `pnpm vitest run test/<file>.test.ts`

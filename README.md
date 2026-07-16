@@ -602,21 +602,9 @@ Inspired by [DeepSource Corp work](https://github.com/DeepSourceCorp/shifty).
 
 ## License
 
-<!-- automd:contributors license=MIT -->
-
 Published under the [MIT](https://github.com/sandros94/unsecure/blob/main/LICENSE) license.
 Made by [community](https://github.com/sandros94/unsecure/graphs/contributors) 💛
 <br><br>
 <a href="https://github.com/sandros94/unsecure/graphs/contributors">
 <img src="https://contrib.rocks/image?repo=sandros94/unsecure" />
 </a>
-
-<!-- /automd -->
-
-<!-- automd:with-automd -->
-
----
-
-_🤖 auto updated with [automd](https://automd.unjs.io)_
-
-<!-- /automd -->
