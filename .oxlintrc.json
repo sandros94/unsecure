@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+
+  "plugins": ["unicorn", "typescript", "oxc", "vitest"],
+  "options": { "typeAware": true, "typeCheck": true },
+
+  "ignorePatterns": [
+    "**/CHANGELOG.md",
+    "**/pnpm*.yaml",
+    "**/dist/**",
+    "**/*.gen.ts",
+    "**/.cache/**",
+    "**/node_modules/**",
+    "**/coverage/**"
+  ],
+
+  "rules": {
+    "oxc/only-used-in-recursion": "off",
+    "require-mock-type-parameters": "off"
+  }
+}

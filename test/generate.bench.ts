@@ -135,10 +135,10 @@ export default class Shifty {
    * @return {boolean}
    */
   private _validateCharacter(char: string): boolean {
-    const specials = [..."!@#$%^&*()_+{}:\"<>?|[];',./`~"];
-    const lowercase = [..."abcdefghijklmnopqrstuvwxyz"];
-    const uppercase = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
-    const numbers = [..."0123456789"];
+    const specials = Array.from("!@#$%^&*()_+{}:\"<>?|[];',./`~");
+    const lowercase = Array.from("abcdefghijklmnopqrstuvwxyz");
+    const uppercase = Array.from("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+    const numbers = Array.from("0123456789");
 
     return [
       ...(this.hardenPassword ? specials : []),

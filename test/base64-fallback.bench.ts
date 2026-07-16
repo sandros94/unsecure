@@ -123,6 +123,7 @@ const SIZES: ReadonlyArray<readonly [string, number]> = [
 
 describe("base64 encode — fallback-only paths (no Buffer, no toBase64)", () => {
   for (const [label, size] of SIZES) {
+    // oxlint-disable-next-line vitest/valid-title
     describe(label, () => {
       const input = makeBytes(size);
 

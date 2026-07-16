@@ -88,6 +88,7 @@
     "obuild": "^0.4.38",
     "oxfmt": "^0.59.0",
     "oxlint": "^1.74.0",
+    "oxlint-tsgolint": "^0.24.0",
     "simple-git-hooks": "^2.13.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
@@ -98,5 +99,17 @@
   "simple-git-hooks": {
     "pre-commit": "pnpm stub && pnpm lint && pnpm typecheck"
   },
-  "packageManager": "pnpm@10.33.0"
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.13.0",
+      "onFail": "download"
+    },
+    "runtime": {
+      "name": "node",
+      "version": ">=24.11.0",
+      "onFail": "error"
+    }
+  },
+  "packageManager": "pnpm@11.13.0"
 }

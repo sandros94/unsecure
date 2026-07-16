@@ -40,7 +40,7 @@ export function encodeBytes(
       return base64UrlEncode(bytes);
     }
     default: {
-      throw new Error(`Unsupported ${source} "returnAs" option: ${returnAs}`);
+      throw new Error(`Unsupported ${source} "returnAs" option: ${String(returnAs)}`);
     }
   }
 }

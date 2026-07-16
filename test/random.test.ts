@@ -382,7 +382,7 @@ describe.concurrent("Random-based Functions", () => {
       // eslint-disable-next-line unicorn/no-array-reduce
       const originalCounts = originalArray.reduce(
         (acc, val) => {
-          acc[String(val)] = (acc[String(val)] || 0) + 1;
+          acc[JSON.stringify(val)] = (acc[JSON.stringify(val)] || 0) + 1;
           return acc;
         },
         {} as Record<string, number>,
@@ -390,7 +390,7 @@ describe.concurrent("Random-based Functions", () => {
       // eslint-disable-next-line unicorn/no-array-reduce
       const shuffledCounts = arrayCopy.reduce(
         (acc, val) => {
-          acc[String(val)] = (acc[String(val)] || 0) + 1;
+          acc[JSON.stringify(val)] = (acc[JSON.stringify(val)] || 0) + 1;
           return acc;
         },
         {} as Record<string, number>,

@@ -1,0 +1,21 @@
+allowBuilds:
+  '@parcel/watcher': false
+  esbuild: false
+  simple-git-hooks: true
+
+ignoredBuiltDependencies:
+  - "@parcel/watcher"
+  - esbuild
+onlyBuiltDependencies:
+  - simple-git-hooks
+
+minimumReleaseAgeExclude:
+  - rolldown
+  - "@rolldown/*"
+  - rolldown-plugin-dts
+  - yuku-ast
+  - yuku-codegen
+  - yuku-parser
+  - "@yuku-ast/*"
+  - "@yuku-codegen/*"
+  - "@yuku-parser/*"
