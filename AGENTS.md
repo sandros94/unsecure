@@ -25,7 +25,7 @@ When a task involves design decisions, ambiguity, or changes to the project visi
 - **Dev prepare:** `pnpm dev:prepare` (runs `obuild --stub` for development stubs)
 - **Lint:** `pnpm lint` (runs `oxlint` then `oxfmt --check`)
 - **Format:** `pnpm fmt` (runs `oxlint --fix`, `oxfmt`)
-- **Typecheck:** `pnpm typecheck` (uses `tsgo --noEmit`)
+- **Typecheck:** `pnpm typecheck` (uses `tsc --noEmit`)
 - **Test all:** `pnpm test` (vitest run)
 - **Test single file:** `pnpm vitest run test/<file>.test.ts`
 - **Benchmarks:** `pnpm bench`
@@ -59,8 +59,8 @@ The `src/random.ts` generator uses a 256-element `Uint32Array` buffer to batch `
 ## Key Conventions
 
 - All crypto uses the Web Crypto API (`crypto.subtle`, `crypto.getRandomValues`) — no Node.js-specific crypto imports
-- Package manager is **pnpm** (v10.32.1, via corepack)
+- Package manager is **pnpm** (v11.13.0, via corepack)
 - Linting uses **oxlint** and formatting uses **oxfmt** (not eslint/prettier)
-- TypeScript checking uses **tsgo** (not tsc)
+- TypeScript checking uses native **tsc** (`typescript` v7, the Go implementation)
 - Build uses **obuild** (not unbuild)
 - Tests are colocated in `test/` with `.test.ts` suffix, benchmarks use `.bench.ts`
