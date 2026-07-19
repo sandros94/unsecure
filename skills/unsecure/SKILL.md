@@ -31,7 +31,7 @@ Every public module is also its own subpath so CDN / browser consumers only ship
 - `unsecure/random` — `createSecureRandomGenerator`, `secureRandomNumber`, `secureRandomBytes`, `secureShuffle`, `randomJitter`
 - `unsecure/sanitize` — `sanitizeObject`, `sanitizeObjectCopy`, `safeJsonParse`
 - `unsecure/uuid` — `uuidv4`, `uuidv7`, `secureUUID`, `createUUIDv7Generator`, `uuidv7Timestamp`, `isUUIDv4`, `isUUIDv7`
-- `unsecure/utils` — `hexEncode`/`hexDecode`, `base64Encode`/`base64Decode`, `base64UrlEncode`/`base64UrlDecode`, `base32Encode`/`base32Decode`, `textEncoder`, `textDecoder`
+- `unsecure/utils` — `Hex`, `Base64`, `Base32` codecs (`stringify`/`parse`; strict decode by default), `textEncoder`, `textDecoder`. Legacy flat functions (`hexEncode`/`base64Decode`/…) remain as deprecated wrappers.
 
 **CDN usage** (browsers, Deno, Bun) — prefer per-module subpaths so only the imported module is downloaded:
 
@@ -39,7 +39,7 @@ Every public module is also its own subpath so CDN / browser consumers only ship
 import { uuidv7 } from "https://esm.sh/unsecure/uuid";
 import { hkdf } from "https://esm.sh/unsecure/hkdf";
 import { totp, generateOTPSecret } from "https://esm.sh/unsecure/otp";
-import { base64Encode } from "https://esm.sh/unsecure/utils";
+import { Base64 } from "https://esm.sh/unsecure/utils";
 ```
 
 ---
@@ -90,7 +90,7 @@ UUID generation (RFC 9562). Load when working with `uuidv4()`, `uuidv7()`, `secu
 
 ### [utils.md](./references/utils.md)
 
-Encoding/decoding utilities. Load when working with `hexEncode`/`hexDecode`, `base64Encode`/`base64Decode`, `base64UrlEncode`/`base64UrlDecode`, `base32Encode`/`base32Decode`, `textEncoder`/`textDecoder`, or the `unsecure/utils` entry point.
+Encoding/decoding utilities. Load when working with the `Hex` / `Base64` / `Base32` codecs (or the legacy `hexEncode`/`base64Decode`/… wrappers), `textEncoder`/`textDecoder`, or the `unsecure/utils` entry point.
 
 ---
 

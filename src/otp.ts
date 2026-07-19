@@ -1,6 +1,6 @@
 import type { DigestAlgorithm } from "./hash.ts";
 import { hmac } from "./hmac.ts";
-import { base32Encode, base32Decode } from "./utils/index.ts";
+import { Base32 } from "./utils/index.ts";
 import { secureRandomBytes } from "./random.ts";
 import { secureCompare } from "./compare.ts";
 
@@ -101,7 +101,7 @@ function _dynamicTruncate(hmacResult: Uint8Array, digits: number): string {
  */
 function _resolveSecret(secret: Uint8Array | string): Uint8Array<ArrayBuffer> {
   if (typeof secret === "string") {
-    return base32Decode(secret, { returnAs: "uint8array" });
+    return Base32.parse(secret, { loose: true, returnAs: "uint8array" });
   }
   return secret.buffer instanceof ArrayBuffer
     ? (secret as Uint8Array<ArrayBuffer>)
@@ -239,7 +239,7 @@ export async function totpVerify(
  * // "JBSWY3DPEHPK3PXP..."
  */
 export function generateOTPSecret(length: number = 20): string {
-  return base32Encode(secureRandomBytes(length)).replace(/=+$/, "");
+  return Base32.stringify(secureRandomBytes(length), { padding: false });
 }
 
 /**
@@ -271,7 +271,7 @@ export function otpauthURI(options: OTPAuthURIOptions): string {
   const secretB32 =
     typeof secret === "string"
       ? secret.replace(/=+$/, "")
-      : base32Encode(secret).replace(/=+$/, "");
+      : Base32.stringify(secret, { padding: false });
 
   const label = issuer
     ? `${encodeURIComponent(issuer)}:${encodeURIComponent(account)}`

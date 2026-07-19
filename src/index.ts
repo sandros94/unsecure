@@ -47,7 +47,20 @@ export {
 } from "./uuid.ts";
 
 export {
+  type Base32Alphabet,
+  type Base32Codec,
+  type Base32ParseOptions,
+  type Base32StringifyOptions,
+  type Base64Alphabet,
+  type Base64Codec,
+  type Base64ParseOptions,
+  type Base64StringifyOptions,
+  type DecodeOptions,
   type DecodeReturnAs,
+  type HexCodec,
+  Base32,
+  Base64,
+  Hex,
   base32Decode,
   base32Encode,
   base64Decode,

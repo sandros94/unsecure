@@ -1,4 +1,4 @@
-import { hexEncode } from "./utils/index.ts";
+import { Hex } from "./utils/index.ts";
 
 /**
  * Generate a UUID version 4 (RFC 9562 §5.4) backed by
@@ -250,7 +250,7 @@ function _formatV7Counter(tsMs: number, counter: number): string {
 }
 
 function _formatUUID(bytes: Uint8Array<ArrayBuffer>): string {
-  const hex = hexEncode(bytes);
+  const hex = Hex.stringify(bytes);
   return (
     hex.slice(0, 8) +
     "-" +

@@ -56,15 +56,10 @@ import {
   secureRandomBytes,
   secureShuffle,
   randomJitter,
-  // Encoding (also available via `unsecure/utils`)
-  hexEncode,
-  hexDecode,
-  base64Encode,
-  base64Decode,
-  base64UrlEncode,
-  base64UrlDecode,
-  base32Encode,
-  base32Decode,
+  // Codecs (also available via `unsecure/utils`)
+  Hex,
+  Base64,
+  Base32,
 } from "unsecure";
 ```
 
@@ -77,7 +72,7 @@ For CDN delivery, prefer the per-module subpaths — each module ships as its ow
 import { uuidv7, createUUIDv7Generator } from "https://esm.sh/unsecure/uuid";
 import { hkdf } from "https://esm.sh/unsecure/hkdf";
 import { totp, generateOTPSecret } from "https://esm.sh/unsecure/otp";
-import { base64Encode, base32Decode } from "https://esm.sh/unsecure/utils";
+import { Base64, Base32 } from "https://esm.sh/unsecure/utils";
 ```
 
 Each of `compare`, `entropy`, `generate`, `hash`, `hkdf`, `hmac`, `otp`, `random`, `sanitize`, `uuid`, `utils` is an independent subpath.
@@ -513,29 +508,30 @@ Key properties:
 
 ### Utilities (`unsecure/utils`)
 
-A collection of supplementary encoding/decoding utilities: `hexEncode`/`hexDecode`, `base64Encode`/`base64Decode`, `base64UrlEncode`/`base64UrlDecode`, `base32Encode`/`base32Decode`, plus shared `textEncoder` / `textDecoder`. All three encoding families share the same shape:
+JSON-style codecs — `Hex`, `Base64`, `Base32` — each with `stringify` (bytes → text) and `parse` (text → bytes), plus shared `textEncoder` / `textDecoder`. Available from the main barrel and `unsecure/utils` (use the subpath for CDN delivery).
 
-- **Encoders** accept `string | Uint8Array` (any backing buffer, including `SharedArrayBuffer`-backed views) and always return `string`. Empty input (`""` or `new Uint8Array(0)`) returns `""`. `null` / `undefined` throws `TypeError` — for optional fields, normalize at the call site with `?? ""`.
-- **Decoders** accept `string | Uint8Array` (any backing buffer). The default return type mirrors the input: `string` in → UTF-8 `string` out (decoded bytes interpreted as UTF-8), `Uint8Array` in → `Uint8Array<ArrayBuffer>` out. When returning bytes, the output is always a freshly-allocated `ArrayBuffer`-backed `Uint8Array` — never a view into Node's internal `Buffer` pool. Override with `{ returnAs: "uint8array" | "bytes" | "string" }`. `null` / `undefined` throws `TypeError`.
-
-Available both from the main barrel and from `unsecure/utils` (use the subpath for CDN delivery to ship only these helpers).
+- **`stringify(data, options?)`** accepts `string | Uint8Array` (any backing, incl. `SharedArrayBuffer`-backed views); strings are UTF-8 encoded. Returns a `string`. `null` / `undefined` throws `TypeError`.
+- **`parse(input, options?)`** is **strict by default** — malformed input throws `SyntaxError`; pass `{ loose: true }` to tolerate it. Output mirrors the input type (`string` → UTF-8 `string`, `Uint8Array` → bytes); override with `{ returnAs }`. Byte output is always a fresh `ArrayBuffer`-backed `Uint8Array`, never a view into Node's `Buffer` pool.
 
 ```ts
-import { hexEncode, hexDecode, base32Encode, base32Decode } from "unsecure/utils";
+import { Hex, Base64, Base32 } from "unsecure/utils";
 
-const hex = hexEncode("hello"); // "68656c6c6f"
-const text = hexDecode(hex); // "hello" (string → string by default)
-const bytes = hexDecode(hex, { returnAs: "uint8array" }); // Uint8Array
+Hex.stringify("hello"); // "68656c6c6f"
+Hex.parse("68656c6c6f"); // "hello" (string → string by default)
+Hex.parse("68656c6c6f", { returnAs: "uint8array" }); // Uint8Array
 
-// Base32 (RFC 4648) — commonly used for OTP secrets; behaves identically
-const b32 = base32Encode("foobar"); // "MZXW6YTBOI======"
-base32Decode("MZXW6YTBOI"); // "foobar"
-base32Decode("MZXW6YTBOI", { returnAs: "uint8array" }); // raw bytes
+// Base64: standard, or URL-safe via { alphabet: "base64url" } (unpadded by default)
+Base64.stringify(bytes, { alphabet: "base64url" });
+Base64.parse(token, { alphabet: "base64url", returnAs: "bytes" });
 
-// Normalize optional fields at the call site rather than relying on coercion
-hexEncode(optionalField ?? ""); // "" when field is null/undefined
-base64Encode(optionalBuffer ?? new Uint8Array(0));
+// Base32 (RFC 4648) + base32hex / crockford / custom alphabets
+Base32.stringify("foobar"); // "MZXW6YTBOI======"
+Base32.stringify(secret, { padding: false }); // unpadded (e.g. OTP secrets)
+Base32.parse(userSecret, { loose: true, returnAs: "uint8array" }); // tolerate spaces/case
 ```
+
+> [!NOTE]
+> The pre-0.3 flat functions (`hexEncode`, `base64Decode`, `base32Encode`, …) remain as **deprecated** `loose` wrappers — migrate to the codecs. Decoding is now strict by default, so add `{ loose: true }` to reproduce the old lenient behavior.
 
 ### Sanitization (`sanitizeObject` / `sanitizeObjectCopy` / `safeJsonParse`)
 

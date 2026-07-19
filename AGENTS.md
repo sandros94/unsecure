@@ -45,11 +45,12 @@ When a task involves design decisions, ambiguity, or changes to the project visi
 - `src/random.ts` → `unsecure/random` — `createSecureRandomGenerator()`, `secureRandomNumber()`, `secureRandomBytes()`, `secureShuffle()`, `randomJitter()`
 - `src/sanitize.ts` → `unsecure/sanitize` — `sanitizeObject()` (in-place, single-pass), `sanitizeObjectCopy()` (non-mutating, cycle-preserving copy), `safeJsonParse()` (parse-time prototype-pollution reviver)
 - `src/uuid.ts` → `unsecure/uuid` — `uuidv4()`, `uuidv7(timestamp?)`, `secureUUID` (alias of `uuidv7`), `createUUIDv7Generator()` (dual-clock: counter driven by `Date.now()` for per-process uniqueness, embedded ts honors the optional caller argument verbatim — RFC 9562 §6.2 Method 3 counter, safe for out-of-order backfills; a throwing `.next(invalid)` does not mutate state), `uuidv7Timestamp()`, `isUUIDv4()`, `isUUIDv7()`
-- `src/utils/index.ts` → `unsecure/utils` — `hexEncode`/`hexDecode`, `base64Encode`/`base64Decode`, `base64UrlEncode`/`base64UrlDecode`, `base32Encode`/`base32Decode`, plus shared `textEncoder` / `textDecoder` instances. Also re-exported flat from the main barrel — tree-shakes cleanly under `sideEffects: false`. For CDN delivery prefer the subpath so only these helpers are shipped.
+- `src/utils/index.ts` → `unsecure/utils` — the `Hex` / `Base64` / `Base32` codecs (JSON-style `stringify`/`parse`; strict decode by default, `{ loose: true }` opt-in; `Base64` takes `{ alphabet: "base64url" }`, `Base32` takes `base32`/`base32hex`/`crockford`/custom), plus shared `textEncoder` / `textDecoder` instances. The pre-0.3 flat functions (`hexEncode`/`hexDecode`, `base64Encode`/`base64Decode`, `base64UrlEncode`/`base64UrlDecode`, `base32Encode`/`base32Decode`) remain as deprecated `loose` wrappers. Also re-exported flat from the main barrel — tree-shakes cleanly under `sideEffects: false`. For CDN delivery prefer the subpath so only these helpers are shipped.
 
 Internal-only (not exported, inlined into the bundles that import them):
 
 - `src/_internal/encoding.ts` — shared `encodeBytes(bytes, returnAs, source)` helper used by `hash`, `hmac`, and `hkdf` to keep `returnAs` behavior consistent
+- `src/utils/_codec.ts` — shared codec primitives (`textEncoder`/`textDecoder`, `DecodeReturnAs`/`DecodeOptions`, input/output helpers); a leaf module so the `utils/index.ts` barrel can re-export without an import cycle
 - `src/utils/_buffer.ts` — Node `Buffer` fast-path detection for the encoding helpers
 
 When adding a new public module, three edits are required in lockstep: add the input to `build.config.ts`, add the `./<name>` entry to `package.json` `exports`, and (if user-facing) add a `skills/unsecure/references/<name>.md` entry plus `skills/unsecure/SKILL.md` link.
