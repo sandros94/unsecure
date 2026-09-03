@@ -1,3 +1,14 @@
+export {
+  type Argon2HashOptions,
+  type Argon2Options,
+  type Argon2Parameters,
+  type Argon2Variant,
+  type Argon2VerifyOptions,
+  argon2,
+  argon2Hash,
+  argon2Verify,
+} from "./argon2.ts";
+
 export { type SecureCompareOptions, secureCompare } from "./compare.ts";
 
 export { type EntropyResult, entropy } from "./entropy.ts";
