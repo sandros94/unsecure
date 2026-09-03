@@ -1,6 +1,6 @@
 ---
 name: unsecure
-description: "Expert knowledge for working with unsecure — a zero-dependency, runtime-agnostic cryptographic utilities library using the Web Crypto API. Use this skill whenever the user is working with hashing, HMAC, OTP, secure string generation, constant-time comparison, entropy analysis, randomness utilities, or object sanitization. Trigger on any mention of unsecure or related cryptographic operations."
+description: "Expert knowledge for working with unsecure — a zero-dependency, runtime-agnostic cryptographic utilities library using the Web Crypto API. Use this skill whenever the user is working with hashing, HMAC, HKDF, Argon2 password hashing, OTP, secure string generation, constant-time comparison, entropy analysis, randomness utilities, or object sanitization. Trigger on any mention of unsecure or related cryptographic operations."
 metadata:
   version: 0.1.0
   library: unsecure
@@ -21,6 +21,7 @@ metadata:
 Every public module is also its own subpath so CDN / browser consumers only ship the bytes they import. The main barrel (`unsecure`) re-exports everything for bundler workflows (Vite, webpack, etc.) where `sideEffects: false` tree-shakes unused symbols.
 
 - `unsecure` — barrel re-exporting every module below
+- `unsecure/argon2` — `argon2`, `argon2Hash`, `argon2Verify`
 - `unsecure/compare` — `secureCompare`
 - `unsecure/entropy` — `entropy`
 - `unsecure/errors` — `UnsecureError`, `UnsecureErrorCode`
@@ -39,6 +40,7 @@ Every public module is also its own subpath so CDN / browser consumers only ship
 ```ts
 import { uuidv7 } from "https://esm.sh/unsecure/uuid";
 import { hkdf } from "https://esm.sh/unsecure/hkdf";
+import { argon2Hash, argon2Verify } from "https://esm.sh/unsecure/argon2";
 import { totp, generateOTPSecret } from "https://esm.sh/unsecure/otp";
 import { Base64 } from "https://esm.sh/unsecure/utils";
 ```
@@ -56,6 +58,10 @@ SHA hashing via `crypto.subtle.digest`. Load when working with `hash()`, content
 ### [hkdf.md](./references/hkdf.md)
 
 HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`. Load when working with `hkdf()`, deriving session keys, domain-separating keys via `info`, or expanding shared secrets into key material.
+
+### [argon2.md](./references/argon2.md)
+
+Argon2 password hashing (RFC 9106), plain JavaScript. Load when working with `argon2Hash()`, `argon2Verify()`, `argon2()`, storing or checking passwords, PHC strings, peppers, cost tuning, or password hashing on a runtime that cannot run WebAssembly.
 
 ### [hmac.md](./references/hmac.md)
 
@@ -106,5 +112,6 @@ Encoding/decoding utilities. Load when working with the hex, base64 or base32 co
 - Random generator uses a 256-element `Uint32Array` buffer with rejection sampling to avoid modulo bias
 - `secureRandomBytes()` handles the 65536-byte `crypto.getRandomValues` limit via chunking, and refuses a length above `2**31 - 1`
 - `secureRandomNumber()` and `randomJitter()` draw from one module-level instance of that generator
-- All verification functions (`hmacVerify`, `hotpVerify`, `totpVerify`) use `secureCompare()` internally
+- All verification functions (`hmacVerify`, `hotpVerify`, `totpVerify`, `argon2Verify`) use `secureCompare()` internally
 - Everything the library throws is an `UnsecureError` carrying a `code`; verification functions return `false` for untrusted input and throw only for caller or configuration mistakes
+- `argon2` is the one module Web Crypto cannot back: it carries its own BLAKE2b and does 64-bit arithmetic as 32-bit halves in `Uint32Array`, which keeps it inside the zero-dependency, WebAssembly-free constraint

@@ -27,6 +27,10 @@ import {
   hmac,
   hmacVerify,
   hkdf,
+  // Password hashing
+  argon2,
+  argon2Hash,
+  argon2Verify,
   // OTP
   hotp,
   hotpVerify,
@@ -79,11 +83,12 @@ For CDN delivery, prefer the per-module subpaths — each module ships as its ow
 // Per-module — ships only what the module needs
 import { uuidv7, createUUIDv7Generator } from "https://esm.sh/unsecure/uuid";
 import { hkdf } from "https://esm.sh/unsecure/hkdf";
+import { argon2Hash, argon2Verify } from "https://esm.sh/unsecure/argon2";
 import { totp, generateOTPSecret } from "https://esm.sh/unsecure/otp";
 import { Base64, Base32 } from "https://esm.sh/unsecure/utils";
 ```
 
-Each of `compare`, `entropy`, `errors`, `generate`, `hash`, `hkdf`, `hmac`, `otp`, `random`, `sanitize`, `uuid`, `utils` is an independent subpath.
+Each of `argon2`, `compare`, `entropy`, `errors`, `generate`, `hash`, `hkdf`, `hmac`, `otp`, `random`, `sanitize`, `uuid`, `utils` is an independent subpath.
 
 ### hash
 
@@ -158,7 +163,7 @@ const valid = await hmacVerify(secret, body, expectedBase64Sig, {
 
 ### hkdf
 
-HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`. Extract-and-expand from **high-entropy** input keying material — shared secrets, ECDH output, seeds. For **password-based** derivation use PBKDF2/Argon2 instead; HKDF has no work factor.
+HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`. Extract-and-expand from **high-entropy** input keying material — shared secrets, ECDH output, seeds. For **password-based** derivation use [`argon2`](#argon2) instead; HKDF has no work factor.
 
 options:
 
@@ -189,6 +194,49 @@ const macKey = await hkdf(ikm, { salt, info: "authenticate" });
 
 > [!TIP]
 > A different `info` per usage site (ideally versioned, e.g. `"myapp/enc/v1"`) lets you rotate key derivation without breaking old data. Requests beyond `255 * HashLen` throw `OUT_OF_RANGE` before reaching Web Crypto.
+
+### argon2
+
+Argon2 (RFC 9106) — the password hashing function, `argon2id` by default. Plain JavaScript: no WebAssembly, no native binding, no Node built-ins, so it runs on serverless targets that refuse to instantiate a `WebAssembly.Module` at all (Cloudflare Workers, Deno Deploy, edge runtimes). Measured at parity with `@noble/hashes` and roughly 12x a native binding — see `pnpm bench`.
+
+`argon2Hash()` and `argon2Verify()` are the pair you want for stored passwords; `argon2()` is the raw KDF underneath.
+
+options:
+
+- **variant**: `argon2id`, `argon2i`, `argon2d` (default `argon2id`)
+- **m**: memory cost in KiB (default `19456`, OWASP's argon2id recommendation)
+- **t**: time cost, i.e. passes over memory (default `2`)
+- **p**: parallelism, i.e. lanes (default `1`)
+- **length**: tag length in bytes (default `32`, min `4`)
+- **secret**: optional pepper, never stored with the tag (string or `BufferSource`)
+- **data**: optional associated data, likewise not stored (string or `BufferSource`)
+- **salt**: (`argon2Hash` only) default 16 random bytes; supply one only to reproduce a known tag
+- **returnAs**: (`argon2` only) `hex`, `base64`, `base64url`, `bytes` (default mirrors the `password` type)
+
+```ts
+import { argon2, argon2Hash, argon2Verify } from "unsecure";
+
+// Store a password — the PHC string carries the parameters and the salt
+const stored = await argon2Hash("correct horse battery staple");
+// '$argon2id$v=19$m=19456,t=2,p=1$Kf14AXIdAP9xLzuLjGNfzQ$XDMa/Lindm4POWc6qZPSUGtKkbjCbxc+eDYNoBNLEzM'
+
+// Check one, constant-time, at whatever parameters the stored string names
+const ok = await argon2Verify(stored, submitted);
+// true or false
+
+// Add a pepper — kept outside the database, so a dump alone is not enough
+const peppered = await argon2Hash(password, { secret: process.env.PEPPER });
+await argon2Verify(peppered, submitted, { secret: process.env.PEPPER });
+
+// Raw derivation, e.g. to turn a passphrase into key material
+const key = await argon2(passphrase, salt, { m: 65536, t: 3, length: 64, returnAs: "bytes" });
+```
+
+> [!NOTE]
+> Only version `0x13` (`v=19`) is produced or accepted. A stored string naming another version, an unknown variant, or a shape that is not PHC is refused by **throwing** rather than by returning `false` — a value in an unexpected format is a bug or an unperformed migration, and answering "wrong password" would hide it. A wrong password is the only thing that returns `false`.
+
+> [!TIP]
+> `p` is a parameter of the function, not a threading hint: lanes are computed sequentially here, so raising it changes the tag without making anything faster. Leave it at `1` unless you must match tags produced elsewhere.
 
 ### OTP (HOTP / TOTP)
 
