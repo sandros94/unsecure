@@ -251,22 +251,44 @@ describe.concurrent("argon2 interoperability", () => {
   });
 
   it("derives the same raw tag as @node-rs/argon2 across parameter sets", async () => {
-    const cases = [
-      { m: 32, t: 1, p: 1, length: 16 },
-      { m: 256, t: 3, p: 2, length: 32 },
-      { m: 1024, t: 2, p: 4, length: 64 },
+    const algorithm: Record<Argon2Variant, number> = { argon2d: 0, argon2i: 1, argon2id: 2 };
+    const cases: Array<{
+      variant: Argon2Variant;
+      m: number;
+      t: number;
+      p: number;
+      length: number;
+    }> = [
+      { variant: "argon2id", m: 32, t: 1, p: 1, length: 16 },
+      { variant: "argon2id", m: 256, t: 3, p: 2, length: 32 },
+      { variant: "argon2id", m: 1024, t: 2, p: 4, length: 64 },
+      // A segment longer than 128 blocks makes the data-independent path refresh its address
+      // block mid-segment; the RFC vectors (m=32, p=4) and the sets above never get there.
+      { variant: "argon2i", m: 1024, t: 1, p: 1, length: 32 },
+      { variant: "argon2id", m: 1024, t: 2, p: 1, length: 32 },
+      { variant: "argon2d", m: 1024, t: 1, p: 1, length: 32 },
+      // H' tails that are neither 64 bytes nor a multiple of 32.
+      { variant: "argon2id", m: 64, t: 1, p: 1, length: 65 },
+      { variant: "argon2id", m: 64, t: 1, p: 1, length: 100 },
     ];
-    for (const { m, t, p, length } of cases) {
+    for (const { variant, m, t, p, length } of cases) {
       const salt = filled(16, m & 0xff);
       const phc = await nodeRsHash("shared-secret", {
         memoryCost: m,
         timeCost: t,
         parallelism: p,
         outputLen: length,
-        algorithm: 2,
+        algorithm: algorithm[variant],
         salt,
       });
-      const ours = await argon2("shared-secret", salt, { m, t, p, length, returnAs: "b64" });
+      const ours = await argon2("shared-secret", salt, {
+        variant,
+        m,
+        t,
+        p,
+        length,
+        returnAs: "b64",
+      });
       expect(phc.endsWith(ours.replace(/=+$/, ""))).toBe(true);
     }
   });
