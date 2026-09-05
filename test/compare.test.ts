@@ -138,3 +138,45 @@ describe.concurrent("secureCompare", () => {
     expect(secureCompare("", "test", { strict: false })).toBe(false);
   });
 });
+
+describe.concurrent("secureCompare input contract", () => {
+  const bytes = textEncoder.encode("hello");
+
+  it("returns false for a null received value instead of throwing", () => {
+    expect(secureCompare("some_secure_value", null)).toBe(false);
+  });
+
+  it("returns false for a received value that is not text or bytes", () => {
+    expect(secureCompare(bytes, [104, 101, 108, 108, 111] as any)).toBe(false);
+    expect(secureCompare("hello", 12_345 as any)).toBe(false);
+    expect(secureCompare("hello", { 0: 104, length: 5 } as any)).toBe(false);
+    expect(secureCompare("hello", true as any)).toBe(false);
+  });
+
+  it("accepts every BytesSource shape for both arguments", () => {
+    const offset = new Uint8Array(bytes.byteLength + 4);
+    offset.set(bytes, 4);
+    const view = new Uint8Array(offset.buffer, 4, bytes.byteLength);
+
+    expect(secureCompare(bytes.buffer as ArrayBuffer, "hello")).toBe(true);
+    expect(secureCompare("hello", bytes.buffer as ArrayBuffer)).toBe(true);
+    expect(secureCompare(new DataView(bytes.buffer as ArrayBuffer), "hello")).toBe(true);
+    expect(secureCompare("hello", view)).toBe(true);
+    expect(secureCompare(view, "hello")).toBe(true);
+  });
+
+  it("accepts a SharedArrayBuffer-backed view", () => {
+    const sab = new SharedArrayBuffer(bytes.byteLength);
+    const shared = new Uint8Array(sab);
+    shared.set(bytes);
+    expect(secureCompare(shared, "hello")).toBe(true);
+    expect(secureCompare("hello", shared)).toBe(true);
+  });
+
+  it("throws for an expected value that is not text or bytes", () => {
+    expect(() => secureCompare(42 as any, "x")).toThrow(TypeError);
+    expect(() => secureCompare(42 as any, "x")).toThrow(
+      "secureCompare: expected a string, ArrayBuffer or ArrayBuffer view, got number.",
+    );
+  });
+});

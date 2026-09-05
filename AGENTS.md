@@ -35,7 +35,7 @@ When a task involves design decisions, ambiguity, or changes to the project visi
 
 **Per-module subpath exports, plus a convenience barrel.** Every public module is listed as its own bundle input in `build.config.ts` and mapped to an `./<name>` entry in `package.json` `exports`, producing one `dist/<name>.mjs` + `dist/<name>.d.mts` pair per module. CDN consumers (e.g. `https://esm.sh/unsecure/uuid`) tree-shake only what they import. Bundler consumers (Vite, etc.) can still use `import { x } from "unsecure"` via the barrel at `src/index.ts` — both paths coexist. Public modules:
 
-- `src/compare.ts` → `unsecure/compare` — `secureCompare()`: constant-time comparison (returns `false` on empty/undefined `expected` by default; opt-in `strict: true` preserves the pre-0.2 throw)
+- `src/compare.ts` → `unsecure/compare` — `secureCompare()`: constant-time comparison of text or any `BytesSource` (returns `false` on empty/undefined `expected` by default; opt-in `strict: true` preserves the pre-0.2 throw). `received` is untrusted: anything that is not text or bytes — `null`, a number, a plain array — is a mismatch, never a throw; a wrong `expected` type is a caller bug and throws `TypeError`
 - `src/entropy.ts` → `unsecure/entropy` — `entropy()`: Shannon unigram entropy + bigram entropy (catches local structure) + longest-monotonic-run detection (catches sorted/reverse-sorted fakes). All additive; unigram fields unchanged.
 - `src/generate.ts` → `unsecure/generate` — `secureGenerate()`: secure string/token generation with customizable charsets, buffered RNG
 - `src/hash.ts` → `unsecure/hash` — `hash()`: async hashing via `crypto.subtle.digest`

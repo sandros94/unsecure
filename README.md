@@ -325,7 +325,9 @@ const datestamp = secureGenerate({ length: 20, timestamp: date });
 
 ### secureCompare
 
-Compares two values (string or Uint8Array) in a timing-attack-safe manner. The first argument (`expected`) is always the trusted, server-side value, which determines the loop length. The second argument (`received`) is the untrusted, user-provided value.
+Compares two values (a string or any byte container — `Uint8Array`, `ArrayBuffer`, `DataView`, …) in a timing-attack-safe manner. The first argument (`expected`) is always the trusted, server-side value, which determines the loop length. The second argument (`received`) is the untrusted, user-provided value.
+
+Because `received` comes from the wire, anything that is not text or bytes — `null` from a missing header, a number or an array out of a JSON body — counts as a mismatch and returns `false`. Only a wrong `expected` type throws, because that is a bug in your own code.
 
 ```ts
 import { secureCompare } from "unsecure";
@@ -347,6 +349,8 @@ secureCompare(expected, mac2); // false
 
 // Handles undefined / empty `expected` gracefully — returns false by default
 secureCompare(expected, undefined); // false
+secureCompare(expected, request.headers.get("x-signature")); // false when the header is absent
+secureCompare(expected, [1, 2, 3]); // false — not text or bytes
 secureCompare("", received); // false
 secureCompare(undefined, undefined); // false — never "empty matches empty"
 
