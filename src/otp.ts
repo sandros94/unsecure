@@ -67,7 +67,7 @@ export interface OTPAuthURIOptions {
   secret: string | BytesSource;
   /** Account name (e.g. user email). */
   account: string;
-  /** Issuer name (e.g. service name). */
+  /** Issuer name (e.g. service name). A non-empty string; omit it for none. */
   issuer?: string;
   /** Hash algorithm. @default "SHA-1" */
   algorithm?: DigestAlgorithm;
@@ -385,7 +385,15 @@ export function otpauthURI(options: OTPAuthURIOptions): string {
   if (account.length === 0) {
     throw new RangeError("otpauthURI: account must not be empty.");
   }
-  if (issuer !== undefined) _assertLabelText("issuer", issuer);
+  if (issuer !== undefined) {
+    _assertLabelText("issuer", issuer);
+    // "" is not "no issuer": it would be dropped from both the label and the
+    // query, provisioning a token under a name the caller never chose.
+    // `undefined` is how a caller says there is none.
+    if (issuer.length === 0) {
+      throw new RangeError("otpauthURI: issuer must not be empty.");
+    }
+  }
   const { algorithm, digits } = _baseOptions("otpauthURI", options);
 
   // Whatever shape the secret arrives in, the URI carries the canonical
@@ -393,14 +401,15 @@ export function otpauthURI(options: OTPAuthURIOptions): string {
   // the grouped lowercase form a caller may be holding has to be normalized.
   const secretB32 = base32Stringify(_resolveSecret(secret), { padding: false });
 
-  const label = issuer
-    ? `${encodeURIComponent(issuer)}:${encodeURIComponent(account)}`
-    : encodeURIComponent(account);
+  const label =
+    issuer === undefined
+      ? encodeURIComponent(account)
+      : `${encodeURIComponent(issuer)}:${encodeURIComponent(account)}`;
 
   // The Key URI format is a URI, not a form body: a space is "%20", never "+",
   // which is what `URLSearchParams` would write.
   const params = [`secret=${encodeURIComponent(secretB32)}`];
-  if (issuer) params.push(`issuer=${encodeURIComponent(issuer)}`);
+  if (issuer !== undefined) params.push(`issuer=${encodeURIComponent(issuer)}`);
   params.push(`algorithm=${encodeURIComponent(_URI_ALGORITHM_MAP[algorithm])}`);
   params.push(`digits=${digits}`);
 

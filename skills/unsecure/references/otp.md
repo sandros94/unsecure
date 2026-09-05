@@ -71,7 +71,7 @@ const code3 = await totp(secret, { time: 1234567890 });
 
 ## otpauthURI()
 
-Builds an `otpauth://` URI for provisioning OTP tokens via QR code. Values are percent-encoded per the Key URI format (a space is `%20`, never `+`), and a string secret is canonicalized to unpadded uppercase base32 — `"jbsw y3dp"` and the equivalent bytes produce the same URI. `type` must be `"hotp"` or `"totp"` (`TypeError` otherwise); `account` — and `issuer` when given — must be a string, with a non-empty `account`; `counter` is required for HOTP and must be an integer `>= 0`.
+Builds an `otpauth://` URI for provisioning OTP tokens via QR code. Values are percent-encoded per the Key URI format (a space is `%20`, never `+`), and a string secret is canonicalized to unpadded uppercase base32 — `"jbsw y3dp"` and the equivalent bytes produce the same URI. `type` must be `"hotp"` or `"totp"` (`TypeError` otherwise); `account` — and `issuer` when given — must be a non-empty string, and `undefined` is how a caller says there is no issuer; `counter` is required for HOTP and must be an integer `>= 0`.
 
 ```ts
 import { otpauthURI } from "unsecure";

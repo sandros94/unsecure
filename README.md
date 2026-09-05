@@ -271,7 +271,7 @@ const secret256 = generateOTPSecret(32);
 
 #### otpauthURI
 
-Builds an `otpauth://` URI for provisioning OTP tokens via QR code. Every value is percent-encoded (a space is `%20`, never `+`) and the secret is re-encoded as canonical unpadded base32 whatever shape it arrives in, so a grouped lowercase string scans the same as raw bytes. `type` must be `"hotp"` or `"totp"`, `account` (and `issuer`, when given) must be a non-empty string, and `counter` is required — and an integer `>= 0` — for HOTP.
+Builds an `otpauth://` URI for provisioning OTP tokens via QR code. Every value is percent-encoded (a space is `%20`, never `+`) and the secret is re-encoded as canonical unpadded base32 whatever shape it arrives in, so a grouped lowercase string scans the same as raw bytes. `type` must be `"hotp"` or `"totp"`, `account` (and `issuer`, when given) must be a non-empty string — omit `issuer` entirely when there is none — and `counter` is required — and an integer `>= 0` — for HOTP.
 
 ```ts
 import { otpauthURI } from "unsecure";

@@ -661,4 +661,19 @@ describe("otpauthURI() label contract", () => {
       "otpauthURI: issuer must be a string, got Object.",
     );
   });
+
+  it("rejects an empty issuer instead of dropping it", () => {
+    expect(() => otpauthURI({ type: "totp", secret, account: "test", issuer: "" })).toThrow(
+      "otpauthURI: issuer must not be empty.",
+    );
+    expect(() => otpauthURI({ type: "totp", secret, account: "test", issuer: "" })).toThrow(
+      RangeError,
+    );
+  });
+
+  it("omits the issuer only when it is undefined", () => {
+    const uri = otpauthURI({ type: "totp", secret, account: "test", issuer: undefined });
+    expect(uri).not.toContain("issuer=");
+    expect(uri.startsWith("otpauth://totp/test?")).toBe(true);
+  });
 });
