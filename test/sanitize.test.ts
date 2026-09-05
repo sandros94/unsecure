@@ -245,3 +245,76 @@ describe("sanitizeObjectCopy root pass-through", () => {
     expect(sanitizeObjectCopy(map as any)).toBe(map);
   });
 });
+
+describe("deep nesting", () => {
+  const DEPTH = 100_000;
+
+  function deepObject(): Record<string, unknown> {
+    const root: Record<string, unknown> = {};
+    let node = root;
+    for (let i = 0; i < DEPTH; i++) {
+      const next: Record<string, unknown> = {};
+      node.a = next;
+      node = next;
+    }
+    node.leaf = 1;
+    return root;
+  }
+
+  function depthOf(value: unknown): number {
+    let depth = 0;
+    let node = value as Record<string, unknown> | undefined;
+    while (node && typeof node === "object" && "a" in node) {
+      node = node.a as Record<string, unknown>;
+      depth++;
+    }
+    return depth;
+  }
+
+  it("sanitizeObject walks a 100 000-level tree", () => {
+    const obj = deepObject();
+    expect(depthOf(sanitizeObject(obj))).toBe(DEPTH);
+  });
+
+  it("sanitizeObjectCopy copies a 100 000-level tree", () => {
+    const obj = deepObject();
+    const copy = sanitizeObjectCopy(obj);
+    // `expect().not.toBe()` builds a structural hint that recurses.
+    expect(copy === obj).toBe(false);
+    expect(depthOf(copy)).toBe(DEPTH);
+  });
+
+  it("safeJsonParse parses a 100 000-level payload", () => {
+    const json = `{"a":`.repeat(DEPTH) + "1" + "}".repeat(DEPTH);
+    expect(depthOf(safeJsonParse(json))).toBe(DEPTH);
+  });
+
+  it("safeJsonParse strips dangerous keys deep in a 10 000-level payload", () => {
+    const inner = '{"__proto__":{"evil":true},"ok":1}';
+    const json = `{"a":`.repeat(10_000) + inner + "}".repeat(10_000);
+    let node = safeJsonParse<any>(json);
+    for (let i = 0; i < 10_000; i++) node = node.a;
+    expect(Object.prototype.hasOwnProperty.call(node, "__proto__")).toBe(false);
+    expect(node.ok).toBe(1);
+  });
+
+  it("safeJsonParse sanitizes array and primitive roots", () => {
+    expect(safeJsonParse('[{"__proto__":{"x":1},"ok":2}]')).toEqual([{ ok: 2 }]);
+    expect(safeJsonParse("42")).toBe(42);
+    expect(safeJsonParse("null")).toBeNull();
+    expect(safeJsonParse('"text"')).toBe("text");
+  });
+
+  it("sanitizeObject strips a dangerous key deep in a 10 000-level tree", () => {
+    const root: Record<string, unknown> = {};
+    let node = root;
+    for (let i = 0; i < 10_000; i++) {
+      const next: Record<string, unknown> = {};
+      node.a = next;
+      node = next;
+    }
+    Object.defineProperty(node, "constructor", { value: 1, configurable: true, enumerable: true });
+    sanitizeObject(root);
+    expect(Object.prototype.hasOwnProperty.call(node, "constructor")).toBe(false);
+  });
+});

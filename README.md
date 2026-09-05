@@ -564,12 +564,12 @@ Three complementary tools for stripping prototype-pollution vectors (`__proto__`
 | Already have a parsed object you own | `sanitizeObject` (fastest) |
 | Must preserve the caller's object    | `sanitizeObjectCopy`       |
 
-`safeJsonParse` is cheapest — a reviver drops dangerous keys during parsing so they never materialize on the result. `sanitizeObject` is the fastest post-parse variant: single-pass traversal, mutates in place, no intermediate allocations. `sanitizeObjectCopy` is the non-mutating alternative, cycle-safe via `WeakMap` (cycles in the input become cycles in the output pointing at the copied node, never at the original).
+`safeJsonParse` is `JSON.parse` followed by `sanitizeObject` on the result, so nothing holding a dangerous key survives the call. `sanitizeObject` is the fastest post-parse variant: single-pass traversal, mutates in place, no intermediate allocations. `sanitizeObjectCopy` is the non-mutating alternative, cycle-safe via `WeakMap` (cycles in the input become cycles in the output pointing at the copied node, never at the original). All three traverse with an explicit stack, so nesting depth is bounded by memory rather than by the call stack.
 
 ```ts
 import { safeJsonParse, sanitizeObject, sanitizeObjectCopy } from "unsecure";
 
-// 1. Parse + sanitize in one step — dangerous keys never exist on the result
+// 1. Parse + sanitize in one step — the result holds no dangerous key
 const payload = safeJsonParse<{ user: { name: string } }>(untrustedInput);
 
 // 2. Post-parse, mutate in place (cheapest on hot paths)

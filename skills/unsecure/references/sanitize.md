@@ -11,8 +11,8 @@ function sanitizeObject<T extends Record<string, unknown> | undefined>(obj: T): 
 // Returns a sanitized deep copy; input is never mutated. Cycle-safe.
 function sanitizeObjectCopy<T extends Record<string, unknown> | undefined>(obj: T): T;
 
-// Strips dangerous keys during JSON.parse via a reviver (never materializes them).
-function safeJsonParse<T = unknown>(json: string): T;
+// JSON.parse, then the in-place sanitizer. Any JSON root: object, array or primitive.
+function safeJsonParse<T = any>(json: string): T;
 ```
 
 ## Which one to use
@@ -23,11 +23,11 @@ function safeJsonParse<T = unknown>(json: string): T;
 | Already have a parsed object you own     | `sanitizeObject` (fastest) |
 | Must preserve the caller's object        | `sanitizeObjectCopy`       |
 
-`safeJsonParse` is cheapest because dangerous keys never materialize on the parsed result (the reviver drops them before assignment). `sanitizeObject` is the fastest of the two post-parse variants — single-pass traversal, no intermediate allocations, mutates in place.
+`safeJsonParse` parses and then sanitizes in place, so the value it returns holds no dangerous key at any depth. `sanitizeObject` is the fastest of the two post-parse variants — single-pass traversal, no intermediate allocations, mutates in place.
 
 ## Behavior
 
-- Deep traversal over objects and arrays.
+- Deep traversal over objects and arrays, driven by an explicit stack — nesting depth is bounded by memory, not by the call stack, so a deeply nested payload cannot overflow it.
 - Cycle-safe (`sanitizeObject` uses `WeakSet`; `sanitizeObjectCopy` uses `WeakMap` and rewires cycles to point at the copied node, not the original).
 - Only own properties named exactly `__proto__`, `prototype`, and `constructor` are removed.
 - Object identity survives both: `sanitizeObject` strips dangerous own keys from every object it reaches and never replaces one; `sanitizeObjectCopy` rebuilds arrays and plain objects (rooted on `Object.prototype` or on `null`) and carries every other value — `Date`, `Map`, `Set`, typed arrays, `RegExp`, class instances, functions — into the copy by reference, so `copy.when === input.when` for a `Date`.
@@ -76,10 +76,10 @@ async function readBody(req: Request) {
 
 - iterates `Object.keys(current)` once
 - inlines the dangerous-key check into that same loop (no speculative `hasOwnProperty` + `delete` on absent keys)
-- recurses on values without allocating an intermediate values array
+- pushes child nodes onto a traversal stack without allocating an intermediate values array
 - arrays iterate via numeric for-loop (faster than `Object.keys` on dense arrays)
 
-For deep trees the single-pass rewrite noticeably reduces both allocations and branches compared to a "scan for bad keys, then scan values" approach.
+For deep trees the single-pass walk noticeably reduces both allocations and branches compared to a "scan for bad keys, then scan values" approach.
 
 ## Pitfall: Mutation (`sanitizeObject`) vs Copy (`sanitizeObjectCopy`)
 
