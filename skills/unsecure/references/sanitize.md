@@ -5,7 +5,8 @@ Prototype-pollution sanitization utilities. Remove own properties named `__proto
 ## Signatures
 
 ```ts
-// Mutates the input in place; returns the same reference.
+// Mutates the input in place; returns the same reference. Throws TypeError on a
+// frozen object that holds a dangerous key.
 function sanitizeObject<T extends Record<string, unknown> | undefined>(obj: T): T;
 
 // Returns a sanitized deep copy; input is never mutated. Cycle-safe.
@@ -29,7 +30,9 @@ function safeJsonParse<T = any>(json: string): T;
 
 - Deep traversal over objects and arrays, driven by an explicit stack — nesting depth is bounded by memory, not by the call stack, so a deeply nested payload cannot overflow it.
 - Cycle-safe (`sanitizeObject` uses `WeakSet`; `sanitizeObjectCopy` uses `WeakMap` and rewires cycles to point at the copied node, not the original).
-- Only own properties named exactly `__proto__`, `prototype`, and `constructor` are removed.
+- Only own properties named exactly `__proto__`, `prototype`, and `constructor` are removed. `sanitizeObject` enumerates own property _names_, so a non-enumerable `__proto__` planted with `Object.defineProperty` is removed too.
+- No getter is ever invoked — values come from property descriptors. `sanitizeObject` leaves accessors in place (a dangerous _name_ is deleted unread); `sanitizeObjectCopy` copies own enumerable data properties only, so accessors do not appear in the copy.
+- `sanitizeObject` throws `TypeError` when a dangerous key cannot be deleted (frozen or sealed object): `sanitizeObject: cannot remove "__proto__" from a frozen object; use sanitizeObjectCopy().`
 - Object identity survives both: `sanitizeObject` strips dangerous own keys from every object it reaches and never replaces one; `sanitizeObjectCopy` rebuilds arrays and plain objects (rooted on `Object.prototype` or on `null`) and carries every other value — `Date`, `Map`, `Set`, typed arrays, `RegExp`, class instances, functions — into the copy by reference, so `copy.when === input.when` for a `Date`.
 - `undefined` and non-object inputs are returned unchanged, as is a copy root that is not an array or plain object.
 - `sanitizeObjectCopy` returns plain objects rooted on `Object.prototype` even when the input had a `null` prototype.
@@ -74,8 +77,9 @@ async function readBody(req: Request) {
 
 `sanitizeObject` does a single pass over each node:
 
-- iterates `Object.keys(current)` once
+- iterates `Object.getOwnPropertyNames(current)` once
 - inlines the dangerous-key check into that same loop (no speculative `hasOwnProperty` + `delete` on absent keys)
+- pays one `getOwnPropertyDescriptor` per surviving key — the price of never calling a getter
 - pushes child nodes onto a traversal stack without allocating an intermediate values array
 - arrays iterate via numeric for-loop (faster than `Object.keys` on dense arrays)
 

@@ -318,3 +318,97 @@ describe("deep nesting", () => {
     expect(Object.prototype.hasOwnProperty.call(node, "constructor")).toBe(false);
   });
 });
+
+describe("property handling", () => {
+  it("removes a non-enumerable own dangerous key", () => {
+    const obj: Record<string, unknown> = {};
+    Object.defineProperty(obj, "__proto__", {
+      value: { poisoned: true },
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    });
+    sanitizeObject(obj);
+    expect(Object.prototype.hasOwnProperty.call(obj, "__proto__")).toBe(false);
+  });
+
+  it("never invokes an accessor while traversing", () => {
+    let reads = 0;
+    const obj: Record<string, unknown> = { safe: 1 };
+    Object.defineProperty(obj, "trap", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        reads++;
+        return {};
+      },
+    });
+    sanitizeObject(obj);
+    expect(reads).toBe(0);
+    // The accessor itself is left alone — only dangerous names are removed.
+    expect(Object.prototype.hasOwnProperty.call(obj, "trap")).toBe(true);
+  });
+
+  it("removes a dangerous key that is an accessor without invoking it", () => {
+    let reads = 0;
+    const obj: Record<string, unknown> = {};
+    Object.defineProperty(obj, "constructor", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        reads++;
+        return 1;
+      },
+    });
+    sanitizeObject(obj);
+    expect(Object.prototype.hasOwnProperty.call(obj, "constructor")).toBe(false);
+    expect(reads).toBe(0);
+  });
+
+  it("traverses into a non-enumerable own data property", () => {
+    const inner = JSON.parse('{"__proto__": {"evil": true}}');
+    const obj: Record<string, unknown> = {};
+    Object.defineProperty(obj, "hidden", {
+      value: inner,
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    });
+    sanitizeObject(obj);
+    expect(Object.prototype.hasOwnProperty.call(inner, "__proto__")).toBe(false);
+  });
+
+  it("refuses a frozen object holding a dangerous key", () => {
+    const obj = Object.freeze(JSON.parse('{"__proto__": {"x": 1}, "safe": 1}'));
+    expect(() => sanitizeObject(obj)).toThrow(TypeError);
+    expect(() => sanitizeObject(obj)).toThrow(
+      'sanitizeObject: cannot remove "__proto__" from a frozen object; use sanitizeObjectCopy().',
+    );
+  });
+
+  it("leaves a frozen object without dangerous keys alone", () => {
+    const obj = Object.freeze({ safe: 1 });
+    expect(sanitizeObject(obj)).toBe(obj);
+  });
+
+  it("copy skips accessors and non-enumerable properties", () => {
+    let reads = 0;
+    const input: Record<string, unknown> = { plain: 1 };
+    Object.defineProperty(input, "lazy", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        reads++;
+        return 2;
+      },
+    });
+    Object.defineProperty(input, "hidden", { value: 3, enumerable: false, configurable: true });
+
+    const copy = sanitizeObjectCopy(input) as any;
+
+    expect(reads).toBe(0);
+    expect(Object.prototype.hasOwnProperty.call(copy, "lazy")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(copy, "hidden")).toBe(false);
+    expect(copy.plain).toBe(1);
+  });
+});

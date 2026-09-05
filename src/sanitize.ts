@@ -29,10 +29,18 @@ export function safeJsonParse<T = any>(json: string): T {
  * Remove prototype-pollution vectors from a plain record in-place.
  *
  * Strips own properties named `__proto__`, `prototype`, and `constructor`
- * recursively through nested objects and arrays. Cycle-safe.
+ * through nested objects and arrays, enumerable or not. Cycle-safe.
+ *
+ * Values are read from their property descriptors, so a getter is never
+ * invoked: an accessor is neither traversed nor removed unless its name is
+ * one of the three.
  *
  * Returns the same reference for convenience. Use {@link sanitizeObjectCopy}
  * if you need a deep copy with the original preserved.
+ *
+ * @throws {TypeError} If a dangerous key cannot be removed because the object
+ *                     holding it is frozen or sealed. Leaving the key in
+ *                     place would report a sanitized object that is not one.
  */
 export function sanitizeObject<T extends Record<string, unknown> | undefined>(obj: T): T {
   if (!obj || typeof obj !== "object") return obj;
@@ -49,6 +57,9 @@ export function sanitizeObject<T extends Record<string, unknown> | undefined>(ob
  * `Object.prototype`. Every other value — `Date`, `Map`, `Set`, typed
  * arrays, `RegExp`, class instances, functions — is carried into the copy by
  * reference, exactly as {@link sanitizeObject} leaves it in place.
+ *
+ * Only own enumerable data properties are copied — the JSON shape. Accessors
+ * are skipped rather than invoked, so the copy never runs caller code.
  *
  * Cycle-safe: circular references in the input are preserved in the output
  * (pointing at the copied node, not the original reference).
@@ -94,15 +105,28 @@ function _sanitizeInPlace(root: object, seen: WeakSet<object>): void {
     // Object branch: single pass — inline the dangerous-key check and queue
     // children in the same loop, so we neither allocate a values array nor
     // scan twice.
+    //
+    // Own *names*, not own enumerable keys: `Object.defineProperty` can hide a
+    // `__proto__` from `Object.keys` while leaving it a live pollution vector.
+    // Values come from the descriptor so a getter is never called — running
+    // caller code inside a sanitizer would hand an attacker a side effect
+    // triggered by the defence itself. An accessor is therefore neither
+    // traversed nor removed unless its *name* is one of the three.
     const record = current as Record<string, unknown>;
-    const keys = Object.keys(record);
+    const keys = Object.getOwnPropertyNames(record);
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i]!;
       if (_isDangerousKey(key)) {
-        delete record[key];
+        if (!Reflect.deleteProperty(record, key)) {
+          throw new TypeError(
+            `sanitizeObject: cannot remove "${key}" from a frozen object; use sanitizeObjectCopy().`,
+          );
+        }
         continue;
       }
-      const v = record[key];
+      const descriptor = Object.getOwnPropertyDescriptor(record, key);
+      if (descriptor === undefined || !("value" in descriptor)) continue;
+      const v = descriptor.value as unknown;
       if (v !== null && typeof v === "object" && !seen.has(v)) {
         seen.add(v);
         stack.push(v);
@@ -158,13 +182,18 @@ function _sanitizeCopy(root: object, seen: WeakMap<object, unknown>): unknown {
       continue;
     }
 
+    // Own enumerable data properties only — the JSON shape. A getter is
+    // skipped rather than called, for the same reason the in-place walk skips
+    // one: the sanitizer must not run caller code.
     const out = target as Record<string, unknown>;
     const record = source as Record<string, unknown>;
     const keys = Object.keys(record);
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i]!;
       if (_isDangerousKey(key)) continue;
-      out[key] = _copyValue(record[key], seen, stack);
+      const descriptor = Object.getOwnPropertyDescriptor(record, key);
+      if (descriptor === undefined || !("value" in descriptor)) continue;
+      out[key] = _copyValue(descriptor.value as unknown, seen, stack);
     }
   }
 

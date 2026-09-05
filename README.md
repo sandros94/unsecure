@@ -594,7 +594,9 @@ Object.hasOwn(data.user.profile[0]!, "constructor"); // false
 
 Notes:
 
-- Only own properties named exactly `__proto__`, `prototype`, and `constructor` are removed.
+- Only own properties named exactly `__proto__`, `prototype`, and `constructor` are removed. `sanitizeObject` finds them whether or not they are enumerable — `Object.defineProperty` can hide a `__proto__` from `Object.keys` and it is still a live vector.
+- Neither function invokes a getter: values are read from their descriptors. `sanitizeObject` leaves an accessor in place (unless its name is one of the three, in which case it is removed unread); `sanitizeObjectCopy` copies own enumerable **data** properties only, so an accessor is absent from the copy.
+- `sanitizeObject` throws a `TypeError` if a dangerous key sits on a frozen or sealed object — reporting a sanitized object that still carries the key would be worse. Use `sanitizeObjectCopy` there.
 - `sanitizeObject` mutates in place for performance; use `sanitizeObjectCopy` if the caller may still hold a reference.
 - Object identity survives both. `sanitizeObject` strips dangerous own keys wherever it finds them and never replaces an object. `sanitizeObjectCopy` rebuilds only arrays and plain objects — one rooted on `Object.prototype` or on `null` — and carries `Date`, `Map`, `Set`, typed arrays, `RegExp`, class instances and functions into the copy by reference.
 - `sanitizeObjectCopy` rebuilds every plain object onto `Object.prototype` — even null-prototype input comes back rooted normally. A root that is not an array or plain object is returned unchanged.
