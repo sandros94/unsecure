@@ -20,6 +20,18 @@ const _fatalDecoder: TextDecoder = /* @__PURE__ */ new TextDecoder("utf-8", {
   fatal: true,
 });
 
+/**
+ * Bytes a native encoder can be trusted with. Some runtimes' `toBase64` /
+ * `toHex` read from the start of the backing buffer rather than from the
+ * view, so a view that does not span its whole buffer is copied first.
+ */
+/* @__NO_SIDE_EFFECTS__ */
+export function _wholeBuffer(bytes: Uint8Array): Uint8Array {
+  return bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
+    ? bytes
+    : bytes.slice();
+}
+
 const _LATIN1_CHUNK = 0x8000;
 
 /**

@@ -11,6 +11,7 @@ import {
   _parsePrep,
   _strictBody,
   _symbols,
+  _wholeBuffer,
   toBytes,
 } from "./_codec.ts";
 
@@ -96,7 +97,10 @@ function _encodeBase64(bytes: Uint8Array, alphabet: Base64Alphabet, padding: boo
     return padding ? s : _unpad(s);
   }
   if (_nativeToBase64) {
-    return (bytes as unknown as _ToBase64).toBase64({ alphabet, omitPadding: !padding });
+    return (_wholeBuffer(bytes) as unknown as _ToBase64).toBase64({
+      alphabet,
+      omitPadding: !padding,
+    });
   }
   let binary = "";
   for (let i = 0; i < bytes.length; i++) {

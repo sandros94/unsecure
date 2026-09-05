@@ -159,6 +159,20 @@ for (const withBuffer of [true, false]) {
       });
     }
 
+    it("encodes a view that does not start at its buffer", () => {
+      const backing = Uint8Array.of(1, 2, 3, 4);
+      const { base32Stringify, base64Stringify, hexStringify } = codecs;
+      for (const view of [
+        new Uint8Array(backing.buffer, 1, 2),
+        backing.subarray(1, 3),
+        new DataView(backing.buffer, 1, 2),
+      ]) {
+        expect(hexStringify(view)).toBe("0203");
+        expect(base64Stringify(view)).toBe("AgM=");
+        expect(base32Stringify(view)).toBe("AIBQ====");
+      }
+    });
+
     it("encoders round-trip every byte", () => {
       const allBytes = Uint8Array.from({ length: 256 }, (_, i) => i);
       const { base32Parse, base32Stringify, base64Parse, base64Stringify } = codecs;

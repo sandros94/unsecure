@@ -7,6 +7,7 @@ import {
   _malformed,
   _parseFinalize,
   _parsePrep,
+  _wholeBuffer,
   toBytes,
 } from "./_codec.ts";
 
@@ -25,7 +26,7 @@ const _nativeFromHex: boolean = /* @__PURE__ */ (() =>
 /* @__NO_SIDE_EFFECTS__ */
 function _encodeHex(bytes: Uint8Array): string {
   if (_hasBuffer) return _toBuffer(bytes).toString("hex");
-  if (_nativeToHex) return (bytes as unknown as _ToHex).toHex();
+  if (_nativeToHex) return (_wholeBuffer(bytes) as unknown as _ToHex).toHex();
   let out = "";
   for (let i = 0; i < bytes.length; i++) {
     out += bytes[i]!.toString(16).padStart(2, "0");
