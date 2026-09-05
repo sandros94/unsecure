@@ -290,6 +290,31 @@ describe.concurrent("Unified codec API", () => {
       ["Base32.parse", Base32.parse],
     ] as const;
 
+    it("rejects a value that only inherits Uint8Array.prototype", () => {
+      const fake = Object.create(Uint8Array.prototype) as Uint8Array;
+      expect(() => toBytes(fake, "t")).toThrow(
+        "t: expected a string, ArrayBuffer or ArrayBuffer view, got Uint8Array.",
+      );
+      expect(() => hexStringify(fake)).toThrow(
+        "Hex.stringify: expected a string, ArrayBuffer or ArrayBuffer view, got Uint8Array.",
+      );
+      expect(() => base64Stringify(fake)).toThrow(
+        "Base64.stringify: expected a string, ArrayBuffer or ArrayBuffer view, got Uint8Array.",
+      );
+      expect(() => base32Stringify(fake)).toThrow(
+        "Base32.stringify: expected a string, ArrayBuffer or ArrayBuffer view, got Uint8Array.",
+      );
+      expect(() => hexParse(fake as unknown as string)).toThrow(
+        "Hex.parse: expected a string or Uint8Array, got Uint8Array.",
+      );
+      expect(() => base64Parse(fake as unknown as string)).toThrow(
+        "Base64.parse: expected a string or Uint8Array, got Uint8Array.",
+      );
+      expect(() => base32Parse(fake as unknown as string)).toThrow(
+        "Base32.parse: expected a string or Uint8Array, got Uint8Array.",
+      );
+    });
+
     for (const [what, value] of notBytes) {
       it(`stringify rejects ${what}`, () => {
         for (const [name, stringify] of stringifiers) {

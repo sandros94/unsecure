@@ -173,6 +173,18 @@ describe.concurrent("secureCompare input contract", () => {
     expect(secureCompare("hello", shared)).toBe(true);
   });
 
+  it("treats a received value that only inherits Uint8Array.prototype as a mismatch", () => {
+    const fake = Object.create(Uint8Array.prototype) as Uint8Array;
+    expect(secureCompare("hello", fake)).toBe(false);
+  });
+
+  it("throws the library error for an expected value that only inherits Uint8Array.prototype", () => {
+    const fake = Object.create(Uint8Array.prototype) as Uint8Array;
+    expect(() => secureCompare(fake, "hello")).toThrow(
+      "secureCompare: expected a string, ArrayBuffer or ArrayBuffer view, got Uint8Array.",
+    );
+  });
+
   it("throws for an expected value that is not text or bytes", () => {
     expect(() => secureCompare(42 as any, "x")).toThrow(TypeError);
     expect(() => secureCompare(42 as any, "x")).toThrow(

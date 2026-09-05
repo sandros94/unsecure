@@ -308,6 +308,11 @@ describe("hmacVerify signature formats", () => {
     expect(await hmacVerify(secret, message, 12_345 as any)).toBe(false);
   });
 
+  it("treats a signature that only inherits Uint8Array.prototype as a mismatch", async () => {
+    const fake = Object.create(Uint8Array.prototype) as Uint8Array;
+    expect(await hmacVerify(secret, message, fake)).toBe(false);
+  });
+
   it("verifies a raw byte signature whatever returnAs says", async () => {
     const sig = await hmac(secret, message, { returnAs: "uint8array" });
     expect(await hmacVerify(secret, message, sig, { returnAs: "base64" })).toBe(true);

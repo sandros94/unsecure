@@ -74,9 +74,18 @@ export interface DecodeOptions {
  * something to coerce into text and then complain about.
  */
 export function _assertData(input: unknown, label: string): asserts input is string | Uint8Array {
-  if (typeof input !== "string" && !(input instanceof Uint8Array)) {
+  if (typeof input !== "string" && !_isBytes(input)) {
     throw new TypeError(`${label}: expected a string or Uint8Array, got ${describeValue(input)}.`);
   }
+}
+
+/**
+ * A real `Uint8Array`, not merely something inheriting its prototype: an object
+ * created on that prototype carries none of the internal slots the typed-array
+ * methods read, and would surface the engine's message instead of ours.
+ */
+function _isBytes(input: unknown): input is Uint8Array {
+  return ArrayBuffer.isView(input) && input instanceof Uint8Array;
 }
 
 /** `Uint8Array` input is treated as the ASCII bytes of the encoded text. */
@@ -84,7 +93,7 @@ export function _parsePrep(
   input: string | Uint8Array,
   options: DecodeOptions | undefined,
 ): { text: string; wantString: boolean } {
-  const isBytes = input instanceof Uint8Array;
+  const isBytes = _isBytes(input);
   const returnAs = options?.returnAs ?? (isBytes ? "uint8array" : "string");
   return {
     text: isBytes ? _latin1(input) : input,

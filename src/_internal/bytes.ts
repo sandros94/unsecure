@@ -31,9 +31,13 @@ export function describeValue(value: unknown): string {
 /* @__NO_SIDE_EFFECTS__ */
 export function toBytes(value: string | BytesSource, label: string): Uint8Array {
   if (typeof value === "string") return textEncoder.encode(value);
-  if (value instanceof Uint8Array) return value;
+  // `isView` first: `instanceof` only says what a value inherits from, so an
+  // object created on `Uint8Array.prototype` passes it while carrying none of
+  // the internal slots the typed-array methods read.
   if (ArrayBuffer.isView(value)) {
-    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+    return value instanceof Uint8Array
+      ? value
+      : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
   }
   if (
     value instanceof ArrayBuffer ||
