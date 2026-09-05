@@ -167,6 +167,17 @@ function _timeStep(source: string, time: number | undefined, period: number): nu
   return Math.floor(seconds / period);
 }
 
+/**
+ * The label is the only free text in a URI, and `encodeURIComponent` turns
+ * anything into a string — an object would be provisioned as "[object Object]"
+ * and a missing account as "undefined", both of which scan.
+ */
+function _assertLabelText(name: string, value: unknown): asserts value is string {
+  if (typeof value !== "string") {
+    throw new TypeError(`otpauthURI: ${name} must be a string, got ${showValue(value)}.`);
+  }
+}
+
 /** Algorithm name mapping for otpauth URIs (no hyphens). */
 const _URI_ALGORITHM_MAP: Record<DigestAlgorithm, string> = {
   "SHA-1": "SHA1",
@@ -367,33 +378,42 @@ export function generateOTPSecret(length: number = 20): string {
  */
 export function otpauthURI(options: OTPAuthURIOptions): string {
   const { type, secret, account, issuer, counter, period = DEFAULT_PERIOD } = options;
+  if (type !== "hotp" && type !== "totp") {
+    throw new TypeError(`otpauthURI: type must be "hotp" or "totp", got ${showValue(type)}.`);
+  }
+  _assertLabelText("account", account);
+  if (account.length === 0) {
+    throw new RangeError("otpauthURI: account must not be empty.");
+  }
+  if (issuer !== undefined) _assertLabelText("issuer", issuer);
   const { algorithm, digits } = _baseOptions("otpauthURI", options);
 
-  const secretB32 =
-    typeof secret === "string"
-      ? secret.replace(/=+$/, "")
-      : base32Stringify(secret, { padding: false });
+  // Whatever shape the secret arrives in, the URI carries the canonical
+  // unpadded base32 of the same bytes: scanners read the string literally, so
+  // the grouped lowercase form a caller may be holding has to be normalized.
+  const secretB32 = base32Stringify(_resolveSecret(secret), { padding: false });
 
   const label = issuer
     ? `${encodeURIComponent(issuer)}:${encodeURIComponent(account)}`
     : encodeURIComponent(account);
 
-  const params = new URLSearchParams();
-  params.set("secret", secretB32);
-  if (issuer) params.set("issuer", issuer);
-  params.set("algorithm", _URI_ALGORITHM_MAP[algorithm]);
-  params.set("digits", String(digits));
+  // The Key URI format is a URI, not a form body: a space is "%20", never "+",
+  // which is what `URLSearchParams` would write.
+  const params = [`secret=${encodeURIComponent(secretB32)}`];
+  if (issuer) params.push(`issuer=${encodeURIComponent(issuer)}`);
+  params.push(`algorithm=${encodeURIComponent(_URI_ALGORITHM_MAP[algorithm])}`);
+  params.push(`digits=${digits}`);
 
   if (type === "hotp") {
     if (counter === undefined) {
-      throw new Error("otpauthURI: counter is required for HOTP URIs.");
+      throw new RangeError("otpauthURI: counter is required for HOTP URIs.");
     }
     assertInteger("otpauthURI", "counter", counter, 0);
-    params.set("counter", String(counter));
+    params.push(`counter=${counter}`);
   } else {
     assertInteger("otpauthURI", "period", period, 1);
-    params.set("period", String(period));
+    params.push(`period=${period}`);
   }
 
-  return `otpauth://${type}/${label}?${params.toString()}`;
+  return `otpauth://${type}/${label}?${params.join("&")}`;
 }

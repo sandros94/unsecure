@@ -552,3 +552,113 @@ describe("OTP verify window", () => {
     );
   });
 });
+
+describe("otpauthURI() encoding", () => {
+  const secret = new TextEncoder().encode("12345678901234567890");
+  const secretB32 = base32Stringify(secret).replace(/=+$/, "");
+
+  it("percent-encodes query values instead of using '+' for spaces", () => {
+    const uri = otpauthURI({
+      type: "totp",
+      secret,
+      account: "user@example.com",
+      issuer: "My App",
+    });
+    expect(uri).toContain("issuer=My%20App");
+    expect(uri).not.toContain("issuer=My+App");
+  });
+
+  it("percent-encodes reserved characters in the issuer", () => {
+    const uri = otpauthURI({
+      type: "totp",
+      secret,
+      account: "a&b=c",
+      issuer: "A&B",
+    });
+    expect(uri).toContain("issuer=A%26B");
+    expect(uri).toContain("A%26B:a%26b%3Dc");
+  });
+
+  it("canonicalizes a string secret", () => {
+    const uri = otpauthURI({
+      type: "totp",
+      secret: "jbsw y3dp ehpk 3pxp",
+      account: "test",
+    });
+    expect(uri).toContain("secret=JBSWY3DPEHPK3PXP&");
+  });
+
+  it("keeps the query parameter order", () => {
+    const uri = otpauthURI({
+      type: "totp",
+      secret,
+      account: "test",
+      issuer: "MyApp",
+    });
+    expect(uri).toBe(
+      `otpauth://totp/MyApp:test?secret=${secretB32}&issuer=MyApp&algorithm=SHA1&digits=6&period=30`,
+    );
+  });
+
+  it("rejects an unknown type", () => {
+    expect(() => otpauthURI({ type: "foo" as any, secret, account: "test" })).toThrow(
+      'otpauthURI: type must be "hotp" or "totp", got "foo".',
+    );
+    expect(() => otpauthURI({ type: undefined as any, secret, account: "test" })).toThrow(
+      TypeError,
+    );
+  });
+
+  it("rejects a counter that is not a safe non-negative integer", () => {
+    expect(() => otpauthURI({ type: "hotp", secret, account: "test", counter: -1 })).toThrow(
+      "otpauthURI: counter must be an integer >= 0, got -1.",
+    );
+    expect(() => otpauthURI({ type: "hotp", secret, account: "test", counter: 1.5 })).toThrow(
+      RangeError,
+    );
+  });
+
+  it("rejects an empty secret", () => {
+    expect(() => otpauthURI({ type: "totp", secret: "", account: "test" })).toThrow(
+      "otp: secret must not be empty.",
+    );
+    expect(() => otpauthURI({ type: "totp", secret: new Uint8Array(0), account: "test" })).toThrow(
+      RangeError,
+    );
+  });
+
+  it("rejects digits and period outside their range", () => {
+    expect(() => otpauthURI({ type: "totp", secret, account: "test", digits: 9 })).toThrow(
+      RangeError,
+    );
+    expect(() => otpauthURI({ type: "totp", secret, account: "test", period: 0 })).toThrow(
+      RangeError,
+    );
+  });
+});
+
+describe("otpauthURI() label contract", () => {
+  const secret = new TextEncoder().encode("12345678901234567890");
+
+  it("rejects an account that is not a string", () => {
+    expect(() => otpauthURI({ type: "totp", secret, account: 123 as any })).toThrow(
+      "otpauthURI: account must be a string, got 123.",
+    );
+    expect(() => otpauthURI({ type: "totp", secret, account: undefined as any })).toThrow(
+      TypeError,
+    );
+  });
+
+  it("rejects an empty account", () => {
+    expect(() => otpauthURI({ type: "totp", secret, account: "" })).toThrow(
+      "otpauthURI: account must not be empty.",
+    );
+    expect(() => otpauthURI({ type: "totp", secret, account: "" })).toThrow(RangeError);
+  });
+
+  it("rejects an issuer that is not a string", () => {
+    expect(() => otpauthURI({ type: "totp", secret, account: "test", issuer: {} as any })).toThrow(
+      "otpauthURI: issuer must be a string, got Object.",
+    );
+  });
+});
