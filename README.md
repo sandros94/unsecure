@@ -197,7 +197,7 @@ const macKey = await hkdf(ikm, { salt, info: "authenticate" });
 
 ### argon2
 
-Argon2 (RFC 9106) — the password hashing function, `argon2id` by default. Plain JavaScript: no WebAssembly, no native binding, no Node built-ins, so it runs on serverless targets that refuse to instantiate a `WebAssembly.Module` at all (Cloudflare Workers, Deno Deploy, edge runtimes). Measured at parity with `@noble/hashes` and roughly 12x a native binding — see `pnpm bench`.
+Argon2 (RFC 9106) — the password hashing function, `argon2id` by default. Plain JavaScript: no WebAssembly, no native binding, no Node built-ins, so it also runs where WebAssembly cannot be compiled from bytes at request time — the way most Wasm Argon2 packages load, and something edge runtimes commonly forbid even while accepting a statically imported `.wasm` module. Check the platform's CPU budget before relying on that: a hash costs over a hundred milliseconds, and a per-request quota of a few milliseconds cuts it off. Measured at parity with `@noble/hashes` and roughly 12x a native binding — see `pnpm bench`.
 
 `argon2Hash()` and `argon2Verify()` are the pair you want for stored passwords; `argon2()` is the raw KDF underneath.
 

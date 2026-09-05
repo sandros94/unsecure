@@ -61,7 +61,7 @@ HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`. Load when working
 
 ### [argon2.md](./references/argon2.md)
 
-Argon2 password hashing (RFC 9106), plain JavaScript. Load when working with `argon2Hash()`, `argon2Verify()`, `argon2()`, storing or checking passwords, PHC strings, peppers, cost tuning, or password hashing on a runtime that cannot run WebAssembly.
+Argon2 password hashing (RFC 9106), plain JavaScript. Load when working with `argon2Hash()`, `argon2Verify()`, `argon2()`, storing or checking passwords, PHC strings, peppers, cost tuning, or password hashing on a runtime that cannot compile WebAssembly at request time.
 
 ### [hmac.md](./references/hmac.md)
 
