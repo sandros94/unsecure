@@ -1,7 +1,10 @@
 import type { DigestAlgorithm, DigestReturnAs } from "./hash.ts";
 import { encodeBytes } from "./_internal/encoding.ts";
 import { HASH_LENGTH, normalizeAlgorithm } from "./_internal/algorithm.ts";
-import { textEncoder } from "./utils/index.ts";
+import { type BytesSource, toCryptoBytes } from "./_internal/bytes.ts";
+
+/** RFC 5869 treats an absent salt or info as a zero-length one. */
+const EMPTY: Uint8Array<ArrayBuffer> = /* @__PURE__ */ new Uint8Array(0);
 
 export interface HKDFOptions {
   /**
@@ -27,7 +30,7 @@ export interface HKDFOptions {
    * If omitted, an empty salt is used. HMAC-based HKDF treats an empty
    * salt as equivalent to a HashLen-of-zeros salt per RFC 5869.
    */
-  salt?: string | BufferSource;
+  salt?: string | BytesSource;
   /**
    * Optional context and application-specific information used for domain
    * separation. Two derivations from the same IKM/salt with different
@@ -35,13 +38,13 @@ export interface HKDFOptions {
    *
    * @default "" (empty)
    */
-  info?: string | BufferSource;
+  info?: string | BytesSource;
   /**
    * Output format.
    *
    * When not specified, mirrors the `ikm` input type:
    * - `string` ikm defaults to `'hex'`
-   * - `BufferSource` ikm defaults to `'uint8array'`
+   * - `BytesSource` ikm defaults to `'uint8array'`
    */
   returnAs?: DigestReturnAs;
 }
@@ -56,7 +59,7 @@ export interface HKDFOptions {
  *
  * When `returnAs` is not specified, the return type mirrors the `ikm` input:
  * - `string` ikm returns a hex `string`
- * - `BufferSource` ikm returns a `Uint8Array<ArrayBuffer>`
+ * - `BytesSource` ikm returns a `Uint8Array<ArrayBuffer>`
  *
  * Use the `returnAs` option to explicitly override the output format.
  *
@@ -71,7 +74,7 @@ export interface HKDFOptions {
  *                      `255 * HashLen` for the chosen algorithm.
  *
  * @example
- * // BufferSource ikm -> Uint8Array output (default)
+ * // BytesSource ikm -> Uint8Array output (default)
  * const key = await hkdf(sharedSecret, { salt, info: "my-app/auth/v1" });
  *
  * @example
@@ -89,20 +92,20 @@ export interface HKDFOptions {
  * const macKey = await hkdf(ikm, { salt, info: "mac" });
  */
 export async function hkdf<T extends DigestReturnAs>(
-  ikm: string | BufferSource,
+  ikm: string | BytesSource,
   options: HKDFOptions & { returnAs: T },
 ): Promise<T extends "uint8array" | "bytes" ? Uint8Array<ArrayBuffer> : string>;
 export async function hkdf(ikm: string, options?: Omit<HKDFOptions, "returnAs">): Promise<string>;
 export async function hkdf(
-  ikm: BufferSource,
+  ikm: BytesSource,
   options?: Omit<HKDFOptions, "returnAs">,
 ): Promise<Uint8Array<ArrayBuffer>>;
 export async function hkdf(
-  ikm: string | BufferSource,
+  ikm: string | BytesSource,
   options?: Omit<HKDFOptions, "returnAs">,
 ): Promise<Uint8Array<ArrayBuffer> | string>;
 export async function hkdf(
-  ikm: string | BufferSource,
+  ikm: string | BytesSource,
   options: HKDFOptions = {},
 ): Promise<Uint8Array<ArrayBuffer> | string> {
   const { length = 32, salt, info, returnAs } = options;
@@ -119,9 +122,9 @@ export async function hkdf(
   }
 
   const isBufferInput = typeof ikm !== "string";
-  const ikmBytes = isBufferInput ? ikm : textEncoder.encode(ikm);
-  const saltBytes = _coerceOptionalBytes(salt);
-  const infoBytes = _coerceOptionalBytes(info);
+  const ikmBytes = toCryptoBytes(ikm, "hkdf");
+  const saltBytes = salt === undefined ? EMPTY : toCryptoBytes(salt, "hkdf");
+  const infoBytes = info === undefined ? EMPTY : toCryptoBytes(info, "hkdf");
 
   const cryptoKey = await crypto.subtle.importKey("raw", ikmBytes, "HKDF", false, ["deriveBits"]);
 
@@ -139,10 +142,4 @@ export async function hkdf(
   const bytes = new Uint8Array(derivedBits);
   const effectiveReturnAs = returnAs ?? (isBufferInput ? "uint8array" : "hex");
   return encodeBytes(bytes, effectiveReturnAs, "hkdf");
-}
-
-function _coerceOptionalBytes(value: string | BufferSource | undefined): BufferSource {
-  if (value === undefined) return new Uint8Array(0);
-  if (typeof value === "string") return textEncoder.encode(value);
-  return value;
 }

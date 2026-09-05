@@ -6,7 +6,7 @@ Async SHA hashing via `crypto.subtle.digest`. Returns hex string for string inpu
 
 ```ts
 async function hash(
-  data: string | BufferSource,
+  data: string | BytesSource,
   options?: {
     algorithm?: "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512"; // default: "SHA-256"
     returnAs?: "hex" | "base64" | "b64" | "base64url" | "b64url" | "uint8array" | "bytes";
@@ -16,10 +16,12 @@ async function hash(
 
 Algorithm names are matched case-insensitively (`"sha-256"` works); anything else throws a `RangeError` naming the four supported digests, before Web Crypto is reached.
 
+`BytesSource` is any byte container — `Uint8Array`, another typed array, `DataView`, `ArrayBuffer`, or a `SharedArrayBuffer`-backed view (copied before it reaches Web Crypto, which refuses shared memory). Anything else throws a `TypeError`.
+
 **Return type inference:**
 
 - `string` input → `string` (hex) by default
-- `BufferSource` input → `Uint8Array` by default
+- `BytesSource` input → `Uint8Array` by default
 - Explicit `returnAs` overrides the default
 
 ## Examples

@@ -229,3 +229,35 @@ describe("hkdf algorithm names", () => {
     );
   });
 });
+
+describe("hkdf input contract", () => {
+  const ikm = hexParse(VECTORS.a1.ikm, { loose: true, returnAs: "uint8array" });
+  const salt = hexParse(VECTORS.a1.salt, { loose: true, returnAs: "uint8array" });
+  const info = hexParse(VECTORS.a1.info, { loose: true, returnAs: "uint8array" });
+
+  const toShared = (bytes: Uint8Array) => {
+    const view = new Uint8Array(new SharedArrayBuffer(bytes.byteLength));
+    view.set(bytes);
+    return view;
+  };
+
+  it("derives the same bytes from SharedArrayBuffer-backed ikm, salt and info", async () => {
+    const expected = VECTORS.a1.okm;
+    const length = VECTORS.a1.length;
+    expect(
+      hexStringify(await hkdf(toShared(ikm), { length, salt, info, returnAs: "uint8array" })),
+    ).toBe(expected);
+    expect(
+      hexStringify(await hkdf(ikm, { length, salt: toShared(salt), info, returnAs: "uint8array" })),
+    ).toBe(expected);
+    expect(
+      hexStringify(await hkdf(ikm, { length, salt, info: toShared(info), returnAs: "uint8array" })),
+    ).toBe(expected);
+  });
+
+  it("rejects ikm that is neither text nor bytes", async () => {
+    await expect(hkdf([1, 2, 3] as any, { length: 16 })).rejects.toThrow(
+      "hkdf: expected a string, ArrayBuffer or ArrayBuffer view, got Array.",
+    );
+  });
+});

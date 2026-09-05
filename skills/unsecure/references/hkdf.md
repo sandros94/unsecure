@@ -8,12 +8,12 @@ HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`. Extracts and expa
 
 ```ts
 async function hkdf(
-  ikm: string | BufferSource,
+  ikm: string | BytesSource,
   options?: {
     algorithm?: "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512"; // default: "SHA-256"
     length?: number; // output bytes, default: 32, max: 255 * HashLen
-    salt?: string | BufferSource; // default: empty (RFC 5869 §2.2 "no salt")
-    info?: string | BufferSource; // default: empty
+    salt?: string | BytesSource; // default: empty (RFC 5869 §2.2 "no salt")
+    info?: string | BytesSource; // default: empty
     returnAs?: "hex" | "base64" | "b64" | "base64url" | "b64url" | "uint8array" | "bytes"; // mirrors ikm type
   },
 ): Promise<string | Uint8Array>;
@@ -21,9 +21,11 @@ async function hkdf(
 
 Algorithm names are matched case-insensitively (`"sha-256"` works); anything else throws a `RangeError` naming the four supported digests, before Web Crypto is reached.
 
+`BytesSource` is any byte container — `Uint8Array`, another typed array, `DataView`, `ArrayBuffer`, or a `SharedArrayBuffer`-backed view (copied before it reaches Web Crypto, which refuses shared memory). Anything else throws a `TypeError`.
+
 **Defaults:**
 
-- `returnAs` mirrors the `ikm` input type when omitted: `string` ikm → hex `string` output; `BufferSource` ikm → `Uint8Array<ArrayBuffer>` output. Pass `returnAs` explicitly when the IKM shape and the desired output shape don't line up — key material is typically consumed as bytes, so pass `returnAs: "uint8array"` (or `"bytes"`) when deriving from a string IKM.
+- `returnAs` mirrors the `ikm` input type when omitted: `string` ikm → hex `string` output; `BytesSource` ikm → `Uint8Array<ArrayBuffer>` output. Pass `returnAs` explicitly when the IKM shape and the desired output shape don't line up — key material is typically consumed as bytes, so pass `returnAs: "uint8array"` (or `"bytes"`) when deriving from a string IKM.
 - `length` default is `32` (256-bit key — fits SHA-256, AES-256, etc.).
 - `algorithm` default is `"SHA-256"`.
 

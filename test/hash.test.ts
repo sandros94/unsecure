@@ -181,3 +181,26 @@ describe("hash algorithm names", () => {
     await expect(hash("data", { algorithm: 256 as any })).rejects.toBeInstanceOf(TypeError);
   });
 });
+
+describe("hash input contract", () => {
+  it("hashes every BytesSource shape to the same digest", async () => {
+    const bytes = new TextEncoder().encode("hello world");
+    const plain = await hash(bytes, { returnAs: "hex" });
+    const padded = new Uint8Array(bytes.byteLength + 5);
+    padded.set(bytes, 5);
+    const offset = new Uint8Array(padded.buffer, 5, bytes.byteLength);
+    const shared = new Uint8Array(new SharedArrayBuffer(bytes.byteLength));
+    shared.set(bytes);
+
+    expect(await hash(bytes.buffer as ArrayBuffer, { returnAs: "hex" })).toBe(plain);
+    expect(await hash(new DataView(bytes.buffer as ArrayBuffer), { returnAs: "hex" })).toBe(plain);
+    expect(await hash(offset, { returnAs: "hex" })).toBe(plain);
+    expect(await hash(shared, { returnAs: "hex" })).toBe(plain);
+  });
+
+  it("rejects data that is neither text nor bytes", async () => {
+    await expect(hash([1, 2, 3] as any)).rejects.toThrow(
+      "hash: expected a string, ArrayBuffer or ArrayBuffer view, got Array.",
+    );
+  });
+});

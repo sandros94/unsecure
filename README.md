@@ -121,12 +121,14 @@ const hash512 = await hash("hello world", { algorithm: "SHA-512" });
 
 ### hmac
 
-Computes an HMAC signature using the Web Crypto API. Supports the same algorithms and output formats as `hash()`. When `returnAs` is not specified, the output type mirrors the input: string data returns a hex string, BufferSource data returns a Uint8Array.
+Computes an HMAC signature using the Web Crypto API. Supports the same algorithms and output formats as `hash()`. When `returnAs` is not specified, the output type mirrors the input: string data returns a hex string, BytesSource data returns a Uint8Array.
 
 options:
 
 - **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws a `RangeError`
-- **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default mirrors input type)
+- **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default mirrors input type). On `hmacVerify()` it names the format of a **string** `signature`, which is decoded strictly before the byte comparison; a `BytesSource` signature is compared as-is.
+
+The `secret` must not be empty — both functions throw a `RangeError` before reaching Web Crypto, because an unset secret is a deployment bug rather than a wrong signature. Untrusted signatures never throw: `null`, `undefined`, malformed text or a value that is not text or bytes all verify as `false`.
 
 ```ts
 import { hmac, hmacVerify } from "unsecure";
@@ -142,9 +144,9 @@ const sig64 = await hmac("my-secret", payload, {
 });
 
 // Verify a webhook signature in constant time
-const expected = request.headers["x-hub-signature-256"].replace("sha256=", "");
+const expected = request.headers.get("x-hub-signature-256")?.replace("sha256=", "");
 const valid = await hmacVerify(webhookSecret, requestBody, expected);
-// true or false
+// true or false — a missing header verifies as false, it does not throw
 
 // Verify a base64-encoded signature
 const valid = await hmacVerify(secret, body, expectedBase64Sig, {
@@ -160,8 +162,8 @@ options:
 
 - **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws a `RangeError`
 - **length**: output length in bytes (default `32`, max `255 * HashLen`)
-- **salt**: non-secret but strongly recommended (string or `BufferSource`, default empty)
-- **info**: context label for domain separation (string or `BufferSource`, default empty)
+- **salt**: non-secret but strongly recommended (string or `BytesSource`, default empty)
+- **info**: context label for domain separation (string or `BytesSource`, default empty)
 - **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default `uint8array`)
 
 ```ts

@@ -1,6 +1,6 @@
 import { encodeBytes } from "./_internal/encoding.ts";
 import { normalizeAlgorithm } from "./_internal/algorithm.ts";
-import { textEncoder } from "./utils/index.ts";
+import { type BytesSource, toCryptoBytes } from "./_internal/bytes.ts";
 
 export type DigestAlgorithm = "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512";
 export type DigestReturnAs =
@@ -24,7 +24,7 @@ export interface DigestOptions {
    *
    * When not specified, mirrors the input type:
    * - `string` input defaults to `'hex'`
-   * - `BufferSource` input defaults to `'uint8array'`
+   * - `BytesSource` input defaults to `'uint8array'`
    */
   returnAs?: DigestReturnAs;
 }
@@ -36,11 +36,11 @@ export interface DigestOptions {
  *
  * When `returnAs` is not specified, the return type mirrors the input:
  * - `string` input returns a hex `string`
- * - `BufferSource` input returns a `Uint8Array<ArrayBuffer>`
+ * - `BytesSource` input returns a `Uint8Array<ArrayBuffer>`
  *
  * Use the `returnAs` option to explicitly override the output format.
  *
- * @param data The input data to hash. Can be a string or any BufferSource
+ * @param data The input data to hash. Can be a string or any BytesSource
  * (e.g., Uint8Array, ArrayBuffer).
  * @param options Configuration options for the hashing operation.
  * @returns A Promise that resolves to a string (HEX, Base64, Base64URL) or Uint8Array<ArrayBuffer> containing the raw hash.
@@ -58,7 +58,7 @@ export interface DigestOptions {
  * const hashHexFromBuffer = await hash(buffer, { returnAs: 'hex' });
  */
 export async function hash<T extends DigestReturnAs>(
-  data: string | BufferSource,
+  data: string | BytesSource,
   options: DigestOptions & { returnAs: T },
 ): Promise<T extends "uint8array" | "bytes" ? Uint8Array<ArrayBuffer> : string>;
 export async function hash(
@@ -66,24 +66,24 @@ export async function hash(
   options?: Omit<DigestOptions, "returnAs">,
 ): Promise<string>;
 export async function hash(
-  data: BufferSource,
+  data: BytesSource,
   options?: Omit<DigestOptions, "returnAs">,
 ): Promise<Uint8Array<ArrayBuffer>>;
 export async function hash(
-  data: string | BufferSource,
+  data: string | BytesSource,
   options?: Omit<DigestOptions, "returnAs">,
 ): Promise<Uint8Array<ArrayBuffer> | string>;
 export async function hash(
-  data: string | BufferSource,
+  data: string | BytesSource,
   options: DigestOptions = {},
 ): Promise<Uint8Array<ArrayBuffer> | string> {
   const { returnAs } = options;
   const algorithm = normalizeAlgorithm(options.algorithm ?? "SHA-256", "hash");
 
   const isBufferInput = typeof data !== "string";
-  const dataBuffer = isBufferInput ? data : textEncoder.encode(data);
+  const dataBytes = toCryptoBytes(data, "hash");
 
-  const hashBytes = new Uint8Array(await crypto.subtle.digest(algorithm, dataBuffer));
+  const hashBytes = new Uint8Array(await crypto.subtle.digest(algorithm, dataBytes));
 
   const effectiveReturnAs = returnAs ?? (isBufferInput ? "uint8array" : "hex");
 

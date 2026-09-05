@@ -38,9 +38,9 @@ When a task involves design decisions, ambiguity, or changes to the project visi
 - `src/compare.ts` → `unsecure/compare` — `secureCompare()`: constant-time comparison of text or any `BytesSource` (returns `false` on empty/undefined `expected` by default; opt-in `strict: true` preserves the pre-0.2 throw). `received` is untrusted: anything that is not text or bytes — `null`, a number, a plain array — is a mismatch, never a throw; a wrong `expected` type is a caller bug and throws `TypeError`
 - `src/entropy.ts` → `unsecure/entropy` — `entropy()`: Shannon unigram entropy + bigram entropy (catches local structure) + longest-monotonic-run detection (catches sorted/reverse-sorted fakes). All additive; unigram fields unchanged.
 - `src/generate.ts` → `unsecure/generate` — `secureGenerate()`: secure string/token generation with customizable charsets, buffered RNG
-- `src/hash.ts` → `unsecure/hash` — `hash()`: async hashing via `crypto.subtle.digest`
-- `src/hkdf.ts` → `unsecure/hkdf` — `hkdf()`: HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`, with `returnAs` matching `hash`/`hmac`
-- `src/hmac.ts` → `unsecure/hmac` — `hmac()`, `hmacVerify()`: HMAC signing and constant-time verification
+- `src/hash.ts` → `unsecure/hash` — `hash()`: async hashing via `crypto.subtle.digest`; input is `string | BytesSource` coerced through `toCryptoBytes`
+- `src/hkdf.ts` → `unsecure/hkdf` — `hkdf()`: HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`, with `returnAs` matching `hash`/`hmac`; `ikm`/`salt`/`info` are `string | BytesSource`
+- `src/hmac.ts` → `unsecure/hmac` — `hmac()`, `hmacVerify()`: HMAC signing and constant-time verification. An empty secret throws `RangeError`; `hmacVerify` compares raw MAC bytes and decodes a string `signature` strictly by `returnAs` (hex when it names bytes), while `null`/`undefined`/malformed signatures verify as `false`
 - `src/otp.ts` → `unsecure/otp` — `hotp()`, `hotpVerify()`, `totp()`, `totpVerify()`, `generateOTPSecret()`, `otpauthURI()`: RFC 4226/6238 OTP
 - `src/random.ts` → `unsecure/random` — `createSecureRandomGenerator()`, `secureRandomNumber()`, `secureRandomBytes()`, `secureShuffle()`, `randomJitter()`
 - `src/sanitize.ts` → `unsecure/sanitize` — `sanitizeObject()` (in-place, single-pass), `sanitizeObjectCopy()` (non-mutating, cycle-preserving copy), `safeJsonParse()` (parse-time prototype-pollution reviver)
@@ -51,7 +51,7 @@ Internal-only (not exported, inlined into the bundles that import them):
 
 - `src/_internal/bytes.ts` — `toBytes()` / `toCryptoBytes()`: the one place a caller value (`string` or any `BytesSource`) becomes a `Uint8Array`; also owns the shared `textEncoder`. `toCryptoBytes` copies `SharedArrayBuffer`-backed views, which Web Crypto refuses.
 - `src/_internal/algorithm.ts` — `HASH_LENGTH` (digest sizes in bytes) and `normalizeAlgorithm()`: the single place an algorithm name is accepted. `hash`, `hmac`, `hkdf` and `otp` resolve through it, so names match case-insensitively (`"sha-256"` works) and anything else throws a `RangeError` before Web Crypto is reached
-- `src/_internal/encoding.ts` — shared `encodeBytes(bytes, returnAs, source)` helper used by `hash`, `hmac`, and `hkdf` to keep `returnAs` behavior consistent
+- `src/_internal/encoding.ts` — shared `encodeBytes(bytes, returnAs, source)` / `decodeBytes(text, returnAs, source)` pair used by `hash`, `hmac`, and `hkdf` to keep `returnAs` behavior consistent in both directions
 - `src/utils/_codec.ts` — shared codec primitives (`textEncoder`/`textDecoder`, `DecodeReturnAs`/`DecodeOptions`, input/output helpers); a leaf module so the `utils/index.ts` barrel can re-export without an import cycle
 - `src/utils/_buffer.ts` — Node `Buffer` fast-path detection for the encoding helpers
 

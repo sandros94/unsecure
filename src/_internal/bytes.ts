@@ -49,12 +49,13 @@ export function toBytes(value: string | BytesSource, label: string): Uint8Array 
 /**
  * Like {@link toBytes}, but the result is never a view onto shared memory:
  * Web Crypto rejects `SharedArrayBuffer`-backed views outright, so those are
- * copied into a private buffer.
+ * copied into a private buffer. The narrower return type is what lets the
+ * result be handed straight to `crypto.subtle`.
  */
 /* @__NO_SIDE_EFFECTS__ */
-export function toCryptoBytes(value: string | BytesSource, label: string): Uint8Array {
+export function toCryptoBytes(value: string | BytesSource, label: string): Uint8Array<ArrayBuffer> {
   const bytes = toBytes(value, label);
   return typeof SharedArrayBuffer !== "undefined" && bytes.buffer instanceof SharedArrayBuffer
     ? new Uint8Array(bytes)
-    : bytes;
+    : (bytes as Uint8Array<ArrayBuffer>);
 }

@@ -230,3 +230,87 @@ describe("hmac algorithm names", () => {
     );
   });
 });
+
+describe("hmac input contract", () => {
+  const secret = "my-secret-key";
+  const message = "hello world";
+  const messageBytes = new TextEncoder().encode(message);
+
+  it("rejects an empty secret before reaching Web Crypto", async () => {
+    await expect(hmac("", message)).rejects.toThrow("hmac: secret must not be empty.");
+    await expect(hmac("", message)).rejects.toBeInstanceOf(RangeError);
+    await expect(hmac(new Uint8Array(0), message)).rejects.toThrow(
+      "hmac: secret must not be empty.",
+    );
+    await expect(hmacVerify("", message, "00")).rejects.toThrow("hmac: secret must not be empty.");
+  });
+
+  it("accepts a SharedArrayBuffer-backed secret and data", async () => {
+    const toShared = (bytes: Uint8Array) => {
+      const view = new Uint8Array(new SharedArrayBuffer(bytes.byteLength));
+      view.set(bytes);
+      return view;
+    };
+    const secretBytes = new TextEncoder().encode(secret);
+    const plain = await hmac(secretBytes, messageBytes, { returnAs: "hex" });
+
+    expect(await hmac(toShared(secretBytes), messageBytes, { returnAs: "hex" })).toBe(plain);
+    expect(await hmac(secretBytes, toShared(messageBytes), { returnAs: "hex" })).toBe(plain);
+  });
+
+  it("accepts an ArrayBuffer, a DataView and an offset view as data", async () => {
+    const plain = await hmac(secret, messageBytes, { returnAs: "hex" });
+    const padded = new Uint8Array(messageBytes.byteLength + 3);
+    padded.set(messageBytes, 3);
+    const offset = new Uint8Array(padded.buffer, 3, messageBytes.byteLength);
+
+    expect(await hmac(secret, messageBytes.buffer as ArrayBuffer, { returnAs: "hex" })).toBe(plain);
+    expect(
+      await hmac(secret, new DataView(messageBytes.buffer as ArrayBuffer), { returnAs: "hex" }),
+    ).toBe(plain);
+    expect(await hmac(secret, offset, { returnAs: "hex" })).toBe(plain);
+  });
+});
+
+describe("hmacVerify signature formats", () => {
+  const secret = "my-secret-key";
+  const message = "hello world";
+  const messageBytes = new TextEncoder().encode(message);
+
+  it("verifies a hex string signature against byte data", async () => {
+    const sig = await hmac(secret, messageBytes, { returnAs: "hex" });
+    expect(await hmacVerify(secret, messageBytes, sig)).toBe(true);
+  });
+
+  it("verifies an uppercase hex signature", async () => {
+    const sig = await hmac(secret, message);
+    expect(await hmacVerify(secret, message, sig.toUpperCase())).toBe(true);
+  });
+
+  it("decodes a string signature as hex when returnAs asks for bytes", async () => {
+    const sig = await hmac(secret, message, { returnAs: "hex" });
+    expect(await hmacVerify(secret, message, sig, { returnAs: "uint8array" })).toBe(true);
+    expect(await hmacVerify(secret, message, sig, { returnAs: "bytes" })).toBe(true);
+  });
+
+  it("verifies base64 and base64url signatures under their aliases", async () => {
+    const b64 = await hmac(secret, message, { returnAs: "base64" });
+    const b64url = await hmac(secret, message, { returnAs: "base64url" });
+    expect(await hmacVerify(secret, message, b64, { returnAs: "b64" })).toBe(true);
+    expect(await hmacVerify(secret, message, b64url, { returnAs: "b64url" })).toBe(true);
+  });
+
+  it("returns false for a missing or malformed signature instead of throwing", async () => {
+    expect(await hmacVerify(secret, message, null)).toBe(false);
+    expect(await hmacVerify(secret, message, undefined)).toBe(false);
+    expect(await hmacVerify(secret, message, "not-hex-at-all")).toBe(false);
+    expect(await hmacVerify(secret, message, "zz", { returnAs: "base64" })).toBe(false);
+    expect(await hmacVerify(secret, message, 12_345 as any)).toBe(false);
+  });
+
+  it("verifies a raw byte signature whatever returnAs says", async () => {
+    const sig = await hmac(secret, message, { returnAs: "uint8array" });
+    expect(await hmacVerify(secret, message, sig, { returnAs: "base64" })).toBe(true);
+    expect(await hmacVerify(secret, message, sig.buffer as ArrayBuffer)).toBe(true);
+  });
+});
