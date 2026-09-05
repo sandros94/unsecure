@@ -50,6 +50,7 @@ When a task involves design decisions, ambiguity, or changes to the project visi
 Internal-only (not exported, inlined into the bundles that import them):
 
 - `src/_internal/bytes.ts` — `toBytes()` / `toCryptoBytes()`: the one place a caller value (`string` or any `BytesSource`) becomes a `Uint8Array`; also owns the shared `textEncoder`. `toCryptoBytes` copies `SharedArrayBuffer`-backed views, which Web Crypto refuses.
+- `src/_internal/algorithm.ts` — `HASH_LENGTH` (digest sizes in bytes) and `normalizeAlgorithm()`: the single place an algorithm name is accepted. `hash`, `hmac`, `hkdf` and `otp` resolve through it, so names match case-insensitively (`"sha-256"` works) and anything else throws a `RangeError` before Web Crypto is reached
 - `src/_internal/encoding.ts` — shared `encodeBytes(bytes, returnAs, source)` helper used by `hash`, `hmac`, and `hkdf` to keep `returnAs` behavior consistent
 - `src/utils/_codec.ts` — shared codec primitives (`textEncoder`/`textDecoder`, `DecodeReturnAs`/`DecodeOptions`, input/output helpers); a leaf module so the `utils/index.ts` barrel can re-export without an import cycle
 - `src/utils/_buffer.ts` — Node `Buffer` fast-path detection for the encoding helpers

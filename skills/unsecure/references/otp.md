@@ -4,6 +4,8 @@ RFC 4226 (HOTP) and RFC 6238 (TOTP) one-time password generation and verificatio
 
 All verification functions use `secureCompare()` internally for constant-time checks.
 
+Algorithm names are matched case-insensitively (`"sha-256"` works); anything else throws a `RangeError` naming the four supported digests, before Web Crypto is reached.
+
 ## generateOTPSecret()
 
 Generates a cryptographically random OTP secret, returned as a base32-encoded string (without padding).

@@ -89,7 +89,7 @@ Hashes input data using a specified cryptographic algorithm. It uses the Web Cry
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`)
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws a `RangeError`
 - **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default `hex`)
 
 > [!WARNING]
@@ -125,7 +125,7 @@ Computes an HMAC signature using the Web Crypto API. Supports the same algorithm
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`)
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws a `RangeError`
 - **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default mirrors input type)
 
 ```ts
@@ -158,7 +158,7 @@ HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`. Extract-and-expan
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`)
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws a `RangeError`
 - **length**: output length in bytes (default `32`, max `255 * HashLen`)
 - **salt**: non-secret but strongly recommended (string or `BufferSource`, default empty)
 - **info**: context label for domain separation (string or `BufferSource`, default empty)
@@ -201,7 +201,7 @@ Generate and verify HMAC-based One-Time Passwords (RFC 4226).
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`)
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`) — matched case-insensitively; any other name throws a `RangeError`
 - **digits**: number of digits in the OTP code (default `6`)
 - **window**: (verify only) number of counter values to check ahead (default `0`)
 
@@ -226,7 +226,7 @@ Generate and verify Time-based One-Time Passwords (RFC 6238).
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`)
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`) — matched case-insensitively; any other name throws a `RangeError`
 - **digits**: number of digits in the OTP code (default `6`)
 - **period**: time step duration in seconds (default `30`)
 - **time**: Unix timestamp in seconds (defaults to current time)

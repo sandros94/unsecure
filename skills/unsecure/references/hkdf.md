@@ -19,6 +19,8 @@ async function hkdf(
 ): Promise<string | Uint8Array>;
 ```
 
+Algorithm names are matched case-insensitively (`"sha-256"` works); anything else throws a `RangeError` naming the four supported digests, before Web Crypto is reached.
+
 **Defaults:**
 
 - `returnAs` mirrors the `ikm` input type when omitted: `string` ikm → hex `string` output; `BufferSource` ikm → `Uint8Array<ArrayBuffer>` output. Pass `returnAs` explicitly when the IKM shape and the desired output shape don't line up — key material is typically consumed as bytes, so pass `returnAs: "uint8array"` (or `"bytes"`) when deriving from a string IKM.

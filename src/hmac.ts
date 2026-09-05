@@ -1,5 +1,6 @@
 import type { DigestOptions, DigestReturnAs } from "./hash.ts";
 import { encodeBytes } from "./_internal/encoding.ts";
+import { normalizeAlgorithm } from "./_internal/algorithm.ts";
 import { textEncoder } from "./utils/index.ts";
 import { secureCompare } from "./compare.ts";
 
@@ -56,7 +57,8 @@ export async function hmac(
   data: string | BufferSource,
   options: HMACOptions = {},
 ): Promise<Uint8Array<ArrayBuffer> | string> {
-  const { algorithm = "SHA-256", returnAs } = options;
+  const { returnAs } = options;
+  const algorithm = normalizeAlgorithm(options.algorithm ?? "SHA-256", "hmac");
 
   const keyBuffer = typeof secret === "string" ? textEncoder.encode(secret) : secret;
   const isBufferInput = typeof data !== "string";

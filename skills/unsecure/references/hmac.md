@@ -22,6 +22,8 @@ async function hmacVerify(
 ): Promise<boolean>;
 ```
 
+Algorithm names are matched case-insensitively (`"sha-256"` works); anything else throws a `RangeError` naming the four supported digests, before Web Crypto is reached.
+
 **Return type inference** (for `hmac()`):
 
 - `string` data → `string` (hex) by default

@@ -207,3 +207,25 @@ describe("hkdf API", () => {
     expect(out.buffer).toBeInstanceOf(ArrayBuffer);
   });
 });
+
+describe("hkdf algorithm names", () => {
+  const ikm = hexParse(VECTORS.a1.ikm, { loose: true, returnAs: "uint8array" });
+
+  it("accepts a lowercase algorithm name", async () => {
+    const lower = await hkdf(ikm, { algorithm: "sha-256" as any, length: 16, returnAs: "hex" });
+    const canonical = await hkdf(ikm, { algorithm: "SHA-256", length: 16, returnAs: "hex" });
+    expect(lower).toBe(canonical);
+  });
+
+  it("enforces 255 * HashLen for a lowercase algorithm name", async () => {
+    await expect(hkdf(ikm, { algorithm: "sha-256" as any, length: 9000 })).rejects.toThrow(
+      "HKDF with SHA-256 can derive at most 8160 bytes, requested 9000.",
+    );
+  });
+
+  it("rejects an unknown algorithm with a RangeError", async () => {
+    await expect(hkdf(ikm, { algorithm: "SHA-224" as any, length: 16 })).rejects.toThrow(
+      'hkdf: unsupported algorithm "SHA-224"; expected one of SHA-1, SHA-256, SHA-384, SHA-512.',
+    );
+  });
+});

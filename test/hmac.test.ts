@@ -210,3 +210,23 @@ describe("hmac", () => {
     });
   });
 });
+
+describe("hmac algorithm names", () => {
+  it("accepts a lowercase algorithm name", async () => {
+    const lower = await hmac("k", "d", { algorithm: "sha-512" as any });
+    const canonical = await hmac("k", "d", { algorithm: "SHA-512" });
+    expect(lower).toBe(canonical);
+  });
+
+  it("rejects an unknown algorithm with a RangeError", async () => {
+    await expect(hmac("k", "d", { algorithm: "md5" as any })).rejects.toThrow(
+      'hmac: unsupported algorithm "md5"; expected one of SHA-1, SHA-256, SHA-384, SHA-512.',
+    );
+  });
+
+  it("rejects an unknown algorithm in hmacVerify too", async () => {
+    await expect(hmacVerify("k", "d", "00", { algorithm: "md5" as any })).rejects.toBeInstanceOf(
+      RangeError,
+    );
+  });
+});

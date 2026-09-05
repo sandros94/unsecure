@@ -1,4 +1,5 @@
 import { encodeBytes } from "./_internal/encoding.ts";
+import { normalizeAlgorithm } from "./_internal/algorithm.ts";
 import { textEncoder } from "./utils/index.ts";
 
 export type DigestAlgorithm = "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512";
@@ -76,7 +77,8 @@ export async function hash(
   data: string | BufferSource,
   options: DigestOptions = {},
 ): Promise<Uint8Array<ArrayBuffer> | string> {
-  const { algorithm = "SHA-256", returnAs } = options;
+  const { returnAs } = options;
+  const algorithm = normalizeAlgorithm(options.algorithm ?? "SHA-256", "hash");
 
   const isBufferInput = typeof data !== "string";
   const dataBuffer = isBufferInput ? data : textEncoder.encode(data);

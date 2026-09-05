@@ -1,14 +1,7 @@
 import type { DigestAlgorithm, DigestReturnAs } from "./hash.ts";
 import { encodeBytes } from "./_internal/encoding.ts";
+import { HASH_LENGTH, normalizeAlgorithm } from "./_internal/algorithm.ts";
 import { textEncoder } from "./utils/index.ts";
-
-/** Output byte length per hash algorithm (RFC 5869 HashLen). */
-const _HASH_LEN: Record<DigestAlgorithm, number> = {
-  "SHA-1": 20,
-  "SHA-256": 32,
-  "SHA-384": 48,
-  "SHA-512": 64,
-};
 
 export interface HKDFOptions {
   /**
@@ -112,12 +105,13 @@ export async function hkdf(
   ikm: string | BufferSource,
   options: HKDFOptions = {},
 ): Promise<Uint8Array<ArrayBuffer> | string> {
-  const { algorithm = "SHA-256", length = 32, salt, info, returnAs } = options;
+  const { length = 32, salt, info, returnAs } = options;
+  const algorithm = normalizeAlgorithm(options.algorithm ?? "SHA-256", "hkdf");
 
   if (!Number.isInteger(length) || length < 1) {
     throw new RangeError("length must be a positive integer.");
   }
-  const maxLen = 255 * _HASH_LEN[algorithm];
+  const maxLen = 255 * HASH_LENGTH[algorithm];
   if (length > maxLen) {
     throw new RangeError(
       `HKDF with ${algorithm} can derive at most ${maxLen} bytes, requested ${length}.`,

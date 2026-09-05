@@ -14,6 +14,8 @@ async function hash(
 ): Promise<string | Uint8Array>;
 ```
 
+Algorithm names are matched case-insensitively (`"sha-256"` works); anything else throws a `RangeError` naming the four supported digests, before Web Crypto is reached.
+
 **Return type inference:**
 
 - `string` input → `string` (hex) by default

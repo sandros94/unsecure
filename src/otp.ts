@@ -1,5 +1,6 @@
 import type { DigestAlgorithm } from "./hash.ts";
 import { hmac } from "./hmac.ts";
+import { normalizeAlgorithm } from "./_internal/algorithm.ts";
 import { Base32 } from "./utils/index.ts";
 import { secureRandomBytes } from "./random.ts";
 import { secureCompare } from "./compare.ts";
@@ -135,7 +136,8 @@ export async function hotp(
   counter: number,
   options: HOTPOptions = {},
 ): Promise<string> {
-  const { algorithm = "SHA-1", digits = 6 } = options;
+  const { digits = 6 } = options;
+  const algorithm = normalizeAlgorithm(options.algorithm ?? "SHA-1", "hotp");
   const secretBytes = _resolveSecret(secret);
   const mac = await hmac(secretBytes, _counterToBytes(counter), {
     algorithm,
@@ -164,8 +166,9 @@ export async function hotpVerify(
   options: HOTPVerifyOptions = {},
 ): Promise<{ valid: boolean; delta: number }> {
   const { window = 0, ...hotpOpts } = options;
+  const algorithm = normalizeAlgorithm(options.algorithm ?? "SHA-1", "hotpVerify");
   for (let delta = 0; delta <= window; delta++) {
-    const expected = await hotp(secret, counter + delta, hotpOpts);
+    const expected = await hotp(secret, counter + delta, { ...hotpOpts, algorithm });
     if (secureCompare(expected, otp)) {
       return { valid: true, delta };
     }
@@ -190,9 +193,10 @@ export async function totp(
   options: TOTPOptions = {},
 ): Promise<string> {
   const { period = 30, time, ...hotpOpts } = options;
+  const algorithm = normalizeAlgorithm(options.algorithm ?? "SHA-1", "totp");
   const t = time ?? Math.floor(Date.now() / 1000);
   const counter = Math.floor(t / period);
-  return hotp(secret, counter, hotpOpts);
+  return hotp(secret, counter, { ...hotpOpts, algorithm });
 }
 
 /**
@@ -213,11 +217,12 @@ export async function totpVerify(
   options: TOTPVerifyOptions = {},
 ): Promise<{ valid: boolean; delta: number }> {
   const { period = 30, time, window = 1, ...hotpOpts } = options;
+  const algorithm = normalizeAlgorithm(options.algorithm ?? "SHA-1", "totpVerify");
   const t = time ?? Math.floor(Date.now() / 1000);
   const counter = Math.floor(t / period);
 
   for (let delta = -window; delta <= window; delta++) {
-    const expected = await hotp(secret, counter + delta, hotpOpts);
+    const expected = await hotp(secret, counter + delta, { ...hotpOpts, algorithm });
     if (secureCompare(expected, otp)) {
       return { valid: true, delta };
     }
@@ -280,7 +285,7 @@ export function otpauthURI(options: OTPAuthURIOptions): string {
   const params = new URLSearchParams();
   params.set("secret", secretB32);
   if (issuer) params.set("issuer", issuer);
-  params.set("algorithm", _URI_ALGORITHM_MAP[algorithm]);
+  params.set("algorithm", _URI_ALGORITHM_MAP[normalizeAlgorithm(algorithm, "otpauthURI")]);
   params.set("digits", String(digits));
 
   if (type === "hotp") {

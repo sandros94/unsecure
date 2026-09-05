@@ -352,3 +352,21 @@ describe("otpauthURI()", () => {
     expect(uri).not.toContain("issuer=");
   });
 });
+
+describe("OTP algorithm names", () => {
+  it("accepts a lowercase algorithm name", async () => {
+    expect(await hotp(RFC4226_SECRET, 0, { algorithm: "sha-1" as any })).toBe("755224");
+    expect(
+      await totp(RFC6238_SHA256_SECRET, { time: 59, digits: 8, algorithm: "sha-256" as any }),
+    ).toBe("46119246");
+  });
+
+  it("rejects an unknown algorithm with a RangeError naming the function", async () => {
+    await expect(hotp(RFC4226_SECRET, 0, { algorithm: "SHA-2" as any })).rejects.toThrow(
+      'hotp: unsupported algorithm "SHA-2"; expected one of SHA-1, SHA-256, SHA-384, SHA-512.',
+    );
+    await expect(totp(RFC4226_SECRET, { algorithm: "SHA-2" as any })).rejects.toThrow(
+      'totp: unsupported algorithm "SHA-2"',
+    );
+  });
+});

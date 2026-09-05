@@ -149,3 +149,35 @@ describe("hash utility", () => {
     expect(result.buffer).toBeInstanceOf(ArrayBuffer);
   });
 });
+
+describe("hash algorithm names", () => {
+  it("accepts a lowercase algorithm name", async () => {
+    const lower = await hash("hello world", { algorithm: "sha-256" as any });
+    const canonical = await hash("hello world", { algorithm: "SHA-256" });
+    expect(lower).toBe(canonical);
+  });
+
+  it("accepts a mixed-case algorithm name for every supported digest", async () => {
+    for (const [messy, canonical] of [
+      ["sha-1", "SHA-1"],
+      ["Sha-256", "SHA-256"],
+      ["sha-384", "SHA-384"],
+      ["SHA-512", "SHA-512"],
+    ] as const) {
+      expect(await hash("data", { algorithm: messy as any })).toBe(
+        await hash("data", { algorithm: canonical }),
+      );
+    }
+  });
+
+  it("rejects an unknown algorithm with a RangeError that lists the supported ones", async () => {
+    await expect(hash("data", { algorithm: "SHA-3" as any })).rejects.toThrow(
+      'hash: unsupported algorithm "SHA-3"; expected one of SHA-1, SHA-256, SHA-384, SHA-512.',
+    );
+    await expect(hash("data", { algorithm: "SHA-3" as any })).rejects.toBeInstanceOf(RangeError);
+  });
+
+  it("rejects a non-string algorithm with a TypeError", async () => {
+    await expect(hash("data", { algorithm: 256 as any })).rejects.toBeInstanceOf(TypeError);
+  });
+});
