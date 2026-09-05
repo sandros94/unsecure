@@ -370,3 +370,129 @@ describe("OTP algorithm names", () => {
     );
   });
 });
+
+describe("OTP input validation", () => {
+  it("rejects a counter that is not a safe non-negative integer", async () => {
+    await expect(hotp(RFC4226_SECRET, Number.NaN)).rejects.toThrow(
+      "hotp: counter must be an integer >= 0, got NaN.",
+    );
+    await expect(hotp(RFC4226_SECRET, undefined as any)).rejects.toThrow(
+      "hotp: counter must be an integer >= 0, got undefined.",
+    );
+    await expect(hotp(RFC4226_SECRET, Number.POSITIVE_INFINITY)).rejects.toBeInstanceOf(RangeError);
+    await expect(hotp(RFC4226_SECRET, -1)).rejects.toBeInstanceOf(RangeError);
+    await expect(hotp(RFC4226_SECRET, 1.5)).rejects.toBeInstanceOf(RangeError);
+    await expect(hotp(RFC4226_SECRET, 2 ** 53)).rejects.toBeInstanceOf(RangeError);
+  });
+
+  it("rejects a missing counter in hotpVerify instead of verifying against 0", async () => {
+    await expect(hotpVerify(RFC4226_SECRET, "755224", undefined as any)).rejects.toThrow(
+      "hotpVerify: counter must be an integer >= 0, got undefined.",
+    );
+  });
+
+  it("rejects digits outside the 6..8 range", async () => {
+    await expect(hotp(RFC4226_SECRET, 0, { digits: 1.5 })).rejects.toThrow(
+      "hotp: digits must be an integer between 6 and 8, got 1.5.",
+    );
+    await expect(hotp(RFC4226_SECRET, 0, { digits: -1 })).rejects.toBeInstanceOf(RangeError);
+    await expect(hotp(RFC4226_SECRET, 0, { digits: 12 })).rejects.toBeInstanceOf(RangeError);
+    await expect(totp(RFC4226_SECRET, { digits: 5 })).rejects.toThrow(
+      "totp: digits must be an integer between 6 and 8, got 5.",
+    );
+    await expect(hotpVerify(RFC4226_SECRET, "755224", 0, { digits: 9 })).rejects.toBeInstanceOf(
+      RangeError,
+    );
+    await expect(totpVerify(RFC4226_SECRET, "755224", { digits: 0 })).rejects.toBeInstanceOf(
+      RangeError,
+    );
+  });
+
+  it("rejects a period below 1", async () => {
+    await expect(totp(RFC4226_SECRET, { period: 0 })).rejects.toThrow(
+      "totp: period must be an integer >= 1, got 0.",
+    );
+    await expect(totp(RFC4226_SECRET, { period: -30 })).rejects.toBeInstanceOf(RangeError);
+    await expect(totp(RFC4226_SECRET, { period: 2.5 })).rejects.toBeInstanceOf(RangeError);
+    await expect(totpVerify(RFC4226_SECRET, "000000", { period: 0 })).rejects.toBeInstanceOf(
+      RangeError,
+    );
+  });
+
+  it("rejects a non-finite time", async () => {
+    await expect(totp(RFC4226_SECRET, { time: Number.NaN })).rejects.toThrow(
+      "totp: time must be a finite number of seconds, got NaN.",
+    );
+    await expect(totp(RFC4226_SECRET, { time: Number.POSITIVE_INFINITY })).rejects.toBeInstanceOf(
+      RangeError,
+    );
+    await expect(totpVerify(RFC4226_SECRET, "000000", { time: Number.NaN })).rejects.toBeInstanceOf(
+      RangeError,
+    );
+  });
+
+  it("accepts a fractional time by flooring it", async () => {
+    expect(await totp(RFC6238_SHA1_SECRET, { time: 59.9, digits: 8 })).toBe(
+      await totp(RFC6238_SHA1_SECRET, { time: 59, digits: 8 }),
+    );
+  });
+
+  it("rejects a negative window instead of never matching", async () => {
+    await expect(hotpVerify(RFC4226_SECRET, "755224", 0, { window: -1 })).rejects.toThrow(
+      "hotpVerify: window must be an integer >= 0, got -1.",
+    );
+    await expect(totpVerify(RFC4226_SECRET, "755224", { window: -1 })).rejects.toThrow(
+      "totpVerify: window must be an integer >= 0, got -1.",
+    );
+  });
+
+  it("rejects an empty secret", async () => {
+    await expect(hotp("", 0)).rejects.toThrow("otp: secret must not be empty.");
+    await expect(hotp(new Uint8Array(0), 0)).rejects.toBeInstanceOf(RangeError);
+    await expect(totp("")).rejects.toThrow("otp: secret must not be empty.");
+    await expect(hotpVerify("", "755224", 0)).rejects.toThrow("otp: secret must not be empty.");
+    await expect(totpVerify("", "755224")).rejects.toThrow("otp: secret must not be empty.");
+  });
+
+  it("rejects a secret that is neither text nor bytes", async () => {
+    await expect(hotp([1, 2, 3] as any, 0)).rejects.toThrow(
+      "otp: expected a string, ArrayBuffer or ArrayBuffer view, got Array.",
+    );
+  });
+
+  it("accepts every BytesSource shape as a secret", async () => {
+    const buffer = RFC4226_SECRET.buffer as ArrayBuffer;
+    expect(await hotp(buffer, 0)).toBe("755224");
+    expect(await hotp(new DataView(buffer), 0)).toBe("755224");
+  });
+
+  it("treats a missing OTP as invalid rather than throwing", async () => {
+    expect(await hotpVerify(RFC4226_SECRET, null, 0)).toEqual({ valid: false, delta: 0 });
+    expect(await hotpVerify(RFC4226_SECRET, undefined, 0)).toEqual({ valid: false, delta: 0 });
+    expect(await totpVerify(RFC4226_SECRET, null, { time: 59 })).toEqual({
+      valid: false,
+      delta: 0,
+    });
+  });
+
+  it("rejects a generateOTPSecret length below 1", () => {
+    expect(() => generateOTPSecret(0)).toThrow(
+      "generateOTPSecret: length must be an integer >= 1, got 0.",
+    );
+    expect(() => generateOTPSecret(-1)).toThrow(RangeError);
+    expect(() => generateOTPSecret(1.5)).toThrow(RangeError);
+  });
+});
+
+describe("OTP boundary edges", () => {
+  it("rejects a counter whose window would leave the safe-integer range", async () => {
+    await expect(
+      hotpVerify(RFC4226_SECRET, "000000", Number.MAX_SAFE_INTEGER, { window: 1 }),
+    ).rejects.toThrow(
+      `hotpVerify: counter must be an integer between 0 and ${Number.MAX_SAFE_INTEGER - 1}, got ${Number.MAX_SAFE_INTEGER}.`,
+    );
+    await expect(
+      hotpVerify(RFC4226_SECRET, "000000", Number.MAX_SAFE_INTEGER - 1, { window: 1 }),
+    ).resolves.toEqual({ valid: false, delta: 0 });
+  });
+});

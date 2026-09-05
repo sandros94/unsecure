@@ -204,8 +204,10 @@ Generate and verify HMAC-based One-Time Passwords (RFC 4226).
 options:
 
 - **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`) — matched case-insensitively; any other name throws a `RangeError`
-- **digits**: number of digits in the OTP code (default `6`)
-- **window**: (verify only) number of counter values to check ahead (default `0`)
+- **digits**: number of digits in the OTP code, an integer from `6` to `8` (default `6`)
+- **window**: (verify only) number of counter values to check ahead, an integer `>= 0` (default `0`)
+
+`counter` must be an integer `>= 0` — and `counter + window` must still be a safe integer — and the secret must decode to at least one byte; anything else throws a `RangeError` naming the value found. A `null` or `undefined` `otp` is simply invalid.
 
 ```ts
 import { hotp, hotpVerify } from "unsecure";
@@ -229,10 +231,10 @@ Generate and verify Time-based One-Time Passwords (RFC 6238).
 options:
 
 - **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`) — matched case-insensitively; any other name throws a `RangeError`
-- **digits**: number of digits in the OTP code (default `6`)
-- **period**: time step duration in seconds (default `30`)
-- **time**: Unix timestamp in seconds (defaults to current time)
-- **window**: (verify only) number of time steps to check in each direction (default `1`)
+- **digits**: number of digits in the OTP code, an integer from `6` to `8` (default `6`)
+- **period**: time step duration in seconds, an integer `>= 1` (default `30`)
+- **time**: Unix timestamp in seconds, any finite number, floored (defaults to current time)
+- **window**: (verify only) number of time steps to check in each direction, an integer `>= 0` (default `1`)
 
 ```ts
 import { totp, totpVerify } from "unsecure";
@@ -247,7 +249,7 @@ const { valid, delta } = await totpVerify(secret, userCode);
 
 #### generateOTPSecret
 
-Generates a cryptographically random OTP secret, returned as a base32-encoded string (without padding).
+Generates a cryptographically random OTP secret, returned as a base32-encoded string (without padding). `length` is a number of bytes: an integer `>= 1`.
 
 ```ts
 import { generateOTPSecret } from "unsecure";

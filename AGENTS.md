@@ -41,7 +41,7 @@ When a task involves design decisions, ambiguity, or changes to the project visi
 - `src/hash.ts` → `unsecure/hash` — `hash()`: async hashing via `crypto.subtle.digest`; input is `string | BytesSource` coerced through `toCryptoBytes`
 - `src/hkdf.ts` → `unsecure/hkdf` — `hkdf()`: HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`, with `returnAs` matching `hash`/`hmac`; `ikm`/`salt`/`info` are `string | BytesSource`
 - `src/hmac.ts` → `unsecure/hmac` — `hmac()`, `hmacVerify()`: HMAC signing and constant-time verification. An empty secret throws `RangeError`; `hmacVerify` compares raw MAC bytes and decodes a string `signature` strictly by `returnAs` (hex when it names bytes), while `null`/`undefined`/malformed signatures verify as `false`
-- `src/otp.ts` → `unsecure/otp` — `hotp()`, `hotpVerify()`, `totp()`, `totpVerify()`, `generateOTPSecret()`, `otpauthURI()`: RFC 4226/6238 OTP
+- `src/otp.ts` → `unsecure/otp` — `hotp()`, `hotpVerify()`, `totp()`, `totpVerify()`, `generateOTPSecret()`, `otpauthURI()`: RFC 4226/6238 OTP. Every numeric option is range-checked at the boundary (`counter` >= 0, `digits` 6–8, `period` >= 1, `window` >= 0, `time` finite) and the resolved secret must be non-empty; the `otp` argument of both verifies is `string | null | undefined` and anything else is invalid, never a throw
 - `src/random.ts` → `unsecure/random` — `createSecureRandomGenerator()`, `secureRandomNumber()`, `secureRandomBytes()`, `secureShuffle()`, `randomJitter()`
 - `src/sanitize.ts` → `unsecure/sanitize` — `sanitizeObject()` (in-place, single-pass), `sanitizeObjectCopy()` (non-mutating, cycle-preserving copy), `safeJsonParse()` (parse-time prototype-pollution reviver)
 - `src/uuid.ts` → `unsecure/uuid` — `uuidv4()`, `uuidv7(timestamp?)`, `secureUUID` (alias of `uuidv7`), `createUUIDv7Generator()` (dual-clock: counter driven by `Date.now()` for per-process uniqueness, embedded ts honors the optional caller argument verbatim — RFC 9562 §6.2 Method 3 counter, safe for out-of-order backfills; a throwing `.next(invalid)` does not mutate state), `uuidv7Timestamp()`, `isUUIDv4()`, `isUUIDv7()`
@@ -49,6 +49,7 @@ When a task involves design decisions, ambiguity, or changes to the project visi
 
 Internal-only (not exported, inlined into the bundles that import them):
 
+- `src/_internal/assert.ts` — `assertInteger(source, name, value, min, max?)` and `showValue()`: the one range check behind every bounded numeric option (`otp`, `generate`), so the wording and the accepted range are identical everywhere
 - `src/_internal/bytes.ts` — `toBytes()` / `toCryptoBytes()`: the one place a caller value (`string` or any `BytesSource`) becomes a `Uint8Array`; also owns the shared `textEncoder`. `toCryptoBytes` copies `SharedArrayBuffer`-backed views, which Web Crypto refuses.
 - `src/_internal/algorithm.ts` — `HASH_LENGTH` (digest sizes in bytes) and `normalizeAlgorithm()`: the single place an algorithm name is accepted. `hash`, `hmac`, `hkdf` and `otp` resolve through it, so names match case-insensitively (`"sha-256"` works) and anything else throws a `RangeError` before Web Crypto is reached
 - `src/_internal/encoding.ts` — shared `encodeBytes(bytes, returnAs, source)` / `decodeBytes(text, returnAs, source)` pair used by `hash`, `hmac`, and `hkdf` to keep `returnAs` behavior consistent in both directions

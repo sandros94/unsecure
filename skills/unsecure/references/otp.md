@@ -1,6 +1,8 @@
 # OTP (HOTP / TOTP)
 
-RFC 4226 (HOTP) and RFC 6238 (TOTP) one-time password generation and verification, built on top of [`hmac()`](./hmac.md). Secrets can be raw `Uint8Array` or base32-encoded strings.
+RFC 4226 (HOTP) and RFC 6238 (TOTP) one-time password generation and verification, built on top of [`hmac()`](./hmac.md). Secrets can be raw bytes (any `BytesSource`) or base32-encoded strings, and must decode to at least one byte — an empty secret throws `RangeError: otp: secret must not be empty.`
+
+Every numeric option is checked at the boundary against its documented range, with a `RangeError` naming the value found: `counter` an integer `>= 0` (and `counter + window` must stay a safe integer), `digits` an integer from 6 to 8, `period` an integer `>= 1`, `window` an integer `>= 0`, `time` any finite number of seconds (floored). A missing `counter` no longer silently means 0, and a missing `otp` (`null` / `undefined`) is invalid rather than a crash.
 
 All verification functions use `secureCompare()` internally for constant-time checks.
 
@@ -14,6 +16,7 @@ Generates a cryptographically random OTP secret, returned as a base32-encoded st
 import { generateOTPSecret } from "unsecure";
 
 const secret = generateOTPSecret(); // 20 bytes, base32 string (ideal for SHA-1)
+// `length` is a byte count: an integer >= 1
 const secret256 = generateOTPSecret(32); // 32 bytes (ideal for SHA-256)
 const secret512 = generateOTPSecret(64); // 64 bytes (ideal for SHA-512)
 ```
@@ -25,8 +28,8 @@ HMAC-based One-Time Passwords (RFC 4226).
 **Options:**
 
 - `algorithm`: `"SHA-1"` (default), `"SHA-256"`, `"SHA-384"`, `"SHA-512"`
-- `digits`: number of digits (default `6`)
-- `window` (verify only): counter values to check ahead (default `0`)
+- `digits`: number of digits, 6 to 8 (default `6`)
+- `window` (verify only): counter values to check ahead, `>= 0` (default `0`)
 
 ```ts
 import { hotp, hotpVerify } from "unsecure";
@@ -45,10 +48,10 @@ Time-based One-Time Passwords (RFC 6238).
 **Options:**
 
 - `algorithm`: `"SHA-1"` (default), `"SHA-256"`, `"SHA-384"`, `"SHA-512"`
-- `digits`: number of digits (default `6`)
-- `period`: time step in seconds (default `30`)
-- `time`: Unix timestamp in seconds (defaults to current time; useful for testing)
-- `window` (verify only): time steps to check in each direction (default `1`)
+- `digits`: number of digits, 6 to 8 (default `6`)
+- `period`: time step in seconds, `>= 1` (default `30`)
+- `time`: Unix timestamp in seconds, any finite number (defaults to current time; useful for testing)
+- `window` (verify only): time steps to check in each direction, `>= 0` (default `1`)
 
 ```ts
 import { totp, totpVerify } from "unsecure";
