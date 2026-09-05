@@ -104,11 +104,11 @@ const hashHex = await hash("hello world");
 
 // Hash an input using the default SHA-256 and return as a base64 string
 const hashBase64 = await hash("hello world", { returnAs: "base64" });
-// 'UhywQV8aBkKEVtnvTpSMAnCoBkQjJSU8t6imt+Q9qcc='
+// 'uU0nuZNNPgilLlLX2n2r+sSE7+N6U4DukIj3rOLvzek='
 
 // Hash an input using the default SHA-256 and return as a base64 URL string
 const hashBase64URL = await hash("hello world", { returnAs: "base64url" });
-// 'UhywQV8aBkKEVtnvTpSMAnCoBkQjJSU8t6imt-Q9qcc'
+// 'uU0nuZNNPgilLlLX2n2r-sSE7-N6U4DukIj3rOLvzek'
 
 // Hash and get raw bytes (Uint8Array)
 const hashBytes = await hash("hello world", { returnAs: "bytes" });
