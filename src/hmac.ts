@@ -1,5 +1,5 @@
 import type { DigestOptions, DigestReturnAs } from "./hash.ts";
-import { decodeBytes, encodeBytes } from "./_internal/encoding.ts";
+import { assertReturnAs, decodeBytes, encodeBytes } from "./_internal/encoding.ts";
 import { normalizeAlgorithm } from "./_internal/algorithm.ts";
 import { type BytesSource, toCryptoBytes } from "./_internal/bytes.ts";
 import { secureCompare } from "./compare.ts";
@@ -60,6 +60,7 @@ export async function hmac(
   options: HMACOptions = {},
 ): Promise<Uint8Array<ArrayBuffer> | string> {
   const { returnAs } = options;
+  assertReturnAs(returnAs, "hmac");
   const algorithm = normalizeAlgorithm(options.algorithm ?? "SHA-256", "hmac");
 
   const keyBytes = toCryptoBytes(secret, "hmac");
@@ -124,6 +125,9 @@ export async function hmacVerify(
   signature: string | BytesSource | null | undefined,
   options?: HMACOptions,
 ): Promise<boolean> {
+  // Checked here, not only on the path that decodes text: a `returnAs` the
+  // library does not know is a caller mistake whatever the signature is.
+  assertReturnAs(options?.returnAs, "hmac");
   const computed = await hmac(secret, data, { ...options, returnAs: "uint8array" });
 
   let received: string | BytesSource | null | undefined = signature;

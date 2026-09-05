@@ -1,5 +1,5 @@
 import type { DigestAlgorithm, DigestReturnAs } from "./hash.ts";
-import { encodeBytes } from "./_internal/encoding.ts";
+import { assertReturnAs, encodeBytes } from "./_internal/encoding.ts";
 import { HASH_LENGTH, normalizeAlgorithm } from "./_internal/algorithm.ts";
 import { assertInteger } from "./_internal/assert.ts";
 import { type BytesSource, toCryptoBytes } from "./_internal/bytes.ts";
@@ -110,6 +110,7 @@ export async function hkdf(
   options: HKDFOptions = {},
 ): Promise<Uint8Array<ArrayBuffer> | string> {
   const { length = 32, salt, info, returnAs } = options;
+  assertReturnAs(returnAs, "hkdf");
   const algorithm = normalizeAlgorithm(options.algorithm ?? "SHA-256", "hkdf");
 
   // RFC 5869 caps one derivation at 255 * HashLen bytes; both ends of the

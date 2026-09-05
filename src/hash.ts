@@ -1,4 +1,4 @@
-import { encodeBytes } from "./_internal/encoding.ts";
+import { assertReturnAs, encodeBytes } from "./_internal/encoding.ts";
 import { normalizeAlgorithm } from "./_internal/algorithm.ts";
 import { type BytesSource, toCryptoBytes } from "./_internal/bytes.ts";
 
@@ -78,6 +78,7 @@ export async function hash(
   options: DigestOptions = {},
 ): Promise<Uint8Array<ArrayBuffer> | string> {
   const { returnAs } = options;
+  assertReturnAs(returnAs, "hash");
   const algorithm = normalizeAlgorithm(options.algorithm ?? "SHA-256", "hash");
 
   const isBufferInput = typeof data !== "string";
