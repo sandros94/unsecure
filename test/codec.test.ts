@@ -82,8 +82,43 @@ describe.concurrent("Unified codec API", () => {
       expect(Base64.parse("Zm9v_", { loose: true, returnAs: "bytes" })).toEqual(enc.encode("foo"));
     });
 
-    it("strict tolerates ASCII whitespace (like native fromBase64)", () => {
-      expect(Base64.parse("Zm 9v\nYg==", { returnAs: "bytes" })).toEqual(enc.encode("foob"));
+    it("strict rejects ASCII whitespace", () => {
+      expect(() => base64Parse("Zm 9v\nYg==")).toThrow(SyntaxError);
+      expect(() => base64Parse("Zm9vYg== ")).toThrow(SyntaxError);
+    });
+
+    it("strict accepts unpadded canonical input on both alphabets", () => {
+      expect(base64Parse("Zg")).toBe("f");
+      expect(base64Parse("Zm9vYg")).toBe("foob");
+      expect(
+        base64Parse(base64Stringify(allBytes, { padding: false }), { returnAs: "bytes" }),
+      ).toEqual(allBytes);
+      const url = base64Stringify(allBytes, { alphabet: "base64url" });
+      expect(base64Parse(url, { alphabet: "base64url", returnAs: "bytes" })).toEqual(allBytes);
+    });
+
+    it("strict rejects mis-padding, stray padding and impossible lengths", () => {
+      expect(() => base64Parse("Zm9vYg=")).toThrow(SyntaxError);
+      expect(() => base64Parse("Zm9vYmFy=")).toThrow(SyntaxError);
+      expect(() => base64Parse("Zg===")).toThrow(SyntaxError);
+      expect(() => base64Parse("Zm9vY")).toThrow(SyntaxError);
+      expect(() => base64Parse("Zg=Zg==")).toThrow(SyntaxError);
+    });
+
+    it("strict rejects set bits past the last byte", () => {
+      expect(base64Parse("Zg==")).toBe("f");
+      expect(() => base64Parse("Zh==")).toThrow(SyntaxError);
+      expect(() => base64Parse("Zh")).toThrow(SyntaxError);
+      expect(base64Parse("Zm8=")).toBe("fo");
+      expect(() => base64Parse("Zm9=")).toThrow(SyntaxError);
+    });
+
+    it("loose drops what it cannot use and never throws on shape", () => {
+      expect(base64Parse("Z m\t9v!", { loose: true })).toBe("foo");
+      expect(base64Parse("Zm9vY", { loose: true })).toBe("foo");
+      expect(base64Parse("Zm9vYg=", { loose: true })).toBe("foob");
+      expect(base64Parse("Zh==", { loose: true, returnAs: "bytes" })).toEqual(Uint8Array.of(0x66));
+      expect(base64Parse("!!!", { loose: true, returnAs: "bytes" })).toEqual(new Uint8Array(0));
     });
 
     it("url alphabet parse is strict too", () => {
@@ -252,5 +287,30 @@ describe.concurrent("Unified codec API", () => {
         );
       });
     }
+  });
+});
+
+describe.concurrent("RFC 4648 §10 test vectors decode in strict mode", () => {
+  const inputs = ["", "f", "fo", "foo", "foob", "fooba", "foobar"];
+  const table = {
+    base16: ["", "66", "666F", "666F6F", "666F6F62", "666F6F6261", "666F6F626172"],
+    base32: ["", "MY======", "MZXQ====", "MZXW6===", "MZXW6YQ=", "MZXW6YTB", "MZXW6YTBOI======"],
+    base32hex: ["", "CO======", "CPNG====", "CPNMU===", "CPNMUOG=", "CPNMUOJ1", "CPNMUOJ1E8======"],
+    base64: ["", "Zg==", "Zm8=", "Zm9v", "Zm9vYg==", "Zm9vYmE=", "Zm9vYmFy"],
+  } as const;
+
+  it("base16", () => {
+    table.base16.forEach((text, i) => expect(hexParse(text)).toBe(inputs[i]));
+  });
+
+  it("base32 / base32hex", () => {
+    table.base32.forEach((text, i) => expect(base32Parse(text)).toBe(inputs[i]));
+    table.base32hex.forEach((text, i) =>
+      expect(base32Parse(text, { alphabet: "base32hex" })).toBe(inputs[i]),
+    );
+  });
+
+  it("base64", () => {
+    table.base64.forEach((text, i) => expect(base64Parse(text)).toBe(inputs[i]));
   });
 });

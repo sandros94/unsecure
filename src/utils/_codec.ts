@@ -56,3 +56,120 @@ export function _parseFinalize(bytes: Uint8Array, wantString: boolean): string |
 export function _malformed(label: string, detail: string): SyntaxError {
   return new SyntaxError(`${label}: ${detail}`);
 }
+
+/**
+ * Geometry of a padded block codec: `bits` carried by one symbol, `group`
+ * symbols per whole block, and the codec name used in error text.
+ */
+export interface _BlockShape {
+  bits: number;
+  group: number;
+  name: string;
+}
+
+/**
+ * Unused low bits carried by the final symbol of a body that ends `rem`
+ * symbols past the last whole block, or `-1` when no byte string can produce
+ * that remainder — those symbols would waste a whole symbol's worth of bits.
+ */
+/* @__NO_SIDE_EFFECTS__ */
+export function _tailBits(rem: number, bits: number): number {
+  if (rem === 0) return 0;
+  const leftover = (rem * bits) % 8;
+  return leftover >= bits ? -1 : leftover;
+}
+
+/**
+ * Validate one encoded body and return it stripped of trailing padding.
+ *
+ * Canonical means exactly one text per byte string: alphabet characters only
+ * (whitespace included in the rejection), `=` only as a trailing run and only
+ * in the count the body length calls for — or absent, since padding tells a
+ * decoder nothing the length does not — and no set bits past the last byte.
+ */
+export function _strictBody(
+  text: string,
+  table: Int16Array,
+  shape: _BlockShape,
+  label: string,
+): string {
+  let end = text.length;
+  while (end > 0 && text.charCodeAt(end - 1) === 61) end--;
+  const padFound = text.length - end;
+
+  for (let i = 0; i < end; i++) {
+    const c = text.charCodeAt(i);
+    if ((c < 128 ? table[c]! : -1) < 0) {
+      throw _malformed(
+        label,
+        `invalid ${shape.name} character ${JSON.stringify(text[i])} at index ${i}.`,
+      );
+    }
+  }
+
+  const rem = end % shape.group;
+  const tail = _tailBits(rem, shape.bits);
+  if (tail < 0) {
+    throw _malformed(label, `${end} ${shape.name} symbols cannot encode whole bytes.`);
+  }
+
+  const padNeeded = rem === 0 ? 0 : shape.group - rem;
+  if (padFound > 0) {
+    if (padNeeded === 0) throw _malformed(label, `unexpected "=" padding.`);
+    if (padFound !== padNeeded) {
+      throw _malformed(label, `expected ${padNeeded} "=" padding characters, found ${padFound}.`);
+    }
+  }
+
+  if (tail > 0 && (table[text.charCodeAt(end - 1)]! & ((1 << tail) - 1)) !== 0) {
+    throw _malformed(label, `the last ${shape.name} symbol sets bits past the final byte.`);
+  }
+
+  return end === text.length ? text : text.slice(0, end);
+}
+
+/** Symbol values read out of `text`; anything outside `table` is dropped. */
+/* @__NO_SIDE_EFFECTS__ */
+export function _symbols(text: string, table: Int16Array): Uint8Array {
+  const values = new Uint8Array(text.length);
+  let n = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    const v = c < 128 ? table[c]! : -1;
+    if (v >= 0) values[n++] = v;
+  }
+  return n === values.length ? values : values.subarray(0, n);
+}
+
+/** Longest prefix of `n` symbols that still encodes whole bytes. */
+/* @__NO_SIDE_EFFECTS__ */
+export function _looseCount(n: number, shape: _BlockShape): number {
+  let count = n;
+  while (count > 0 && _tailBits(count % shape.group, shape.bits) < 0) count--;
+  return count;
+}
+
+/**
+ * Pack the first `count` symbols into bytes, dropping the bits that fall past
+ * the last whole byte. The result owns its buffer at exactly its own length.
+ */
+/* @__NO_SIDE_EFFECTS__ */
+export function _decodeSymbols(
+  values: Uint8Array,
+  count: number,
+  bits: number,
+): Uint8Array<ArrayBuffer> {
+  const out = new Uint8Array((count * bits) >>> 3);
+  let acc = 0;
+  let held = 0;
+  let j = 0;
+  for (let i = 0; i < count; i++) {
+    acc = (acc << bits) | values[i]!;
+    held += bits;
+    if (held >= 8) {
+      held -= 8;
+      out[j++] = (acc >>> held) & 0xff;
+    }
+  }
+  return out;
+}

@@ -83,6 +83,7 @@ base64Stringify(bytes, { alphabet: "base64url" }); // URL-safe, unpadded
 
 base64Parse("AQID", { returnAs: "bytes" }); // Uint8Array
 base64Parse(token, { alphabet: "base64url" }); // strict URL-safe decode
+base64Parse("Zm9vYg"); // unpadded is canonical too
 base64Parse(untrusted, { loose: true }); // tolerant (accepts either alphabet)
 ```
 
@@ -102,15 +103,27 @@ base32Parse("MZXW6YTBOI", { returnAs: "bytes" }); // raw bytes
 base32Parse(id, { alphabet: "crockford" });
 ```
 
-## Strictness & runtimes
+## Strict and loose
 
-`parse` is strict by default to avoid decode malleability (distinct inputs
-decoding to the same bytes). Where a runtime ships the TC39 methods
-(`Uint8Array.fromBase64`/`fromHex`), strict decode uses them directly.
+`parse` is strict by default to avoid decode malleability — two texts
+decoding to the same bytes.
 
-- **base64** tolerates ASCII whitespace in strict mode (matches native `fromBase64`).
-- **hex** rejects whitespace in strict mode (matches native `fromHex`).
-- **base32** rejects whitespace in strict mode; `{ loose: true }` skips it.
+**Strict accepts exactly the canonical encoding of some byte string:**
+
+- characters from the selected alphabet only — whitespace is a character like
+  any other, and is rejected;
+- `=` only as a trailing run, and only in the count the body length calls for,
+  or absent entirely. Unpadded is canonical, so anything `stringify` emits —
+  including `{ padding: false }` and the unpadded `base64url` default —
+  round-trips;
+- a length that can encode whole bytes (`Zm9vY` cannot);
+- no set bits past the final byte (`Zg==` decodes `f`; `Zh==` does not decode).
+
+**Loose normalizes and never throws on shape:** every character outside the
+alphabet is dropped (whitespace, `=`, junk, anything non-ASCII), base64 folds
+`-_` onto `+/` and accepts either alphabet, a trailing symbol that cannot
+start a byte is dropped, and bits past the final byte are ignored. Nullish
+input still throws `TypeError`.
 
 Use `{ loose: true }` for user-supplied values that may be formatted (e.g.
 OTP secrets pasted with spaces).
@@ -127,6 +140,10 @@ const str = textDecoder.decode(bytes);
 ## Internal: Buffer / native detection
 
 Encoding prefers Node.js `Buffer` when available, then the TC39
-`Uint8Array.toBase64`/`fromBase64`/`toHex`/`fromHex` methods, then manual
-fallbacks. Strict decode prefers the TC39 methods (Buffer can't enforce an
-alphabet). Transparent to callers — the API is identical everywhere.
+`Uint8Array.toBase64`/`toHex` methods, then manual fallbacks.
+
+Decoding settles the contract in JavaScript first and hands a backend only
+canonical, fully padded, standard-alphabet text to bulk-decode. Native
+`fromBase64`'s own strict mode is never used: it enforces a different contract
+(padding mandatory, whitespace fatal), and the result must not depend on which
+runtime is underneath. Same bytes, same error, everywhere.
