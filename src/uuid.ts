@@ -63,10 +63,18 @@ export interface UUIDv7Generator {
    *   handling per RFC 9562 §6.2 Method 3).
    * - Argument → that exact value.
    *
-   * Consequence: out-of-order backfills work — `next(t1); next(t2); next(t3)`
-   * with any ordering of `t1..t3` produces unique UUIDs that sort by embedded
-   * timestamp. Strict monotonicity of emitted UUIDs is preserved only when
-   * input timestamps are supplied in ascending order (or not supplied at all).
+   * Ordering of the emitted UUIDs:
+   * - No argument → strictly monotonic. Each UUID sorts after the one before
+   *   it, through same-ms calls, counter overflow, and clock regressions.
+   * - Argument → UUIDs sort by their embedded timestamp, so out-of-order
+   *   backfills land where the data says they belong rather than where the
+   *   call happened to fall.
+   * - Two calls carrying the *same* timestamp are ordered by the counter only
+   *   while they fall in one wall-clock millisecond of this process. Across a
+   *   millisecond boundary the counter reseeds randomly and the pair sorts in
+   *   either order.
+   *
+   * Uniqueness holds in every one of those cases.
    *
    * @param timestamp Optional `Date` or Unix-millisecond `number` to embed
    *                  instead of `Date.now()`.
@@ -96,8 +104,15 @@ export interface UUIDv7Generator {
  *
  * Because the user-supplied timestamp never touches the internal reference,
  * out-of-order backfills are safe — UUIDs emitted for past events remain
- * unique and sort by their embedded timestamp. Monotonicity guarantee is
- * per-process; do not assume it across processes.
+ * unique and sort by their embedded timestamp.
+ *
+ * Strict monotonicity covers the argument-free calls: `next()` always emits a
+ * UUID that sorts after the previous one. It is not a property of the
+ * embedded-timestamp field, which the caller controls — two `next(sameTs)`
+ * calls are ordered by the counter only while both fall in one wall-clock
+ * millisecond of this process, and sort in either order once the counter has
+ * reseeded across a millisecond boundary. All of this is per-process; do not
+ * assume it across processes.
  */
 export function createUUIDv7Generator(): UUIDv7Generator {
   let lastWallTs = 0;

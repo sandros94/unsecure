@@ -518,7 +518,7 @@ Stateful generator with a **dual-clock** design: the internal counter and its re
 ```ts
 const gen = createUUIDv7Generator();
 
-gen.next(); // Counter monotonic per process
+gen.next(); // Strictly monotonic per process
 gen.next(new Date("2020-01-01")); // Embeds that date; counter still advances
 gen.next(1_577_836_800_000); // Numeric ms
 ```
@@ -531,7 +531,7 @@ Key properties:
 - A throwing `.next(invalidTs)` does **not** mutate internal state (validation runs before the counter advances).
 
 > [!NOTE]
-> Mixing `next()` and `next(pastTs)` calls gives UUIDs that sort by embedded timestamp, not call order — usually what you want for DB PKs. If you need "latest inserted sorts last," omit the argument or feed monotonic timestamps. For true backfills of past events, call the stateless `uuidv7(date)` instead.
+> Argument-free `next()` calls are strictly monotonic — each UUID sorts after the last. Once you pass timestamps, UUIDs sort by the embedded timestamp rather than by call order (usually what you want for DB PKs), and two calls carrying the _same_ timestamp are ordered by the counter only while both land in one wall-clock millisecond of this process; across a millisecond boundary the counter reseeds and the pair sorts either way. Uniqueness holds regardless. If you need "latest inserted sorts last," omit the argument or feed ascending timestamps. For true backfills of past events, call the stateless `uuidv7(date)` instead.
 
 ### Utilities (`unsecure/utils`)
 
