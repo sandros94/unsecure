@@ -24,8 +24,6 @@ export const _Buffer: _BufferCtor | undefined = /* @__PURE__ */ (() => {
 
 export const _hasBuffer: boolean = typeof _Buffer?.from === "function";
 
-export function _toBuffer(data: Uint8Array | string): _BufferLike {
-  return data instanceof Uint8Array
-    ? _Buffer!.from(data.buffer, data.byteOffset, data.byteLength)
-    : _Buffer!.from(data);
+export function _toBuffer(bytes: Uint8Array): _BufferLike {
+  return _Buffer!.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 }

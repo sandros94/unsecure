@@ -1,12 +1,13 @@
 import { _Buffer, _hasBuffer, _toBuffer } from "./_buffer.ts";
 import {
+  type BytesSource,
   type DecodeOptions,
   type DecodeReturnAs,
   _assertData,
   _malformed,
   _parseFinalize,
   _parsePrep,
-  _toBytes,
+  toBytes,
 } from "./_codec.ts";
 
 interface _ToHex {
@@ -65,13 +66,13 @@ export interface HexCodec {
   /**
    * Encode bytes to a lowercase hex string.
    *
-   * @param data - raw bytes, or a `string` (UTF-8 encoded first)
+   * @param data - raw bytes (any `BytesSource`), or a `string` (UTF-8 encoded first)
    * @returns the hex-encoded string
    * @throws {TypeError} if `data` is nullish
    * @example
    * Hex.stringify(new Uint8Array([0xde, 0xad])); // "dead"
    */
-  stringify(data: Uint8Array | string): string;
+  stringify(data: string | BytesSource): string;
   /**
    * Decode a hex string. Strict by default.
    *
@@ -93,9 +94,8 @@ export interface HexCodec {
   parse(input: Uint8Array, options?: DecodeOptions): Uint8Array<ArrayBuffer>;
 }
 
-function hexStringify(data: Uint8Array | string): string {
-  _assertData(data, "Hex.stringify");
-  return _encodeHex(_toBytes(data));
+function hexStringify(data: string | BytesSource): string {
+  return _encodeHex(toBytes(data, "Hex.stringify"));
 }
 
 function hexParse<T extends DecodeReturnAs>(
@@ -115,7 +115,7 @@ function hexParse(input: string | Uint8Array, options?: DecodeOptions): string |
 export const Hex: HexCodec = { stringify: hexStringify, parse: hexParse };
 
 /** @deprecated Use `Hex.stringify`. */
-export function hexEncode(data: Uint8Array | string): string {
+export function hexEncode(data: string | BytesSource): string {
   return hexStringify(data);
 }
 

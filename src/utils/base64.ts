@@ -1,12 +1,13 @@
 import { _Buffer, _hasBuffer, _toBuffer } from "./_buffer.ts";
 import {
+  type BytesSource,
   type DecodeOptions,
   type DecodeReturnAs,
   _assertData,
   _malformed,
   _parseFinalize,
   _parsePrep,
-  _toBytes,
+  toBytes,
 } from "./_codec.ts";
 
 interface _ToBase64 {
@@ -157,14 +158,14 @@ export interface Base64Codec {
   /**
    * Encode bytes to base64.
    *
-   * @param data - raw bytes, or a `string` (UTF-8 encoded first)
+   * @param data - raw bytes (any `BytesSource`), or a `string` (UTF-8 encoded first)
    * @param options - see {@link Base64StringifyOptions}
    * @returns the base64 string
    * @throws {TypeError} if `data` is nullish
    * @example
    * Base64.stringify(bytes, { alphabet: "base64url" });
    */
-  stringify(data: Uint8Array | string, options?: Base64StringifyOptions): string;
+  stringify(data: string | BytesSource, options?: Base64StringifyOptions): string;
   /**
    * Decode a base64 string. Strict by default; ASCII whitespace is ignored
    * (matching native `fromBase64`).
@@ -187,11 +188,10 @@ export interface Base64Codec {
   parse(input: Uint8Array, options?: Base64ParseOptions): Uint8Array<ArrayBuffer>;
 }
 
-function base64Stringify(data: Uint8Array | string, options?: Base64StringifyOptions): string {
-  _assertData(data, "Base64.stringify");
+function base64Stringify(data: string | BytesSource, options?: Base64StringifyOptions): string {
   const alphabet = options?.alphabet ?? "base64";
   const padding = options?.padding ?? alphabet !== "base64url";
-  return _encodeBase64(_toBytes(data), alphabet, padding);
+  return _encodeBase64(toBytes(data, "Base64.stringify"), alphabet, padding);
 }
 
 function base64Parse<T extends DecodeReturnAs>(
@@ -219,12 +219,12 @@ function base64Parse(
 export const Base64: Base64Codec = { stringify: base64Stringify, parse: base64Parse };
 
 /** @deprecated Use `Base64.stringify`. */
-export function base64Encode(data: Uint8Array | string): string {
+export function base64Encode(data: string | BytesSource): string {
   return base64Stringify(data);
 }
 
 /** @deprecated Use `Base64.stringify(data, { alphabet: "base64url" })`. */
-export function base64UrlEncode(data: Uint8Array | string): string {
+export function base64UrlEncode(data: string | BytesSource): string {
   return base64Stringify(data, { alphabet: "base64url", padding: false });
 }
 

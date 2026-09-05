@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { toBytes, toCryptoBytes } from "../src/_internal/bytes.ts";
 import {
   Base32,
   Base64,
@@ -149,5 +150,99 @@ describe.concurrent("Unified codec API", () => {
     it("matches the legacy base32Encode for the default alphabet", () => {
       expect(Base32.stringify(allBytes)).toBe(base32Encode(allBytes));
     });
+  });
+
+  describe("byte coercion", () => {
+    const deadbeef = Uint8Array.of(0xde, 0xad, 0xbe, 0xef);
+    const notBytes: Array<[string, unknown]> = [
+      ["a number", 123],
+      ["a plain object", {}],
+      ["an array", []],
+      ["a boolean", true],
+      ["null", null],
+      ["undefined", undefined],
+    ];
+
+    it("stringify accepts any BytesSource", () => {
+      expect(Hex.stringify(deadbeef.buffer)).toBe("deadbeef");
+      expect(Hex.stringify(new DataView(deadbeef.buffer, 1, 2))).toBe("adbe");
+      expect(Base64.stringify(deadbeef.buffer)).toBe("3q2+7w==");
+      expect(Base32.stringify(new Uint16Array(deadbeef.buffer), { padding: false })).toBe(
+        "32W353Y",
+      );
+    });
+
+    const stringifiers = [
+      ["Hex.stringify", Hex.stringify],
+      ["Base64.stringify", Base64.stringify],
+      ["Base32.stringify", Base32.stringify],
+    ] as const;
+    const parsers = [
+      ["Hex.parse", Hex.parse],
+      ["Base64.parse", Base64.parse],
+      ["Base32.parse", Base32.parse],
+    ] as const;
+
+    for (const [what, value] of notBytes) {
+      it(`stringify rejects ${what}`, () => {
+        for (const [name, stringify] of stringifiers) {
+          expect(() => stringify(value as string)).toThrow(TypeError);
+          expect(() => stringify(value as string)).toThrow(
+            `${name}: expected a string, ArrayBuffer or ArrayBuffer view, got `,
+          );
+        }
+      });
+    }
+
+    const notText: Array<[string, unknown]> = [
+      ...notBytes,
+      ["an ArrayBuffer", deadbeef.buffer],
+      ["a DataView", new DataView(deadbeef.buffer)],
+    ];
+
+    for (const [what, value] of notText) {
+      it(`parse rejects ${what}`, () => {
+        for (const [name, parse] of parsers) {
+          expect(() => parse(value as string)).toThrow(TypeError);
+          expect(() => parse(value as string)).toThrow(
+            `${name}: expected a string or Uint8Array, got `,
+          );
+        }
+      });
+    }
+
+    it("the message names what it got", () => {
+      expect(() => Hex.stringify(123 as unknown as string)).toThrow(
+        "Hex.stringify: expected a string, ArrayBuffer or ArrayBuffer view, got number.",
+      );
+      expect(() => Base32.parse({} as unknown as string)).toThrow(
+        "Base32.parse: expected a string or Uint8Array, got Object.",
+      );
+      expect(() => Base64.parse(null as unknown as string)).toThrow(
+        "Base64.parse: expected a string or Uint8Array, got null.",
+      );
+    });
+
+    it("toBytes aliases the caller memory; toCryptoBytes unshares it", () => {
+      expect(toBytes(deadbeef, "t")).toBe(deadbeef);
+      expect(toBytes("hi", "t")).toEqual(Uint8Array.of(104, 105));
+      expect(toBytes(deadbeef.buffer, "t")).toEqual(deadbeef);
+      expect(toBytes(new DataView(deadbeef.buffer, 1, 2), "t")).toEqual(Uint8Array.of(0xad, 0xbe));
+      const shared = new Uint8Array(new SharedArrayBuffer(2));
+      expect(toBytes(shared, "t")).toBe(shared);
+      const copy = toCryptoBytes(shared, "t");
+      expect(copy.buffer).toBeInstanceOf(ArrayBuffer);
+      expect(copy).toEqual(shared);
+      expect(toCryptoBytes(deadbeef, "t")).toBe(deadbeef);
+    });
+
+    for (const [what, value] of notBytes) {
+      it(`toBytes and toCryptoBytes reject ${what}`, () => {
+        expect(() => toBytes(value as string, "t")).toThrow(TypeError);
+        expect(() => toCryptoBytes(value as string, "t")).toThrow(
+          /^t: expected a string, ArrayBuffer or ArrayBuffer view, got /,
+        );
+      });
+    }
   });
 });

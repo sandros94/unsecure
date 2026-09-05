@@ -1,5 +1,10 @@
+import { describeValue } from "../_internal/bytes.ts";
+
+export { type BytesSource, toBytes } from "../_internal/bytes.ts";
+
 /** Shared UTF-8 `TextEncoder` instance. */
-export const textEncoder: TextEncoder = /* @__PURE__ */ new TextEncoder();
+export { textEncoder } from "../_internal/bytes.ts";
+
 /** Shared UTF-8 `TextDecoder` instance. */
 export const textDecoder: TextDecoder = /* @__PURE__ */ new TextDecoder();
 
@@ -20,14 +25,15 @@ export interface DecodeOptions {
   loose?: boolean;
 }
 
-export function _assertData(data: unknown, label: string): void {
-  if (data == null) {
-    throw new TypeError(`${label}: data must be a string or Uint8Array.`);
+/**
+ * `parse` reads encoded text: a `string`, or the ASCII bytes of one. Anything
+ * else — a number, a plain object, an `ArrayBuffer` — is a caller mistake, not
+ * something to coerce into text and then complain about.
+ */
+export function _assertData(input: unknown, label: string): asserts input is string | Uint8Array {
+  if (typeof input !== "string" && !(input instanceof Uint8Array)) {
+    throw new TypeError(`${label}: expected a string or Uint8Array, got ${describeValue(input)}.`);
   }
-}
-
-export function _toBytes(data: Uint8Array | string): Uint8Array {
-  return typeof data === "string" ? textEncoder.encode(data) : data;
 }
 
 /** `Uint8Array` input is treated as the ASCII bytes of the encoded text. */

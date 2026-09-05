@@ -510,7 +510,7 @@ Key properties:
 
 JSON-style codecs — `Hex`, `Base64`, `Base32` — each with `stringify` (bytes → text) and `parse` (text → bytes), plus shared `textEncoder` / `textDecoder`. Available from the main barrel and `unsecure/utils` (use the subpath for CDN delivery).
 
-- **`stringify(data, options?)`** accepts `string | Uint8Array` (any backing, incl. `SharedArrayBuffer`-backed views); strings are UTF-8 encoded. Returns a `string`. `null` / `undefined` throws `TypeError`.
+- **`stringify(data, options?)`** accepts a `string` (UTF-8 encoded first) or any `BytesSource` — an `ArrayBuffer` (shared or not), a `DataView`, or any typed array. Returns a `string`. `null` / `undefined` throws `TypeError`.
 - **`parse(input, options?)`** is **strict by default** — malformed input throws `SyntaxError`; pass `{ loose: true }` to tolerate it. Output mirrors the input type (`string` → UTF-8 `string`, `Uint8Array` → bytes); override with `{ returnAs }`. Byte output is always a fresh `ArrayBuffer`-backed `Uint8Array`, never a view into Node's `Buffer` pool.
 
 ```ts

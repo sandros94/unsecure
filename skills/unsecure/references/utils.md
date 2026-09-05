@@ -24,6 +24,7 @@ import {
   textEncoder,
   textDecoder,
   // types
+  type BytesSource,
   type DecodeReturnAs,
   type DecodeOptions,
   type Base64Alphabet,
@@ -35,8 +36,10 @@ import {
 
 Every codec follows the same contract:
 
-- **`stringify(data, options?)`** — `data` is `Uint8Array` or a `string` (UTF-8
-  encoded first). Returns the encoded string. `null` / `undefined` throws `TypeError`.
+- **`stringify(data, options?)`** — `data` is a `string` (UTF-8 encoded first)
+  or any `BytesSource`: an `ArrayBuffer` (shared or not), a `DataView`, or any
+  typed array. Returns the encoded string.
+  `null` / `undefined` throws `TypeError`.
 - **`parse(input, options?)`** — `input` is the encoded `string` (or its
   `Uint8Array` bytes). Returns bytes or a UTF-8 string; see `returnAs` below.
   **Strict by default** — malformed input throws `SyntaxError`. Pass

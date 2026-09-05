@@ -55,6 +55,7 @@ export {
   type Base64Codec,
   type Base64ParseOptions,
   type Base64StringifyOptions,
+  type BytesSource,
   type DecodeOptions,
   type DecodeReturnAs,
   type HexCodec,

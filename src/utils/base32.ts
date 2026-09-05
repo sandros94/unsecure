@@ -1,11 +1,12 @@
 import {
+  type BytesSource,
   type DecodeOptions,
   type DecodeReturnAs,
   _assertData,
   _malformed,
   _parseFinalize,
   _parsePrep,
-  _toBytes,
+  toBytes,
 } from "./_codec.ts";
 
 const _NAMED_ALPHABETS = {
@@ -134,14 +135,14 @@ export interface Base32Codec {
   /**
    * Encode bytes to base32.
    *
-   * @param data - raw bytes, or a `string` (UTF-8 encoded first)
+   * @param data - raw bytes (any `BytesSource`), or a `string` (UTF-8 encoded first)
    * @param options - see {@link Base32StringifyOptions}
    * @returns the base32 string
    * @throws {TypeError} if `data` is nullish
    * @example
    * Base32.stringify(secret, { padding: false }); // unpadded (e.g. OTP secrets)
    */
-  stringify(data: Uint8Array | string, options?: Base32StringifyOptions): string;
+  stringify(data: string | BytesSource, options?: Base32StringifyOptions): string;
   /**
    * Decode a base32 string. Strict by default.
    *
@@ -163,12 +164,11 @@ export interface Base32Codec {
   parse(input: Uint8Array, options?: Base32ParseOptions): Uint8Array<ArrayBuffer>;
 }
 
-function base32Stringify(data: Uint8Array | string, options?: Base32StringifyOptions): string {
-  _assertData(data, "Base32.stringify");
+function base32Stringify(data: string | BytesSource, options?: Base32StringifyOptions): string {
   const alphabet = options?.alphabet ?? "base32";
   const chars = _resolveChars(alphabet, "Base32.stringify");
   const padding = options?.padding ?? alphabet !== "crockford";
-  return _encodeBase32(_toBytes(data), chars, padding);
+  return _encodeBase32(toBytes(data, "Base32.stringify"), chars, padding);
 }
 
 function base32Parse<T extends DecodeReturnAs>(
@@ -197,7 +197,7 @@ function base32Parse(
 export const Base32: Base32Codec = { stringify: base32Stringify, parse: base32Parse };
 
 /** @deprecated Use `Base32.stringify`. */
-export function base32Encode(data: Uint8Array | string): string {
+export function base32Encode(data: string | BytesSource): string {
   return base32Stringify(data);
 }
 
