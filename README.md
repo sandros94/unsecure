@@ -605,6 +605,7 @@ Notes:
 - `sanitizeObject` throws a `TypeError` if a dangerous key sits on a frozen or sealed object — reporting a sanitized object that still carries the key would be worse. Use `sanitizeObjectCopy` there.
 - `sanitizeObject` mutates in place for performance; use `sanitizeObjectCopy` if the caller may still hold a reference.
 - Object identity survives both. `sanitizeObject` strips dangerous own keys wherever it finds them and never replaces an object. `sanitizeObjectCopy` rebuilds only arrays and plain objects — one rooted on `Object.prototype` or on `null` — and carries `Date`, `Map`, `Set`, typed arrays, `RegExp`, class instances and functions into the copy by reference.
+- Neither function reads what a non-plain object _holds_: the entries of a `Map`, the members of a `Set`, the properties of a class instance are never traversed and never sanitized. `sanitizeObject` strips dangerous own keys from every object it walks into; `sanitizeObjectCopy` descends only into arrays and plain objects. Carried by reference means unchanged **and** unsanitized — feed such a container through `safeJsonParse(JSON.stringify(x))`, or sanitize its values yourself, if its contents are untrusted.
 - `sanitizeObjectCopy` rebuilds every plain object onto `Object.prototype` — even null-prototype input comes back rooted normally. A root that is not an array or plain object is returned unchanged.
 
 ## Development

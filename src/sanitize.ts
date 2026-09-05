@@ -37,6 +37,11 @@ export function safeJsonParse<T = any>(json: string): T {
  * be otherwise: its traps run for every property operation, so a proxied
  * object is traversed through its own traps.
  *
+ * Traversal reaches every object held in a data property, whatever its
+ * prototype. What such an object *holds* internally is another matter: `Map`
+ * entries, `Set` members and anything else living outside own properties are
+ * never read, so they are never sanitized.
+ *
  * Returns the same reference for convenience. Use {@link sanitizeObjectCopy}
  * if you need a deep copy with the original preserved.
  *
@@ -58,7 +63,9 @@ export function sanitizeObject<T extends Record<string, unknown> | undefined>(ob
  * `Object.prototype` or on `null`; copies of both are rooted on
  * `Object.prototype`. Every other value — `Date`, `Map`, `Set`, typed
  * arrays, `RegExp`, class instances, functions — is carried into the copy by
- * reference, exactly as {@link sanitizeObject} leaves it in place.
+ * reference, exactly as {@link sanitizeObject} leaves it in place. By
+ * reference means unchanged *and* unsanitized: what a `Map` or `Set` holds is
+ * never read by either function.
  *
  * Only own enumerable data properties are copied — the JSON shape. Accessors
  * are skipped rather than invoked, so the copy never runs caller code; an

@@ -35,6 +35,7 @@ function safeJsonParse<T = any>(json: string): T;
 - A `Proxy` is traversed through its own traps: they run for every property operation, `getOwnPropertyDescriptor` included, so proxied code does run. Sanitize the target rather than the proxy when that matters.
 - `sanitizeObject` throws `TypeError` when a dangerous key cannot be deleted (frozen or sealed object): `sanitizeObject: cannot remove "__proto__" from a frozen object; use sanitizeObjectCopy().`
 - Object identity survives both: `sanitizeObject` strips dangerous own keys from every object it reaches and never replaces one; `sanitizeObjectCopy` rebuilds arrays and plain objects (rooted on `Object.prototype` or on `null`) and carries every other value — `Date`, `Map`, `Set`, typed arrays, `RegExp`, class instances, functions — into the copy by reference, so `copy.when === input.when` for a `Date`.
+- Neither function reads what a non-plain object holds: `Map` entries, `Set` members and a class instance's own state are never traversed, so they are never sanitized. Carried by reference means unchanged _and_ unsanitized — run such contents through `safeJsonParse(JSON.stringify(x))` or sanitize them yourself when they are untrusted.
 - `undefined` and non-object inputs are returned unchanged, as is a copy root that is not an array or plain object.
 - `sanitizeObjectCopy` returns plain objects rooted on `Object.prototype` even when the input had a `null` prototype.
 
