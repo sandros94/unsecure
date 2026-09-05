@@ -222,7 +222,12 @@ const code8 = await hotp(secretBytes, 0, { digits: 8 });
 // Verify an OTP
 const { valid, delta } = await hotpVerify(secret, "287082", 0, { window: 5 });
 // valid: true, delta: 1 (matched at counter 0 + 1)
+
+// Codes are single-use: advance the stored counter past the one that matched
+if (valid) await store.setCounter(userId, 0 + delta + 1);
 ```
+
+Verification always computes every candidate in the window — `window + 1` HMACs for HOTP, `2 * window + 1` for TOTP — so the time a call takes says nothing about which step matched. `delta` reports the nearest matching step.
 
 #### totp / totpVerify
 
@@ -246,6 +251,9 @@ const code = await totp(base32Secret);
 const { valid, delta } = await totpVerify(secret, userCode);
 // delta: 0 = current step, -1 = previous, +1 = next
 ```
+
+> [!IMPORTANT]
+> RFC 6238 §5.2 requires a code to be accepted only once. Persist the step you accepted (`Math.floor(time / period) + delta`) and reject a code that resolves to a step you have already seen — otherwise a code an attacker captures stays usable for the rest of its window.
 
 #### generateOTPSecret
 

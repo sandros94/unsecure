@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { hotp, hotpVerify, totp, totpVerify, generateOTPSecret, otpauthURI } from "../src/otp.ts";
-import { base32Stringify, base32Parse } from "../src/utils/index.ts";
+import { base32Stringify, base32Parse, hexParse } from "../src/utils/index.ts";
 
 // RFC 4226 test secret: ASCII "12345678901234567890" (20 bytes)
 const RFC4226_SECRET = new TextEncoder().encode("12345678901234567890");
@@ -494,5 +494,61 @@ describe("OTP boundary edges", () => {
     await expect(
       hotpVerify(RFC4226_SECRET, "000000", Number.MAX_SAFE_INTEGER - 1, { window: 1 }),
     ).resolves.toEqual({ valid: false, delta: 0 });
+  });
+});
+
+describe("OTP verify window", () => {
+  // A secret whose SHA-1 codes collide inside the window: at time 1700000000
+  // with period 30 the code "565842" is produced both 7 steps back and 2 steps
+  // ahead, which is the only way to observe which match gets reported.
+  const COLLIDING_SECRET = hexParse("a7322f3a0fbd77c478d63aba2cbca69e1b366537", {
+    returnAs: "bytes",
+  });
+
+  it("reports the nearest matching step, not the most negative one", async () => {
+    const result = await totpVerify(COLLIDING_SECRET, "565842", {
+      time: 1_700_000_000,
+      window: 8,
+    });
+    expect(result).toEqual({ valid: true, delta: 2 });
+  });
+
+  it("computes every HOTP candidate in the window whether or not one matches", async () => {
+    const sign = vi.spyOn(crypto.subtle, "sign");
+    try {
+      await hotpVerify(RFC4226_SECRET, "755224", 0, { window: 4 });
+      expect(sign).toHaveBeenCalledTimes(5);
+
+      sign.mockClear();
+      await hotpVerify(RFC4226_SECRET, "000000", 0, { window: 4 });
+      expect(sign).toHaveBeenCalledTimes(5);
+    } finally {
+      sign.mockRestore();
+    }
+  });
+
+  it("computes every TOTP candidate in the window whether or not one matches", async () => {
+    const code = await totp(RFC6238_SHA1_SECRET, { time: 59, digits: 8 });
+    const sign = vi.spyOn(crypto.subtle, "sign");
+    try {
+      await totpVerify(RFC6238_SHA1_SECRET, code, { time: 59, digits: 8, window: 3 });
+      expect(sign).toHaveBeenCalledTimes(7);
+
+      sign.mockClear();
+      await totpVerify(RFC6238_SHA1_SECRET, "00000000", { time: 59, digits: 8, window: 3 });
+      expect(sign).toHaveBeenCalledTimes(7);
+    } finally {
+      sign.mockRestore();
+    }
+  });
+
+  it("still reports 0 when the current step matches", async () => {
+    const code = await totp(RFC6238_SHA1_SECRET, { time: 59, digits: 8 });
+    expect(await totpVerify(RFC6238_SHA1_SECRET, code, { time: 59, digits: 8, window: 5 })).toEqual(
+      {
+        valid: true,
+        delta: 0,
+      },
+    );
   });
 });

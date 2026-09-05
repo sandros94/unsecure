@@ -4,7 +4,7 @@ RFC 4226 (HOTP) and RFC 6238 (TOTP) one-time password generation and verificatio
 
 Every numeric option is checked at the boundary against its documented range, with a `RangeError` naming the value found: `counter` an integer `>= 0` (and `counter + window` must stay a safe integer), `digits` an integer from 6 to 8, `period` an integer `>= 1`, `window` an integer `>= 0`, `time` any finite number of seconds (floored). A missing `counter` no longer silently means 0, and a missing `otp` (`null` / `undefined`) is invalid rather than a crash.
 
-All verification functions use `secureCompare()` internally for constant-time checks.
+All verification functions use `secureCompare()` internally for constant-time checks, and walk their whole window on every call — `window + 1` HMACs for `hotpVerify()`, `2 * window + 1` for `totpVerify()` — so the duration of a call reveals nothing about which step matched. `delta` is the **nearest** matching step (the past wins a tie), not the first one scanned.
 
 Algorithm names are matched case-insensitively (`"sha-256"` works); anything else throws a `RangeError` naming the four supported digests, before Web Crypto is reached.
 
@@ -145,6 +145,22 @@ JSON.stringify({ secret }); // works perfectly
 
 // ✅ OTP functions accept both base32 strings and Uint8Array
 await totp(secret); // string: auto-decoded from base32
+```
+
+## Pitfall: Accepting a Code Twice
+
+RFC 6238 §5.2: a code is single-use. `totpVerify()` says whether a code is valid for a step, not whether it has already been spent — that part is yours.
+
+```ts
+// ❌ A code an attacker captures stays valid for the rest of its window
+const { valid } = await totpVerify(secret, userCode);
+
+// ✅ Persist the accepted step and refuse it a second time
+const { valid, delta } = await totpVerify(secret, userCode, { time });
+const step = Math.floor(time / 30) + delta;
+if (valid && step > user.lastOtpStep) {
+  await store.setLastOtpStep(user.id, step);
+} // else: reject — already used, or invalid
 ```
 
 ## Pitfall: HOTP Without Counter Tracking

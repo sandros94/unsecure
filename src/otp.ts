@@ -205,6 +205,11 @@ export async function hotp(
 /**
  * Verify an HOTP code, optionally checking a window of counter values ahead.
  *
+ * All `window + 1` HMACs are computed on every call, so how long a call takes
+ * says nothing about which counter matched. `delta` is the nearest matching
+ * step. Codes are single-use: persist `counter + delta + 1` after a successful
+ * verification, or the same code keeps working.
+ *
  * @param secret The shared secret key.
  * @param otp The OTP code to verify. A missing code (`null` / `undefined`) is invalid.
  * @param counter The expected counter value, an integer >= 0.
@@ -233,13 +238,21 @@ export async function hotpVerify(
   assertInteger("hotpVerify", "counter", counter, 0, Number.MAX_SAFE_INTEGER - window);
 
   const secretBytes = _resolveSecret(secret);
-  for (let delta = 0; delta <= window; delta++) {
-    const expected = await _code(secretBytes, counter + delta, algorithm, digits);
-    if (secureCompare(expected, otp)) {
-      return { valid: true, delta };
+
+  // Every candidate is computed and compared on every call. Returning at the
+  // first match would make the number of HMACs — and so how long the call
+  // takes — depend on which counter the code belonged to, which tells an
+  // attacker how far the token has drifted.
+  let valid = false;
+  let delta = 0;
+  for (let step = 0; step <= window; step++) {
+    const matched = secureCompare(await _code(secretBytes, counter + step, algorithm, digits), otp);
+    if (matched && !valid) {
+      valid = true;
+      delta = step;
     }
   }
-  return { valid: false, delta: 0 };
+  return { valid, delta };
 }
 
 // #region TOTP
@@ -269,6 +282,12 @@ export async function totp(
 /**
  * Verify a TOTP code, checking a window of time steps in both directions.
  *
+ * All `2 * window + 1` HMACs are computed on every call, so how long a call
+ * takes says nothing about which step matched. `delta` is the nearest matching
+ * step (the past wins a tie). Codes are single-use per RFC 6238 §5.2: persist
+ * the accepted step and refuse it a second time, or a code stays valid for the
+ * rest of its window.
+ *
  * @param secret The shared secret key.
  * @param otp The OTP code to verify. A missing code (`null` / `undefined`) is invalid.
  * @param options Algorithm, digit, period, time, and window options.
@@ -292,13 +311,23 @@ export async function totpVerify(
   const counter = _timeStep("totpVerify", options.time, options.period ?? DEFAULT_PERIOD);
 
   const secretBytes = _resolveSecret(secret);
-  for (let delta = -window; delta <= window; delta++) {
-    const expected = await _code(secretBytes, counter + delta, algorithm, digits);
-    if (secureCompare(expected, otp)) {
-      return { valid: true, delta };
+
+  // Nearest step first, the past ahead of the future at equal distance, so a
+  // code that matches more than one step reports the closest one. As in
+  // `hotpVerify`, the whole window runs whether or not anything matched.
+  const steps: Array<number> = [0];
+  for (let step = 1; step <= window; step++) steps.push(-step, step);
+
+  let valid = false;
+  let delta = 0;
+  for (const step of steps) {
+    const matched = secureCompare(await _code(secretBytes, counter + step, algorithm, digits), otp);
+    if (matched && !valid) {
+      valid = true;
+      delta = step;
     }
   }
-  return { valid: false, delta: 0 };
+  return { valid, delta };
 }
 
 // #region Utilities
