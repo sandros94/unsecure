@@ -25,6 +25,7 @@ const FOO = [102, 111, 111] as const;
 const FOOBAR = [102, 111, 111, 98, 97, 114] as const;
 const B64_THROWS = { syntaxError: "Base64.parse" } as const;
 const B32_THROWS = { syntaxError: "Base32.parse" } as const;
+const HEX_THROWS = { syntaxError: "Hex.parse" } as const;
 
 const VECTORS: readonly Vector[] = [
   { codec: "base64", text: "", strict: [], loose: [] },
@@ -84,6 +85,17 @@ const VECTORS: readonly Vector[] = [
   { codec: "base32", text: "cpnmu===", alphabet: "base32hex", strict: B32_THROWS, loose: FOO },
   { codec: "base32", text: "OO", alphabet: "crockford", strict: [0], loose: [0] },
   { codec: "base32", text: "oo", alphabet: "crockford", strict: [0], loose: [0] },
+
+  { codec: "hex", text: "", strict: [], loose: [] },
+  { codec: "hex", text: "666f6f", strict: FOO, loose: FOO },
+  { codec: "hex", text: "666F6F", strict: FOO, loose: FOO },
+  { codec: "hex", text: "666f6", strict: HEX_THROWS, loose: [102, 111] },
+  { codec: "hex", text: "66 6f 6f", strict: HEX_THROWS, loose: FOO },
+  { codec: "hex", text: "zz666f6f", strict: HEX_THROWS, loose: FOO },
+  { codec: "hex", text: "666f6fzz", strict: HEX_THROWS, loose: FOO },
+  { codec: "hex", text: "66:6f:6f", strict: HEX_THROWS, loose: FOO },
+  // Loose drops non-digits, not "prefixes": the 0 of "0x" is a hex digit.
+  { codec: "hex", text: "0x66", strict: HEX_THROWS, loose: [0x06] },
 ];
 
 type Codecs = typeof import("../src/utils/index.ts");
@@ -140,6 +152,7 @@ for (const withBuffer of [true, false]) {
 
     for (const vector of VECTORS) {
       const name = `${vector.codec} ${vector.alphabet ?? "default"} ${JSON.stringify(vector.text)}`;
+      // oxlint-disable-next-line vitest/valid-title
       it(name, () => {
         expect(outcome(() => decode(codecs, vector, false))).toEqual(vector.strict);
         expect(outcome(() => decode(codecs, vector, true))).toEqual(vector.loose);

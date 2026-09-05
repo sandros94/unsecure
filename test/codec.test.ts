@@ -39,9 +39,28 @@ describe.concurrent("Unified codec API", () => {
       expect(() => Hex.parse("de ad")).toThrow(SyntaxError); // whitespace
     });
 
-    it("loose tolerates malformed input like the legacy decoder", () => {
-      expect(Hex.parse("abc", { loose: true, returnAs: "bytes" })).toEqual(Uint8Array.of(0xab));
-      expect(Hex.parse("zz", { loose: true, returnAs: "bytes" })).toEqual(new Uint8Array(0));
+    it("loose drops what it cannot use instead of stopping at it", () => {
+      expect(hexParse("abc", { loose: true, returnAs: "bytes" })).toEqual(Uint8Array.of(0xab));
+      expect(hexParse("zz", { loose: true, returnAs: "bytes" })).toEqual(new Uint8Array(0));
+      expect(hexParse("zzab", { loose: true, returnAs: "bytes" })).toEqual(Uint8Array.of(0xab));
+      expect(hexParse("de ad", { loose: true, returnAs: "bytes" })).toEqual(
+        Uint8Array.of(0xde, 0xad),
+      );
+      expect(hexParse("d-e-a-d-b", { loose: true, returnAs: "bytes" })).toEqual(
+        Uint8Array.of(0xde, 0xad),
+      );
+    });
+
+    it("strict errors are the library's, naming what it found", () => {
+      expect(() => hexParse("de ad")).toThrow(
+        /^Hex\.parse: invalid hexadecimal character " " at index 2\.$/,
+      );
+      expect(() => hexParse("zz")).toThrow(
+        /^Hex\.parse: invalid hexadecimal character "z" at index 0\.$/,
+      );
+      expect(() => hexParse("abc")).toThrow(
+        /^Hex\.parse: 3 hexadecimal characters cannot encode whole bytes\.$/,
+      );
     });
 
     it("handles empty + rejects nullish", () => {

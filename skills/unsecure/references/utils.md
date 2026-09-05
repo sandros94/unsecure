@@ -68,6 +68,8 @@ hexParse("68656c6c6f"); // "hello"
 hexParse("68656c6c6f", { returnAs: "uint8array" }); // Uint8Array
 
 hexParse("zz"); // throws SyntaxError (strict)
+hexParse("de ad"); // throws: whitespace is a character like any other
+hexParse("de ad", { loose: true, returnAs: "bytes" }); // Uint8Array [0xde, 0xad]
 hexParse("abc", { loose: true, returnAs: "bytes" }); // Uint8Array [0xab] (drops the odd nibble)
 ```
 

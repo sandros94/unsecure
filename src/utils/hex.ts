@@ -33,38 +33,57 @@ function _encodeHex(bytes: Uint8Array): string {
   return out;
 }
 
+/**
+ * Validate hex text and return the part that encodes whole bytes: `[0-9a-fA-F]`
+ * only, even length. Loose drops every other character — whitespace, `0x`,
+ * separators — and then the odd nibble, if one is left over.
+ */
 /* @__NO_SIDE_EFFECTS__ */
-function _hexManual(text: string, strict: boolean, label: string): Uint8Array<ArrayBuffer> {
-  const len = text.length >>> 1;
-  const bytes = new Uint8Array(len);
-  let j = 0;
-  for (let i = 0; i < len; i++) {
-    const hi = Number.parseInt(text[i * 2]!, 16);
-    const lo = Number.parseInt(text[i * 2 + 1]!, 16);
-    if (Number.isNaN(hi) || Number.isNaN(lo)) {
-      if (strict) throw _malformed(label, "invalid hexadecimal input.");
-      break;
-    }
-    bytes[j++] = (hi << 4) | lo;
+function _hexBody(text: string, loose: boolean, label: string): string {
+  if (loose) {
+    const clean = text.replace(/[^\dA-Fa-f]/g, "");
+    return clean.length % 2 === 0 ? clean : clean.slice(0, -1);
   }
-  return j === len ? bytes : bytes.slice(0, j);
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (!((c >= 48 && c <= 57) || (c >= 65 && c <= 70) || (c >= 97 && c <= 102))) {
+      throw _malformed(
+        label,
+        `invalid hexadecimal character ${JSON.stringify(text[i])} at index ${i}.`,
+      );
+    }
+  }
+  if (text.length % 2 !== 0) {
+    throw _malformed(label, `${text.length} hexadecimal characters cannot encode whole bytes.`);
+  }
+  return text;
+}
+
+/** charCode → nibble; `& 0xdf` folds a letter to uppercase. Digits only. */
+/* @__NO_SIDE_EFFECTS__ */
+function _nibble(code: number): number {
+  return code <= 57 ? code - 48 : (code & 0xdf) - 55;
 }
 
 /* @__NO_SIDE_EFFECTS__ */
-function _decodeHex(text: string, loose: boolean, label: string): Uint8Array<ArrayBuffer> {
-  if (loose) {
-    if (_hasBuffer) return new Uint8Array(_Buffer!.from(text, "hex"));
-    return _hexManual(text, false, label);
+function _hexManual(text: string): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array(text.length >>> 1);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = (_nibble(text.charCodeAt(i * 2)) << 4) | _nibble(text.charCodeAt(i * 2 + 1));
   }
+  return bytes;
+}
+
+/**
+ * Bulk-decode validated, even-length hex. The backends disagree about what is
+ * malformed and phrase their complaints differently, so none of them is ever
+ * asked to validate — only to decode text that is already known good.
+ */
+/* @__NO_SIDE_EFFECTS__ */
+function _decodeHex(text: string): Uint8Array<ArrayBuffer> {
+  if (_hasBuffer) return new Uint8Array(_Buffer!.from(text, "hex"));
   if (_nativeFromHex) return (Uint8Array as unknown as _FromHex).fromHex(text);
-  if (text.length % 2 !== 0) throw _malformed(label, "invalid hexadecimal input.");
-  if (_hasBuffer) {
-    // Buffer.from(hex) stops at the first invalid char; a short result flags it.
-    const buf = _Buffer!.from(text, "hex");
-    if (buf.length * 2 !== text.length) throw _malformed(label, "invalid hexadecimal input.");
-    return new Uint8Array(buf);
-  }
-  return _hexManual(text, true, label);
+  return _hexManual(text);
 }
 
 export interface HexCodec {
@@ -89,7 +108,9 @@ export function hexStringify(data: string | BytesSource): string {
 }
 
 /**
- * Decode a hex string. Strict by default.
+ * Decode a hex string. Strict by default: `[0-9a-fA-F]` only — whitespace
+ * included in the rejection — and an even length. `{ loose: true }` drops
+ * every other character, and the odd nibble left over, instead of throwing.
  *
  * @param input - hex text, or its ASCII bytes
  * @param options - see {@link DecodeOptions}
@@ -110,7 +131,8 @@ export function hexParse(input: string | Uint8Array, options?: DecodeOptions): s
   _assertData(input, "Hex.parse");
   const { text, wantString } = _parsePrep(input, options);
   if (!text) return wantString ? "" : new Uint8Array(0);
-  return _parseFinalize(_decodeHex(text, options?.loose ?? false, "Hex.parse"), wantString);
+  const body = _hexBody(text, options?.loose ?? false, "Hex.parse");
+  return _parseFinalize(_decodeHex(body), wantString);
 }
 
 /** Hex codec: `Hex.stringify(bytes)` / `Hex.parse(text)`. Strict decode by default. */
