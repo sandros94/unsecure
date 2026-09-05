@@ -37,16 +37,21 @@ export function sanitizeObject<T extends Record<string, unknown> | undefined>(ob
 /**
  * Return a sanitized deep copy of `obj`. The input is never mutated.
  *
- * Dangerous keys (`__proto__`, `prototype`, `constructor`) are stripped
- * recursively. The returned structure consists of plain objects (rooted on
- * `Object.prototype`) and arrays. Cycle-safe: circular references in the
- * input are preserved in the output (pointing at the copied node, not the
- * original reference).
+ * Dangerous keys (`__proto__`, `prototype`, `constructor`) are stripped from
+ * every array and plain object reached. A plain object is one rooted on
+ * `Object.prototype` or on `null`; copies of both are rooted on
+ * `Object.prototype`. Every other value — `Date`, `Map`, `Set`, typed
+ * arrays, `RegExp`, class instances, functions — is carried into the copy by
+ * reference, exactly as {@link sanitizeObject} leaves it in place.
  *
- * Non-object / undefined inputs are returned unchanged.
+ * Cycle-safe: circular references in the input are preserved in the output
+ * (pointing at the copied node, not the original reference).
+ *
+ * Non-object / undefined inputs — and objects that are not arrays or plain
+ * objects — are returned unchanged.
  */
 export function sanitizeObjectCopy<T extends Record<string, unknown> | undefined>(obj: T): T {
-  if (!obj || typeof obj !== "object") return obj;
+  if (!_isCopyable(obj)) return obj;
   return _sanitizeCopy(obj, new WeakMap<object, unknown>()) as T;
 }
 
@@ -89,6 +94,26 @@ function _sanitizeInPlace(current: Record<string, unknown> | unknown[], seen: We
   }
 }
 
+/**
+ * An object the copy may safely rebuild: its own properties are all the state
+ * it carries. Anything else — a `Date`'s internal slot, a `Map`'s entries, a
+ * typed array's buffer, a class instance's identity — is invisible to a
+ * property walk, so rebuilding it would silently drop what it is.
+ */
+function _isPlainObject(value: object): boolean {
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+/** Values the copy descends into; everything else is carried by reference. */
+function _isCopyable(value: unknown): value is object {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    (Array.isArray(value) || _isPlainObject(value as object))
+  );
+}
+
 function _sanitizeCopy(current: object, seen: WeakMap<object, unknown>): unknown {
   // If we've already started copying this node, return that copy so cycles
   // in the input become cycles in the output (pointing at new nodes, not old).
@@ -100,7 +125,7 @@ function _sanitizeCopy(current: object, seen: WeakMap<object, unknown>): unknown
     seen.set(current, out);
     for (let i = 0; i < current.length; i++) {
       const v = current[i];
-      out.push(v !== null && typeof v === "object" ? _sanitizeCopy(v, seen) : v);
+      out.push(_isCopyable(v) ? _sanitizeCopy(v, seen) : v);
     }
     return out;
   }
@@ -112,7 +137,7 @@ function _sanitizeCopy(current: object, seen: WeakMap<object, unknown>): unknown
     const key = keys[i]!;
     if (_isDangerousKey(key)) continue;
     const v = (current as Record<string, unknown>)[key];
-    out[key] = v !== null && typeof v === "object" ? _sanitizeCopy(v, seen) : v;
+    out[key] = _isCopyable(v) ? _sanitizeCopy(v, seen) : v;
   }
   return out;
 }

@@ -596,8 +596,8 @@ Notes:
 
 - Only own properties named exactly `__proto__`, `prototype`, and `constructor` are removed.
 - `sanitizeObject` mutates in place for performance; use `sanitizeObjectCopy` if the caller may still hold a reference.
-- `sanitizeObjectCopy` rebuilds onto plain `Object.prototype` — even null-prototype input comes back rooted normally.
-- Values like `Date`, `Map`, `Set`, functions, and primitives are returned unchanged (but still traversed through if found as nested values on a plain object/array).
+- Object identity survives both. `sanitizeObject` strips dangerous own keys wherever it finds them and never replaces an object. `sanitizeObjectCopy` rebuilds only arrays and plain objects — one rooted on `Object.prototype` or on `null` — and carries `Date`, `Map`, `Set`, typed arrays, `RegExp`, class instances and functions into the copy by reference.
+- `sanitizeObjectCopy` rebuilds every plain object onto `Object.prototype` — even null-prototype input comes back rooted normally. A root that is not an array or plain object is returned unchanged.
 
 ## Development
 

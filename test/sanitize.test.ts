@@ -204,3 +204,44 @@ describe("safeJsonParse", () => {
     expect(() => safeJsonParse("not json")).toThrow(SyntaxError);
   });
 });
+
+describe("sanitizeObjectCopy pass-through", () => {
+  it("passes non-plain values through by reference", () => {
+    class Thing {
+      v = 1;
+    }
+    const date = new Date(0);
+    const map = new Map([["a", 1]]);
+    const set = new Set([1]);
+    const bytes = new Uint8Array([1, 2]);
+    const regexp = /x/g;
+    const fn = (): number => 1;
+    const instance = new Thing();
+
+    const copy = sanitizeObjectCopy({ date, map, set, bytes, regexp, fn, instance } as any) as any;
+
+    expect(copy.date).toBe(date);
+    expect(copy.map).toBe(map);
+    expect(copy.set).toBe(set);
+    expect(copy.bytes).toBe(bytes);
+    expect(copy.regexp).toBe(regexp);
+    expect(copy.fn).toBe(fn);
+    expect(copy.instance).toBe(instance);
+  });
+
+  it("copies null-prototype nested objects onto Object.prototype", () => {
+    const nested = Object.create(null) as Record<string, unknown>;
+    nested.safe = 1;
+    const copy = sanitizeObjectCopy({ nested }) as any;
+    expect(copy.nested).not.toBe(nested);
+    expect(Object.getPrototypeOf(copy.nested)).toBe(Object.prototype);
+    expect(copy.nested.safe).toBe(1);
+  });
+});
+
+describe("sanitizeObjectCopy root pass-through", () => {
+  it("returns a non-plain root unchanged", () => {
+    const map = new Map([["a", 1]]);
+    expect(sanitizeObjectCopy(map as any)).toBe(map);
+  });
+});
