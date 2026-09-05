@@ -97,11 +97,22 @@ describe.concurrent("argon2 API", () => {
 
   it("throws on out-of-range cost parameters", async () => {
     await expect(argon2(password, salt, { ...CHEAP, m: 7 })).rejects.toThrow(RangeError);
-    await expect(argon2(password, salt, { m: 32, t: 2, p: 8 })).rejects.toThrow(/at least 8 \* p/);
+    await expect(argon2(password, salt, { m: 32, t: 2, p: 8 })).rejects.toThrow(/8 \* p \(64\)/);
     await expect(argon2(password, salt, { ...CHEAP, t: 0 })).rejects.toThrow(RangeError);
     await expect(argon2(password, salt, { ...CHEAP, p: 0 })).rejects.toThrow(RangeError);
     await expect(argon2(password, salt, { ...CHEAP, length: 3 })).rejects.toThrow(RangeError);
     await expect(argon2(password, salt, { ...CHEAP, m: 64.5 })).rejects.toThrow(RangeError);
+  });
+
+  it("throws on cost parameters and tag lengths beyond their RFC 9106 word size", async () => {
+    // Checked by message: without the cap these would be caught late by an allocation failure,
+    // run for hours, or be silently truncated into H_0.
+    await expect(argon2(password, salt, { ...CHEAP, m: 2 ** 32 })).rejects.toThrow(/2\^32 - 1/);
+    await expect(argon2(password, salt, { ...CHEAP, t: 2 ** 32 })).rejects.toThrow(/2\^32 - 1/);
+    await expect(argon2(password, salt, { ...CHEAP, length: 2 ** 32 })).rejects.toThrow(
+      /2\^32 - 1/,
+    );
+    await expect(argon2(password, salt, { ...CHEAP, p: 2 ** 24 })).rejects.toThrow(/2\^24 - 1/);
   });
 
   it("throws on a salt shorter than 8 bytes", async () => {

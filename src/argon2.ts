@@ -107,6 +107,9 @@ const _SLICES = 4;
 /** 1024-byte block, held as 256 little-endian 32-bit halves. */
 const _BLOCK = 256;
 
+/** `H_0` carries every cost, tag length, and input length as a 32-bit word (RFC 9106 §3.1). */
+const _MAX_UINT32 = 0xffff_ffff;
+
 /** OWASP's argon2id parameters, and RFC 9106 §3.1's recommended salt length. */
 const _DEFAULT_M = 19_456;
 const _DEFAULT_T = 2;
@@ -391,16 +394,16 @@ function _resolve(parameters: Argon2Parameters): _Resolved {
   if (!Number.isInteger(p) || p < 1 || p >= 2 ** 24) {
     throw new RangeError("argon2: p (parallelism) must be an integer between 1 and 2^24 - 1.");
   }
-  if (!Number.isInteger(m) || m < 8 * p) {
+  if (!Number.isInteger(m) || m < 8 * p || m > _MAX_UINT32) {
     throw new RangeError(
-      `argon2: m (memory, KiB) must be an integer of at least 8 * p (${8 * p}).`,
+      `argon2: m (memory, KiB) must be an integer between 8 * p (${8 * p}) and 2^32 - 1.`,
     );
   }
-  if (!Number.isInteger(t) || t < 1) {
-    throw new RangeError("argon2: t (iterations) must be an integer of at least 1.");
+  if (!Number.isInteger(t) || t < 1 || t > _MAX_UINT32) {
+    throw new RangeError("argon2: t (iterations) must be an integer between 1 and 2^32 - 1.");
   }
-  if (!Number.isInteger(length) || length < 4) {
-    throw new RangeError("argon2: length must be an integer of at least 4 bytes.");
+  if (!Number.isInteger(length) || length < 4 || length > _MAX_UINT32) {
+    throw new RangeError("argon2: length must be an integer between 4 and 2^32 - 1 bytes.");
   }
 
   return {
@@ -422,8 +425,19 @@ function _derive(
 ): Uint8Array<ArrayBuffer> {
   const { variant, m, t, p, length, secret, data } = resolved;
 
+  const inputs = [
+    ["password", password],
+    ["salt", salt],
+    ["secret", secret],
+    ["data", data],
+  ] as const;
   if (salt.length < 8) {
     throw new RangeError("argon2: salt must be at least 8 bytes.");
+  }
+  for (const [name, value] of inputs) {
+    if (value.length > _MAX_UINT32) {
+      throw new RangeError(`argon2: ${name} must be at most 2^32 - 1 bytes.`);
+    }
   }
 
   // H_0 = BLAKE2b-512(LE32(p) || LE32(T) || LE32(m) || LE32(t) || LE32(v) || LE32(y) ||
@@ -434,7 +448,7 @@ function _derive(
     _writeLE32(word, 0, value);
     initial.update(word);
   }
-  for (const value of [password, salt, secret, data]) {
+  for (const [, value] of inputs) {
     _writeLE32(word, 0, value.length);
     initial.update(word).update(value);
   }
