@@ -446,17 +446,46 @@ describe("OTP input validation", () => {
     );
   });
 
-  it("rejects an empty secret", async () => {
-    await expect(hotp("", 0)).rejects.toThrow("otp: secret must not be empty.");
+  it("rejects an empty secret, naming the function the caller wrote", async () => {
+    await expect(hotp("", 0)).rejects.toThrow("hotp: secret must not be empty.");
     await expect(hotp(new Uint8Array(0), 0)).rejects.toBeInstanceOf(RangeError);
-    await expect(totp("")).rejects.toThrow("otp: secret must not be empty.");
-    await expect(hotpVerify("", "755224", 0)).rejects.toThrow("otp: secret must not be empty.");
-    await expect(totpVerify("", "755224")).rejects.toThrow("otp: secret must not be empty.");
+    await expect(totp("")).rejects.toThrow("totp: secret must not be empty.");
+    await expect(hotpVerify("", "755224", 0)).rejects.toThrow(
+      "hotpVerify: secret must not be empty.",
+    );
+    await expect(totpVerify("", "755224")).rejects.toThrow("totpVerify: secret must not be empty.");
+  });
+
+  it("rejects null where a numeric option has a default", async () => {
+    await expect(totp(RFC4226_SECRET, { period: null as any })).rejects.toThrow(
+      "totp: period must be an integer >= 1, got null.",
+    );
+    await expect(totp(RFC4226_SECRET, { time: null as any })).rejects.toThrow(
+      "totp: time must be a finite number of seconds, got null.",
+    );
+    await expect(totpVerify(RFC4226_SECRET, "755224", { period: null as any })).rejects.toThrow(
+      "totpVerify: period must be an integer >= 1, got null.",
+    );
+    await expect(totpVerify(RFC4226_SECRET, "755224", { time: null as any })).rejects.toThrow(
+      "totpVerify: time must be a finite number of seconds, got null.",
+    );
+  });
+
+  it("rejects a time whose window would leave the safe integer range", async () => {
+    await expect(
+      totpVerify(RFC4226_SECRET, "755224", {
+        time: Number.MAX_SAFE_INTEGER,
+        period: 1,
+        window: 2,
+      }),
+    ).rejects.toThrow(
+      "totpVerify: time must leave every step of the window a safe integer, got 9007199254740991.",
+    );
   });
 
   it("rejects a secret that is neither text nor bytes", async () => {
     await expect(hotp([1, 2, 3] as any, 0)).rejects.toThrow(
-      "otp: expected a string, ArrayBuffer or ArrayBuffer view, got Array.",
+      "hotp: expected a string, ArrayBuffer or ArrayBuffer view, got Array.",
     );
   });
 
@@ -620,7 +649,7 @@ describe("otpauthURI() encoding", () => {
 
   it("rejects an empty secret", () => {
     expect(() => otpauthURI({ type: "totp", secret: "", account: "test" })).toThrow(
-      "otp: secret must not be empty.",
+      "otpauthURI: secret must not be empty.",
     );
     expect(() => otpauthURI({ type: "totp", secret: new Uint8Array(0), account: "test" })).toThrow(
       RangeError,

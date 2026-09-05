@@ -1,8 +1,8 @@
 # OTP (HOTP / TOTP)
 
-RFC 4226 (HOTP) and RFC 6238 (TOTP) one-time password generation and verification, built on top of [`hmac()`](./hmac.md). Secrets can be raw bytes (any `BytesSource`) or base32-encoded strings, and must decode to at least one byte — an empty secret throws `RangeError: otp: secret must not be empty.`
+RFC 4226 (HOTP) and RFC 6238 (TOTP) one-time password generation and verification, built on top of [`hmac()`](./hmac.md). Secrets can be raw bytes (any `BytesSource`) or base32-encoded strings, and must decode to at least one byte — an empty secret throws `RangeError`, prefixed with the function the caller wrote (`hotp: secret must not be empty.`)
 
-Every numeric option is checked at the boundary against its documented range, with a `RangeError` naming the value found: `counter` an integer `>= 0` (and `counter + window` must stay a safe integer), `digits` an integer from 6 to 8, `period` an integer `>= 1`, `window` an integer `>= 0`, `time` any finite number of seconds (floored). A missing `counter` no longer silently means 0, and a missing `otp` (`null` / `undefined`) is invalid rather than a crash.
+Every numeric option is checked at the boundary against its documented range, with a `RangeError` naming the value found: `counter` an integer `>= 0` (and `counter + window` must stay a safe integer), `digits` an integer from 6 to 8, `period` an integer `>= 1`, `window` an integer `>= 0`, `time` any finite number of seconds (floored) that leaves every step of the window a safe integer. Only an omitted option takes its default: `null` is a value the caller passed and throws like any other bad number. A missing `counter` no longer silently means 0, and a missing `otp` (`null` / `undefined`) is invalid rather than a crash.
 
 All verification functions use `secureCompare()` internally for constant-time checks, and walk their whole window on every call — `window + 1` HMACs for `hotpVerify()`, `2 * window + 1` for `totpVerify()` — so the duration of a call reveals nothing about which step matched. `delta` is the **nearest** matching step (the past wins a tie), not the first one scanned.
 
@@ -50,7 +50,7 @@ Time-based One-Time Passwords (RFC 6238).
 - `algorithm`: `"SHA-1"` (default), `"SHA-256"`, `"SHA-384"`, `"SHA-512"`
 - `digits`: number of digits, 6 to 8 (default `6`)
 - `period`: time step in seconds, `>= 1` (default `30`)
-- `time`: Unix timestamp in seconds, any finite number (defaults to current time; useful for testing)
+- `time`: Unix timestamp in seconds, any finite number (omit it for the current time; useful for testing)
 - `window` (verify only): time steps to check in each direction, `>= 0` (default `1`)
 
 ```ts

@@ -207,7 +207,7 @@ options:
 - **digits**: number of digits in the OTP code, an integer from `6` to `8` (default `6`)
 - **window**: (verify only) number of counter values to check ahead, an integer `>= 0` (default `0`)
 
-`counter` must be an integer `>= 0` — and `counter + window` must still be a safe integer — and the secret must decode to at least one byte; anything else throws a `RangeError` naming the value found. A `null` or `undefined` `otp` is simply invalid.
+`counter` must be an integer `>= 0` — and `counter + window` must still be a safe integer — and the secret must decode to at least one byte; anything else throws a `RangeError` naming the value found and the function it was passed to. A `null` or `undefined` `otp` is simply invalid.
 
 ```ts
 import { hotp, hotpVerify } from "unsecure";
@@ -238,8 +238,8 @@ options:
 - **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`) — matched case-insensitively; any other name throws a `RangeError`
 - **digits**: number of digits in the OTP code, an integer from `6` to `8` (default `6`)
 - **period**: time step duration in seconds, an integer `>= 1` (default `30`)
-- **time**: Unix timestamp in seconds, any finite number, floored (defaults to current time)
-- **window**: (verify only) number of time steps to check in each direction, an integer `>= 0` (default `1`)
+- **time**: Unix timestamp in seconds, any finite number, floored (omit it — or pass `undefined` — for the current time; `null` is a value, not an omission, and throws)
+- **window**: (verify only) number of time steps to check in each direction, an integer `>= 0` (default `1`). `time` must leave every step of the window a safe integer
 
 ```ts
 import { totp, totpVerify } from "unsecure";

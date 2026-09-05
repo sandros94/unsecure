@@ -43,9 +43,9 @@ export interface TOTPOptions extends HOTPOptions {
    */
   period?: number;
   /**
-   * Unix timestamp in seconds. Defaults to the current time.
-   * Useful for testing with deterministic values. Any finite number; a
-   * fractional value is floored.
+   * Unix timestamp in seconds. Omit it for the current time — only an absent
+   * option takes the default. Useful for testing with deterministic values.
+   * Any finite number; a fractional value is floored.
    */
   time?: number;
 }
@@ -53,7 +53,8 @@ export interface TOTPOptions extends HOTPOptions {
 export interface TOTPVerifyOptions extends TOTPOptions {
   /**
    * Number of time steps to check in each direction (past and future).
-   * An integer >= 0.
+   * An integer >= 0. The derived step plus the window must stay within the
+   * safe integer range.
    *
    * @default 1
    */
@@ -123,15 +124,16 @@ function _baseOptions(
  * Resolve a secret to raw ArrayBuffer-backed bytes. Strings are treated as
  * base32 and read leniently, since authenticator apps hand them out in groups
  * of lowercase letters. An empty result is a configuration bug — it would key
- * every code with nothing — so it throws rather than producing codes.
+ * every code with nothing — so it throws rather than producing codes. Each
+ * caller passes its own name, so the error names the call the caller wrote.
  */
-function _resolveSecret(secret: string | BytesSource): Uint8Array<ArrayBuffer> {
+function _resolveSecret(source: string, secret: string | BytesSource): Uint8Array<ArrayBuffer> {
   const bytes =
     typeof secret === "string"
       ? base32Parse(secret, { loose: true, returnAs: "bytes" })
-      : toCryptoBytes(secret, "otp");
+      : toCryptoBytes(secret, source);
   if (bytes.length === 0) {
-    throw new RangeError("otp: secret must not be empty.");
+    throw new RangeError(`${source}: secret must not be empty.`);
   }
   return bytes;
 }
@@ -158,7 +160,9 @@ async function _code(
  */
 function _timeStep(source: string, time: number | undefined, period: number): number {
   assertInteger(source, "period", period, 1);
-  const seconds = time ?? Math.floor(Date.now() / 1000);
+  // Only an absent `time` means "now": `null` is a value the caller passed,
+  // and defaulting on it would silently generate a code for another instant.
+  const seconds = time === undefined ? Math.floor(Date.now() / 1000) : time;
   if (!Number.isFinite(seconds)) {
     throw new RangeError(
       `${source}: time must be a finite number of seconds, got ${showValue(seconds)}.`,
@@ -210,7 +214,7 @@ export async function hotp(
 ): Promise<string> {
   const { algorithm, digits } = _baseOptions("hotp", options);
   assertInteger("hotp", "counter", counter, 0);
-  return _code(_resolveSecret(secret), counter, algorithm, digits);
+  return _code(_resolveSecret("hotp", secret), counter, algorithm, digits);
 }
 
 /**
@@ -248,7 +252,7 @@ export async function hotpVerify(
   // repeat one another.
   assertInteger("hotpVerify", "counter", counter, 0, Number.MAX_SAFE_INTEGER - window);
 
-  const secretBytes = _resolveSecret(secret);
+  const secretBytes = _resolveSecret("hotpVerify", secret);
 
   // Every candidate is computed and compared on every call. Returning at the
   // first match would make the number of HMACs — and so how long the call
@@ -285,9 +289,10 @@ export async function totp(
   secret: string | BytesSource,
   options: TOTPOptions = {},
 ): Promise<string> {
+  const { period = DEFAULT_PERIOD, time } = options;
   const { algorithm, digits } = _baseOptions("totp", options);
-  const counter = _timeStep("totp", options.time, options.period ?? DEFAULT_PERIOD);
-  return _code(_resolveSecret(secret), counter, algorithm, digits);
+  const counter = _timeStep("totp", time, period);
+  return _code(_resolveSecret("totp", secret), counter, algorithm, digits);
 }
 
 /**
@@ -305,7 +310,9 @@ export async function totp(
  * @returns An object with `valid` and `delta` (time step offset that matched).
  *
  * @throws {RangeError} If the secret is empty, or `digits`, `period`, `time`,
- *                      `window` or `algorithm` is outside its documented range.
+ *                      `window` or `algorithm` is outside its documented range —
+ *                      `time` included when the window would run past the safe
+ *                      integer range.
  *
  * @example
  * const { valid, delta } = await totpVerify(secret, userCode);
@@ -316,12 +323,20 @@ export async function totpVerify(
   otp: string | null | undefined,
   options: TOTPVerifyOptions = {},
 ): Promise<{ valid: boolean; delta: number }> {
-  const { window = 1 } = options;
+  const { window = 1, period = DEFAULT_PERIOD, time } = options;
   const { algorithm, digits } = _baseOptions("totpVerify", options);
   assertInteger("totpVerify", "window", window, 0);
-  const counter = _timeStep("totpVerify", options.time, options.period ?? DEFAULT_PERIOD);
+  const counter = _timeStep("totpVerify", time, period);
+  // The window is walked by adding to the derived step, so both ends of it
+  // have to stay safe integers — past that, candidates lose precision and
+  // silently repeat one another.
+  if (Math.abs(counter) + window > Number.MAX_SAFE_INTEGER) {
+    throw new RangeError(
+      `totpVerify: time must leave every step of the window a safe integer, got ${showValue(time)}.`,
+    );
+  }
 
-  const secretBytes = _resolveSecret(secret);
+  const secretBytes = _resolveSecret("totpVerify", secret);
 
   // Nearest step first, the past ahead of the future at equal distance, so a
   // code that matches more than one step reports the closest one. As in
@@ -399,7 +414,7 @@ export function otpauthURI(options: OTPAuthURIOptions): string {
   // Whatever shape the secret arrives in, the URI carries the canonical
   // unpadded base32 of the same bytes: scanners read the string literally, so
   // the grouped lowercase form a caller may be holding has to be normalized.
-  const secretB32 = base32Stringify(_resolveSecret(secret), { padding: false });
+  const secretB32 = base32Stringify(_resolveSecret("otpauthURI", secret), { padding: false });
 
   const label =
     issuer === undefined
