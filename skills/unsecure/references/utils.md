@@ -1,15 +1,19 @@
 # Encoding Utilities (`unsecure/utils`)
 
-JSON-style codecs for hex, base64 (incl. URL-safe), and base32 — each exposes
-`stringify` (bytes → text) and `parse` (text → bytes), available from the
+Codecs for hex, base64 (incl. URL-safe), and base32 — each a `stringify`
+(bytes → text) / `parse` (text → bytes) pair, available from the
 `unsecure/utils` subpath and re-exported from the main barrel.
 
 ```ts
-import { Hex, Base64, Base32 } from "unsecure/utils";
+import { hexStringify, hexParse } from "unsecure/utils";
 
-Hex.stringify(bytes); // "deadbeef…"
-Hex.parse("deadbeef", { returnAs: "bytes" }); // Uint8Array
+hexStringify(bytes); // "deadbeef…"
+hexParse("deadbeef", { returnAs: "bytes" }); // Uint8Array
 ```
+
+The `Hex`, `Base64` and `Base32` objects group the same functions JSON-style —
+`Hex.stringify` _is_ `hexStringify`. Import the flat functions when you want a
+bundle to carry one codec instead of three.
 
 For CDN delivery prefer the `unsecure/utils` subpath; for bundlers either the
 subpath or the main barrel is fine (tree-shakes under `sideEffects: false`).
@@ -18,6 +22,12 @@ subpath or the main barrel is fine (tree-shakes under `sideEffects: false`).
 
 ```ts
 import {
+  hexStringify,
+  hexParse,
+  base64Stringify,
+  base64Parse,
+  base32Stringify,
+  base32Parse,
   Hex,
   Base64,
   Base32,
@@ -52,13 +62,13 @@ decoded as UTF-8), `Uint8Array` in → `Uint8Array` out. Override with
 ## Hex
 
 ```ts
-Hex.stringify("hello"); // "68656c6c6f"
-Hex.stringify(new Uint8Array([0xde, 0xad])); // "dead"
-Hex.parse("68656c6c6f"); // "hello"
-Hex.parse("68656c6c6f", { returnAs: "uint8array" }); // Uint8Array
+hexStringify("hello"); // "68656c6c6f"
+hexStringify(new Uint8Array([0xde, 0xad])); // "dead"
+hexParse("68656c6c6f"); // "hello"
+hexParse("68656c6c6f", { returnAs: "uint8array" }); // Uint8Array
 
-Hex.parse("zz"); // throws SyntaxError (strict)
-Hex.parse("abc", { loose: true, returnAs: "bytes" }); // Uint8Array [0xab] (drops the odd nibble)
+hexParse("zz"); // throws SyntaxError (strict)
+hexParse("abc", { loose: true, returnAs: "bytes" }); // Uint8Array [0xab] (drops the odd nibble)
 ```
 
 ## Base64
@@ -67,13 +77,13 @@ Standard by default. Pass `{ alphabet: "base64url" }` for URL-safe (`-_`,
 unpadded by default). `{ padding: false }` drops `=` on any alphabet.
 
 ```ts
-Base64.stringify(new Uint8Array([1, 2, 3])); // "AQID"
-Base64.stringify(bytes, { padding: false }); // unpadded
-Base64.stringify(bytes, { alphabet: "base64url" }); // URL-safe, unpadded
+base64Stringify(new Uint8Array([1, 2, 3])); // "AQID"
+base64Stringify(bytes, { padding: false }); // unpadded
+base64Stringify(bytes, { alphabet: "base64url" }); // URL-safe, unpadded
 
-Base64.parse("AQID", { returnAs: "bytes" }); // Uint8Array
-Base64.parse(token, { alphabet: "base64url" }); // strict URL-safe decode
-Base64.parse(untrusted, { loose: true }); // tolerant (accepts either alphabet)
+base64Parse("AQID", { returnAs: "bytes" }); // Uint8Array
+base64Parse(token, { alphabet: "base64url" }); // strict URL-safe decode
+base64Parse(untrusted, { loose: true }); // tolerant (accepts either alphabet)
 ```
 
 ## Base32
@@ -83,13 +93,13 @@ Base64.parse(untrusted, { loose: true }); // tolerant (accepts either alphabet)
 Crockford; `{ padding: false }` to override.
 
 ```ts
-Base32.stringify("foobar"); // "MZXW6YTBOI======"
-Base32.stringify(secret, { padding: false }); // unpadded (e.g. OTP secrets)
-Base32.stringify(bytes, { alphabet: "crockford" }); // Crockford, unpadded
-Base32.parse("MZXW6YTBOI", { returnAs: "bytes" }); // raw bytes
+base32Stringify("foobar"); // "MZXW6YTBOI======"
+base32Stringify(secret, { padding: false }); // unpadded (e.g. OTP secrets)
+base32Stringify(bytes, { alphabet: "crockford" }); // Crockford, unpadded
+base32Parse("MZXW6YTBOI", { returnAs: "bytes" }); // raw bytes
 
 // Crockford decode is case-insensitive and maps O→0, I/L→1.
-Base32.parse(id, { alphabet: "crockford" });
+base32Parse(id, { alphabet: "crockford" });
 ```
 
 ## Strictness & runtimes
@@ -113,21 +123,6 @@ import { textEncoder, textDecoder } from "unsecure/utils";
 const bytes = textEncoder.encode("hello");
 const str = textDecoder.decode(bytes);
 ```
-
-## Deprecated (removed in 0.3.0)
-
-The flat functions are now thin `loose` wrappers over the codecs — replace them:
-
-| Deprecated              | Replacement                                                                |
-| ----------------------- | -------------------------------------------------------------------------- |
-| `hexEncode(x)`          | `Hex.stringify(x)`                                                         |
-| `hexDecode(x, o)`       | `Hex.parse(x, o)` (strict — add `{ loose: true }` to match old behavior)   |
-| `base64Encode(x)`       | `Base64.stringify(x)`                                                      |
-| `base64Decode(x, o)`    | `Base64.parse(x, o)` (add `{ loose: true }` for old behavior)              |
-| `base64UrlEncode(x)`    | `Base64.stringify(x, { alphabet: "base64url" })`                           |
-| `base64UrlDecode(x, o)` | `Base64.parse(x, { alphabet: "base64url", ...o })` (add `{ loose: true }`) |
-| `base32Encode(x)`       | `Base32.stringify(x)` (padded) or `{ padding: false }`                     |
-| `base32Decode(x, o)`    | `Base32.parse(x, o)` (add `{ loose: true }` for old behavior)              |
 
 ## Internal: Buffer / native detection
 

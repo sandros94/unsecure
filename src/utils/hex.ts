@@ -17,9 +17,12 @@ interface _FromHex {
   fromHex(input: string): Uint8Array<ArrayBuffer>;
 }
 
-const _nativeToHex = typeof (Uint8Array.prototype as Partial<_ToHex>).toHex === "function";
-const _nativeFromHex = typeof (Uint8Array as Partial<_FromHex>).fromHex === "function";
+const _nativeToHex: boolean = /* @__PURE__ */ (() =>
+  typeof (Uint8Array.prototype as Partial<_ToHex>).toHex === "function")();
+const _nativeFromHex: boolean = /* @__PURE__ */ (() =>
+  typeof (Uint8Array as Partial<_FromHex>).fromHex === "function")();
 
+/* @__NO_SIDE_EFFECTS__ */
 function _encodeHex(bytes: Uint8Array): string {
   if (_hasBuffer) return _toBuffer(bytes).toString("hex");
   if (_nativeToHex) return (bytes as unknown as _ToHex).toHex();
@@ -30,6 +33,7 @@ function _encodeHex(bytes: Uint8Array): string {
   return out;
 }
 
+/* @__NO_SIDE_EFFECTS__ */
 function _hexManual(text: string, strict: boolean, label: string): Uint8Array<ArrayBuffer> {
   const len = text.length >>> 1;
   const bytes = new Uint8Array(len);
@@ -46,6 +50,7 @@ function _hexManual(text: string, strict: boolean, label: string): Uint8Array<Ar
   return j === len ? bytes : bytes.slice(0, j);
 }
 
+/* @__NO_SIDE_EFFECTS__ */
 function _decodeHex(text: string, loose: boolean, label: string): Uint8Array<ArrayBuffer> {
   if (loose) {
     if (_hasBuffer) return new Uint8Array(_Buffer!.from(text, "hex"));
@@ -63,48 +68,45 @@ function _decodeHex(text: string, loose: boolean, label: string): Uint8Array<Arr
 }
 
 export interface HexCodec {
-  /**
-   * Encode bytes to a lowercase hex string.
-   *
-   * @param data - raw bytes (any `BytesSource`), or a `string` (UTF-8 encoded first)
-   * @returns the hex-encoded string
-   * @throws {TypeError} if `data` is nullish
-   * @example
-   * Hex.stringify(new Uint8Array([0xde, 0xad])); // "dead"
-   */
-  stringify(data: string | BytesSource): string;
-  /**
-   * Decode a hex string. Strict by default.
-   *
-   * @param input - hex text, or its ASCII bytes
-   * @param options - see {@link DecodeOptions}
-   * @returns decoded bytes, or a UTF-8 `string` when `returnAs` is `"string"`
-   * @throws {SyntaxError} on non-hex characters or odd length, unless `loose`
-   * @throws {TypeError} if `input` is nullish
-   * @example
-   * Hex.parse("dead", { returnAs: "bytes" }); // Uint8Array [0xde, 0xad]
-   */
-  parse<T extends DecodeReturnAs>(
-    input: string | Uint8Array,
-    options: DecodeOptions & { returnAs: T },
-  ): T extends "string" ? string : Uint8Array<ArrayBuffer>;
-  /** Decode a hex `string` to a UTF-8 string (strict; see {@link DecodeOptions}). */
-  parse(input: string, options?: DecodeOptions): string;
-  /** Decode hex-as-bytes to bytes (strict; see {@link DecodeOptions}). */
-  parse(input: Uint8Array, options?: DecodeOptions): Uint8Array<ArrayBuffer>;
+  /** See {@link hexStringify}. */
+  stringify: typeof hexStringify;
+  /** See {@link hexParse}. */
+  parse: typeof hexParse;
 }
 
-function hexStringify(data: string | BytesSource): string {
+/**
+ * Encode bytes to a lowercase hex string.
+ *
+ * @param data - raw bytes (any `BytesSource`), or a `string` (UTF-8 encoded first)
+ * @returns the hex-encoded string
+ * @throws {TypeError} if `data` is not a string, `ArrayBuffer` or view over one
+ * @example
+ * hexStringify(new Uint8Array([0xde, 0xad])); // "dead"
+ */
+/* @__NO_SIDE_EFFECTS__ */
+export function hexStringify(data: string | BytesSource): string {
   return _encodeHex(toBytes(data, "Hex.stringify"));
 }
 
-function hexParse<T extends DecodeReturnAs>(
+/**
+ * Decode a hex string. Strict by default.
+ *
+ * @param input - hex text, or its ASCII bytes
+ * @param options - see {@link DecodeOptions}
+ * @returns decoded bytes, or a UTF-8 `string` when `returnAs` is `"string"`
+ * @throws {SyntaxError} on non-hex characters or odd length, unless `loose`
+ * @throws {TypeError} if `input` is nullish
+ * @example
+ * hexParse("dead", { returnAs: "bytes" }); // Uint8Array [0xde, 0xad]
+ */
+export function hexParse<T extends DecodeReturnAs>(
   input: string | Uint8Array,
   options: DecodeOptions & { returnAs: T },
 ): T extends "string" ? string : Uint8Array<ArrayBuffer>;
-function hexParse(input: string, options?: DecodeOptions): string;
-function hexParse(input: Uint8Array, options?: DecodeOptions): Uint8Array<ArrayBuffer>;
-function hexParse(input: string | Uint8Array, options?: DecodeOptions): string | Uint8Array {
+export function hexParse(input: string, options?: DecodeOptions): string;
+export function hexParse(input: Uint8Array, options?: DecodeOptions): Uint8Array<ArrayBuffer>;
+/* @__NO_SIDE_EFFECTS__ */
+export function hexParse(input: string | Uint8Array, options?: DecodeOptions): string | Uint8Array {
   _assertData(input, "Hex.parse");
   const { text, wantString } = _parsePrep(input, options);
   if (!text) return wantString ? "" : new Uint8Array(0);
@@ -112,23 +114,4 @@ function hexParse(input: string | Uint8Array, options?: DecodeOptions): string |
 }
 
 /** Hex codec: `Hex.stringify(bytes)` / `Hex.parse(text)`. Strict decode by default. */
-export const Hex: HexCodec = { stringify: hexStringify, parse: hexParse };
-
-/** @deprecated Use `Hex.stringify`. */
-export function hexEncode(data: string | BytesSource): string {
-  return hexStringify(data);
-}
-
-/** @deprecated Use `Hex.parse` (note: `Hex.parse` is strict by default). */
-export function hexDecode<T extends DecodeReturnAs>(
-  data: string | Uint8Array,
-  options: { returnAs: T },
-): T extends "string" ? string : Uint8Array<ArrayBuffer>;
-export function hexDecode(data: string): string;
-export function hexDecode(data: Uint8Array): Uint8Array<ArrayBuffer>;
-export function hexDecode(
-  data: string | Uint8Array,
-  options?: { returnAs?: DecodeReturnAs },
-): Uint8Array<ArrayBuffer> | string {
-  return hexParse(data as string, { returnAs: options?.returnAs, loose: true });
-}
+export const Hex: HexCodec = /* @__PURE__ */ { stringify: hexStringify, parse: hexParse };

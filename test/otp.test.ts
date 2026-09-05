@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { hotp, hotpVerify, totp, totpVerify, generateOTPSecret, otpauthURI } from "../src/otp.ts";
-import { base32Encode, base32Decode } from "../src/utils/index.ts";
+import { base32Stringify, base32Parse } from "../src/utils/index.ts";
 
 // RFC 4226 test secret: ASCII "12345678901234567890" (20 bytes)
 const RFC4226_SECRET = new TextEncoder().encode("12345678901234567890");
@@ -41,7 +41,7 @@ describe("HOTP (RFC 4226)", () => {
     });
 
     it("should accept base32 string secret", async () => {
-      const b32 = base32Encode(RFC4226_SECRET);
+      const b32 = base32Stringify(RFC4226_SECRET);
       const code = await hotp(b32, 0);
       expect(code).toBe("755224");
     });
@@ -141,7 +141,7 @@ describe("TOTP (RFC 6238)", () => {
     });
 
     it("should accept base32 string secret", async () => {
-      const b32 = base32Encode(RFC6238_SHA1_SECRET);
+      const b32 = base32Stringify(RFC6238_SHA1_SECRET);
       const code = await totp(b32, { time: 59, digits: 8 });
       expect(code).toBe("94287082");
     });
@@ -243,7 +243,7 @@ describe("generateOTPSecret()", () => {
     const secret = generateOTPSecret(32);
     // 32 bytes → ceil(32 * 8 / 5) = 52 chars (with 4 padding chars stripped)
     // Actually: 32 bytes = 256 bits, 256/5 = 51.2, so 52 base32 chars, padded to 56, minus padding
-    const decoded = base32Decode(secret, { returnAs: "uint8array" });
+    const decoded = base32Parse(secret, { loose: true, returnAs: "uint8array" });
     expect(decoded).toHaveLength(32);
   });
 
@@ -255,14 +255,14 @@ describe("generateOTPSecret()", () => {
 
   it("should roundtrip through base32 decode", () => {
     const secret = generateOTPSecret();
-    const bytes = base32Decode(secret, { returnAs: "uint8array" });
+    const bytes = base32Parse(secret, { loose: true, returnAs: "uint8array" });
     expect(bytes).toHaveLength(20);
   });
 });
 
 describe("otpauthURI()", () => {
   const secret = new TextEncoder().encode("12345678901234567890");
-  const secretB32 = base32Encode(secret).replace(/=+$/, "");
+  const secretB32 = base32Stringify(secret).replace(/=+$/, "");
 
   it("should generate a valid TOTP URI", () => {
     const uri = otpauthURI({

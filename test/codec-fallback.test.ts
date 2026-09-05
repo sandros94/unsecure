@@ -39,9 +39,9 @@ describe("codec fallback paths (no Buffer, no TC39)", () => {
     expect(Base64.parse("Zm9v_", { loose: true, returnAs: "bytes" })).toEqual(enc.encode("foo"));
   });
 
-  it("legacy encoders still work without Buffer", () => {
-    expect(codec.base64Encode(enc.encode("foobar"))).toBe("Zm9vYmFy");
-    expect(codec.base64UrlEncode(enc.encode("foobar"))).toBe("Zm9vYmFy");
-    expect(codec.hexEncode(enc.encode("hi"))).toBe("6869");
+  it("encoders still work without Buffer", () => {
+    expect(codec.base64Stringify(enc.encode("foobar"))).toBe("Zm9vYmFy");
+    expect(codec.base64Stringify(enc.encode("foobar"), { alphabet: "base64url" })).toBe("Zm9vYmFy");
+    expect(codec.hexStringify(enc.encode("hi"))).toBe("6869");
   });
 });

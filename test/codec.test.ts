@@ -4,10 +4,12 @@ import {
   Base32,
   Base64,
   Hex,
-  base32Encode,
-  base64Encode,
-  base64UrlEncode,
-  hexEncode,
+  base32Parse,
+  base32Stringify,
+  base64Parse,
+  base64Stringify,
+  hexParse,
+  hexStringify,
 } from "../src/utils/index.ts";
 
 const enc = new TextEncoder();
@@ -15,9 +17,10 @@ const allBytes = Uint8Array.from({ length: 256 }, (_, i) => i);
 
 describe.concurrent("Unified codec API", () => {
   describe("Hex", () => {
-    it("stringify matches the legacy hexEncode", () => {
-      expect(Hex.stringify(allBytes)).toBe(hexEncode(allBytes));
-      expect(Hex.stringify("héllo")).toBe(hexEncode("héllo"));
+    it("the codec object is the flat functions", () => {
+      expect(Hex.stringify).toBe(hexStringify);
+      expect(Hex.parse).toBe(hexParse);
+      expect(hexStringify("héllo")).toBe("68c3a96c6c6f");
     });
 
     it("round-trips bytes", () => {
@@ -53,9 +56,12 @@ describe.concurrent("Unified codec API", () => {
   });
 
   describe("Base64", () => {
-    it("stringify matches the legacy base64Encode / base64UrlEncode", () => {
-      expect(Base64.stringify(allBytes)).toBe(base64Encode(allBytes));
-      expect(Base64.stringify(allBytes, { alphabet: "base64url" })).toBe(base64UrlEncode(allBytes));
+    it("the codec object is the flat functions", () => {
+      expect(Base64.stringify).toBe(base64Stringify);
+      expect(Base64.parse).toBe(base64Parse);
+      expect(base64Stringify("foobar")).toBe("Zm9vYmFy");
+      expect(base64Stringify(Uint8Array.of(0xfb, 0xff))).toBe("+/8=");
+      expect(base64Stringify(Uint8Array.of(0xfb, 0xff), { alphabet: "base64url" })).toBe("-_8");
     });
 
     it("padding option + base64url defaults unpadded", () => {
@@ -147,8 +153,10 @@ describe.concurrent("Unified codec API", () => {
       }
     });
 
-    it("matches the legacy base32Encode for the default alphabet", () => {
-      expect(Base32.stringify(allBytes)).toBe(base32Encode(allBytes));
+    it("the codec object is the flat functions", () => {
+      expect(Base32.stringify).toBe(base32Stringify);
+      expect(Base32.parse).toBe(base32Parse);
+      expect(base32Stringify("foobar")).toBe("MZXW6YTBOI======");
     });
   });
 

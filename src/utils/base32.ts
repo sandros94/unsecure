@@ -40,6 +40,7 @@ export interface Base32ParseOptions extends DecodeOptions {
   alphabet?: Base32Alphabet;
 }
 
+/* @__NO_SIDE_EFFECTS__ */
 function _resolveChars(alphabet: Base32Alphabet, label: string): string {
   const chars = _NAMED_ALPHABETS[alphabet as keyof typeof _NAMED_ALPHABETS] ?? alphabet;
   if (chars.length !== 32) {
@@ -52,8 +53,9 @@ const _isNamed = (a: Base32Alphabet): boolean =>
   a === "base32" || a === "base32hex" || a === "crockford";
 
 // charCode → 5-bit value; `-1` marks invalid. Cached per alphabet.
-const _tables = new Map<string, Int8Array>();
+const _tables: Map<string, Int8Array> = /* @__PURE__ */ new Map<string, Int8Array>();
 
+/* @__NO_SIDE_EFFECTS__ */
 function _decodeTable(alphabet: Base32Alphabet, chars: string): Int8Array {
   let table = _tables.get(alphabet);
   if (table) return table;
@@ -77,6 +79,7 @@ function _decodeTable(alphabet: Base32Alphabet, chars: string): Int8Array {
   return table;
 }
 
+/* @__NO_SIDE_EFFECTS__ */
 function _encodeBase32(bytes: Uint8Array, chars: string, padding: boolean): string {
   if (bytes.length === 0) return "";
   let result = "";
@@ -99,6 +102,7 @@ function _encodeBase32(bytes: Uint8Array, chars: string, padding: boolean): stri
   return result;
 }
 
+/* @__NO_SIDE_EFFECTS__ */
 function _decodeBase32(
   text: string,
   alphabet: Base32Alphabet,
@@ -132,52 +136,56 @@ function _decodeBase32(
 }
 
 export interface Base32Codec {
-  /**
-   * Encode bytes to base32.
-   *
-   * @param data - raw bytes (any `BytesSource`), or a `string` (UTF-8 encoded first)
-   * @param options - see {@link Base32StringifyOptions}
-   * @returns the base32 string
-   * @throws {TypeError} if `data` is nullish
-   * @example
-   * Base32.stringify(secret, { padding: false }); // unpadded (e.g. OTP secrets)
-   */
-  stringify(data: string | BytesSource, options?: Base32StringifyOptions): string;
-  /**
-   * Decode a base32 string. Strict by default.
-   *
-   * @param input - base32 text, or its ASCII bytes
-   * @param options - see {@link Base32ParseOptions}
-   * @returns decoded bytes, or a UTF-8 `string` when `returnAs` is `"string"`
-   * @throws {SyntaxError} on characters outside the `alphabet` (whitespace included), unless `loose`
-   * @throws {TypeError} if `input` is nullish
-   * @example
-   * Base32.parse(secret, { loose: true, returnAs: "bytes" });
-   */
-  parse<T extends DecodeReturnAs>(
-    input: string | Uint8Array,
-    options: Base32ParseOptions & { returnAs: T },
-  ): T extends "string" ? string : Uint8Array<ArrayBuffer>;
-  /** Decode a base32 `string` to a UTF-8 string (strict; see {@link Base32ParseOptions}). */
-  parse(input: string, options?: Base32ParseOptions): string;
-  /** Decode base32-as-bytes to bytes (strict; see {@link Base32ParseOptions}). */
-  parse(input: Uint8Array, options?: Base32ParseOptions): Uint8Array<ArrayBuffer>;
+  /** See {@link base32Stringify}. */
+  stringify: typeof base32Stringify;
+  /** See {@link base32Parse}. */
+  parse: typeof base32Parse;
 }
 
-function base32Stringify(data: string | BytesSource, options?: Base32StringifyOptions): string {
+/**
+ * Encode bytes to base32.
+ *
+ * @param data - raw bytes (any `BytesSource`), or a `string` (UTF-8 encoded first)
+ * @param options - see {@link Base32StringifyOptions}
+ * @returns the base32 string
+ * @throws {TypeError} if `data` is not a string, `ArrayBuffer` or view over one
+ * @throws {SyntaxError} if `alphabet` is not a usable 32-character alphabet
+ * @example
+ * base32Stringify(secret, { padding: false }); // unpadded (e.g. OTP secrets)
+ */
+/* @__NO_SIDE_EFFECTS__ */
+export function base32Stringify(
+  data: string | BytesSource,
+  options?: Base32StringifyOptions,
+): string {
   const alphabet = options?.alphabet ?? "base32";
   const chars = _resolveChars(alphabet, "Base32.stringify");
   const padding = options?.padding ?? alphabet !== "crockford";
   return _encodeBase32(toBytes(data, "Base32.stringify"), chars, padding);
 }
 
-function base32Parse<T extends DecodeReturnAs>(
+/**
+ * Decode a base32 string. Strict by default.
+ *
+ * @param input - base32 text, or its ASCII bytes
+ * @param options - see {@link Base32ParseOptions}
+ * @returns decoded bytes, or a UTF-8 `string` when `returnAs` is `"string"`
+ * @throws {SyntaxError} on characters outside the `alphabet` (whitespace included), unless `loose`
+ * @throws {TypeError} if `input` is nullish
+ * @example
+ * base32Parse(secret, { loose: true, returnAs: "bytes" });
+ */
+export function base32Parse<T extends DecodeReturnAs>(
   input: string | Uint8Array,
   options: Base32ParseOptions & { returnAs: T },
 ): T extends "string" ? string : Uint8Array<ArrayBuffer>;
-function base32Parse(input: string, options?: Base32ParseOptions): string;
-function base32Parse(input: Uint8Array, options?: Base32ParseOptions): Uint8Array<ArrayBuffer>;
-function base32Parse(
+export function base32Parse(input: string, options?: Base32ParseOptions): string;
+export function base32Parse(
+  input: Uint8Array,
+  options?: Base32ParseOptions,
+): Uint8Array<ArrayBuffer>;
+/* @__NO_SIDE_EFFECTS__ */
+export function base32Parse(
   input: string | Uint8Array,
   options?: Base32ParseOptions,
 ): string | Uint8Array {
@@ -194,23 +202,7 @@ function base32Parse(
  * Base32 codec: `Base32.stringify(bytes)` / `Base32.parse(text)`. Strict by default.
  * `alphabet` accepts `"base32"` | `"base32hex"` | `"crockford"` | a custom 32-char string.
  */
-export const Base32: Base32Codec = { stringify: base32Stringify, parse: base32Parse };
-
-/** @deprecated Use `Base32.stringify`. */
-export function base32Encode(data: string | BytesSource): string {
-  return base32Stringify(data);
-}
-
-/** @deprecated Use `Base32.parse` (note: `Base32.parse` is strict by default). */
-export function base32Decode<T extends DecodeReturnAs>(
-  data: string | Uint8Array,
-  options: { returnAs: T },
-): T extends "string" ? string : Uint8Array<ArrayBuffer>;
-export function base32Decode(data: string): string;
-export function base32Decode(data: Uint8Array): Uint8Array<ArrayBuffer>;
-export function base32Decode(
-  data: string | Uint8Array,
-  options?: { returnAs?: DecodeReturnAs },
-): Uint8Array<ArrayBuffer> | string {
-  return base32Parse(data as string, { returnAs: options?.returnAs, loose: true });
-}
+export const Base32: Base32Codec = /* @__PURE__ */ {
+  stringify: base32Stringify,
+  parse: base32Parse,
+};

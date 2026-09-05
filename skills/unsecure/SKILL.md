@@ -31,7 +31,7 @@ Every public module is also its own subpath so CDN / browser consumers only ship
 - `unsecure/random` — `createSecureRandomGenerator`, `secureRandomNumber`, `secureRandomBytes`, `secureShuffle`, `randomJitter`
 - `unsecure/sanitize` — `sanitizeObject`, `sanitizeObjectCopy`, `safeJsonParse`
 - `unsecure/uuid` — `uuidv4`, `uuidv7`, `secureUUID`, `createUUIDv7Generator`, `uuidv7Timestamp`, `isUUIDv4`, `isUUIDv7`
-- `unsecure/utils` — `Hex`, `Base64`, `Base32` codecs (`stringify`/`parse`; strict decode by default), `textEncoder`, `textDecoder`. Legacy flat functions (`hexEncode`/`base64Decode`/…) remain as deprecated wrappers.
+- `unsecure/utils` — `hexStringify`/`hexParse`, `base64Stringify`/`base64Parse`, `base32Stringify`/`base32Parse` (strict decode by default), the `Hex`/`Base64`/`Base32` objects grouping them, `textEncoder`, `textDecoder`.
 
 **CDN usage** (browsers, Deno, Bun) — prefer per-module subpaths so only the imported module is downloaded:
 
@@ -90,7 +90,7 @@ UUID generation (RFC 9562). Load when working with `uuidv4()`, `uuidv7()`, `secu
 
 ### [utils.md](./references/utils.md)
 
-Encoding/decoding utilities. Load when working with the `Hex` / `Base64` / `Base32` codecs (or the legacy `hexEncode`/`base64Decode`/… wrappers), `textEncoder`/`textDecoder`, or the `unsecure/utils` entry point.
+Encoding/decoding utilities. Load when working with the hex, base64 or base32 codecs — the flat `hexParse`/`base64Stringify`/… functions or the `Hex` / `Base64` / `Base32` objects — `textEncoder`/`textDecoder`, or the `unsecure/utils` entry point.
 
 ---
 

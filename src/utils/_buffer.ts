@@ -22,8 +22,9 @@ export const _Buffer: _BufferCtor | undefined = /* @__PURE__ */ (() => {
   }
 })();
 
-export const _hasBuffer: boolean = typeof _Buffer?.from === "function";
+export const _hasBuffer: boolean = /* @__PURE__ */ (() => typeof _Buffer?.from === "function")();
 
+/* @__NO_SIDE_EFFECTS__ */
 export function _toBuffer(bytes: Uint8Array): _BufferLike {
   return _Buffer!.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 }
