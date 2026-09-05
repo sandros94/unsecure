@@ -1,3 +1,5 @@
+import { assertInteger, showValue } from "./_internal/assert.ts";
+
 /**
  * Defines the interface for a secure random number generator.
  */
@@ -129,9 +131,17 @@ export function createSecureRandomGenerator(): SecureRandomGenerator {
 }
 
 /**
+ * The generator behind {@link secureRandomNumber} and {@link randomJitter}.
+ * Shared so one buffered refill serves the whole process. The purity
+ * annotation lets a bundler drop it from builds that import neither.
+ */
+const _sharedGenerator: SecureRandomGenerator = /* @__PURE__ */ createSecureRandomGenerator();
+
+/**
  * Gets a single cryptographically secure random integer in the range [0, max).
- * This function avoids modulo bias by rejecting values that would cause an
- * uneven distribution.
+ * Draws from a shared buffered generator, so it avoids modulo bias through
+ * rejection sampling and amortizes the `crypto.getRandomValues` call across
+ * calls.
  * @param {number} max - The exclusive upper bound for the random number.
  * @param {Iterable<number> | Set<number>} [ignore] - Optional iterable or set of values to ignore.
  *
@@ -141,14 +151,15 @@ export function createSecureRandomGenerator(): SecureRandomGenerator {
  * @throws {TypeError} If `ignore` is not an iterable of numbers or a Set<number>.
  * @throws {RangeError} If `ignore` excludes all possible values in the range.
  *
- * @description For generating multiple random numbers, it is more performant to
- * use `createSecureRandomGenerator()`.
+ * @description Use `createSecureRandomGenerator()` when a caller needs a
+ * generator of its own rather than the shared one.
  */
 export function secureRandomNumber(max: number, ignore?: Iterable<number> | Set<number>): number;
 /**
  * Gets a single cryptographically secure random integer in the range [min, max).
- * This function avoids modulo bias by rejecting values that would cause an
- * uneven distribution.
+ * Draws from a shared buffered generator, so it avoids modulo bias through
+ * rejection sampling and amortizes the `crypto.getRandomValues` call across
+ * calls.
  * @param {number} min - The inclusive lower bound for the random number.
  * @param {number} max - The exclusive upper bound for the random number.
  * @param {Iterable<number> | Set<number>} [ignore] - Optional iterable or set of values to ignore.
@@ -159,8 +170,8 @@ export function secureRandomNumber(max: number, ignore?: Iterable<number> | Set<
  * @throws {TypeError} If `ignore` is not an iterable of numbers or a Set<number>.
  * @throws {RangeError} If `ignore` excludes all possible values in the range.
  *
- * @description For generating multiple random numbers, it is more performant to
- * use `createSecureRandomGenerator()`.
+ * @description Use `createSecureRandomGenerator()` when a caller needs a
+ * generator of its own rather than the shared one.
  */
 export function secureRandomNumber(
   min: number,
@@ -172,93 +183,30 @@ export function secureRandomNumber(
   b?: Iterable<number> | Set<number> | number,
   c?: Iterable<number> | Set<number>,
 ): number {
-  let min: number;
-  let max: number;
-  let rawIgnore: Iterable<number> | Set<number> | undefined;
-
-  // Determine which overload was used.
-  if (typeof b === "number") {
-    min = a;
-    max = b;
-    rawIgnore = c;
-  } else {
-    min = 0;
-    max = a;
-    rawIgnore = b;
-  }
-
-  // Validate input: min and max must be integers
-  if (!Number.isInteger(min) || !Number.isInteger(max)) {
-    throw new RangeError("min and max must be integers.");
-  }
-  if (max <= min) {
-    throw new RangeError("max must be greater than min.");
-  }
-
-  const range = max - min;
-  if (range > 2 ** 32) {
-    // A single Uint32Array cannot reliably generate numbers in this range without bias
-    throw new RangeError("range must be less than or equal to 2^32.");
-  }
-
-  // Normalize ignore to a Set for O(1) lookups if provided.
-  let ignoreSet: Set<number> | undefined;
-  if (rawIgnore != null) {
-    if (rawIgnore instanceof Set) {
-      ignoreSet = rawIgnore;
-    } else if (
-      typeof rawIgnore !== "string" &&
-      (Array.isArray(rawIgnore) || typeof (rawIgnore as any)[Symbol.iterator] === "function")
-    ) {
-      ignoreSet = new Set(rawIgnore as Iterable<number>);
-    } else {
-      throw new TypeError("ignore must be an iterable of numbers or a Set<number>.");
-    }
-
-    // Quick sanity: if ignoreSet excludes all possible values in range, it's impossible to generate a value.
-    let excludedInRange = 0;
-    for (const v of ignoreSet) {
-      if (!Number.isInteger(v)) continue;
-      if (v >= min && v < max) {
-        excludedInRange++;
-        if (excludedInRange >= range) {
-          throw new RangeError("Ignore set excludes all possible values in the range.");
-        }
-      }
-    }
-  }
-
-  // Uses a 32-bit unsigned integer array for random values.
-  const randomBytes = new Uint32Array(1);
-  // Values above this threshold will be rejected to prevent bias.
-  const maxSafe = 2 ** 32 - (2 ** 32 % range);
-  let randomValue: number;
-  let candidate: number;
-
-  do {
-    // Get a random value from the Web Crypto API.
-    crypto.getRandomValues(randomBytes);
-    randomValue = randomBytes[0]!;
-    candidate = min + (randomValue % range);
-    // Loop while value is biased (>= maxSafe) or candidate is in ignore set.
-  } while (randomValue >= maxSafe || (ignoreSet !== undefined && ignoreSet.has(candidate)));
-
-  return candidate;
+  return typeof b === "number" ? _sharedGenerator.next(a, b, c) : _sharedGenerator.next(a, b);
 }
+
+/**
+ * The largest draw {@link secureRandomBytes} accepts: 2 GiB - 1. Nothing
+ * legitimate asks for key material anywhere near this, and above it the call
+ * degenerates into a multi-hour fill of an allocation the caller did not
+ * expect to make.
+ */
+const MAX_RANDOM_BYTES = 2 ** 31 - 1;
 
 /**
  * Generate a Uint8Array of cryptographically secure random bytes.
  *
- * @param length Number of random bytes to generate.
+ * @param length Number of random bytes to generate, from 0 to `2**31 - 1`.
  * @returns A Uint8Array filled with random bytes.
+ *
+ * @throws {RangeError} If `length` is not an integer in `[0, 2**31 - 1]`.
  *
  * @example
  * const key = secureRandomBytes(32); // 256-bit key material
  */
 export function secureRandomBytes(length: number): Uint8Array<ArrayBuffer> {
-  if (!Number.isInteger(length) || length < 0) {
-    throw new RangeError("length must be a non-negative integer.");
-  }
+  assertInteger("secureRandomBytes", "length", length, 0, MAX_RANDOM_BYTES);
   const bytes = new Uint8Array(length);
   if (length > 0) {
     // crypto.getRandomValues has a 65536-byte limit per call
@@ -294,37 +242,36 @@ export function secureShuffle<T>(array: Array<T>, generator?: SecureRandomGenera
 }
 
 /**
- * Add a random delay in milliseconds. Useful as defense-in-depth against timing side-channels.
+ * Add a random delay in milliseconds. Useful as defense-in-depth against
+ * timing side-channels.
  *
- * - `randomJitter()` — delay between 0 and 99ms
- * - `randomJitter(maxMs)` — delay between 0 and `maxMs - 1`
- * - `randomJitter(minMs, maxMs)` — delay between `minMs` and `maxMs - 1`
+ * - `randomJitter()` — delay in `[0, 100)`
+ * - `randomJitter(maxMs)` — delay in `[0, maxMs)`
+ * - `randomJitter(minMs, maxMs)` — delay in `[minMs, maxMs)`
  *
- * @throws {RangeError} If `minMs` or `maxMs` is not a finite number, if `minMs`
- *                      is negative, or if `maxMs` is less than `minMs`.
+ * `maxMs === minMs` resolves after exactly that many milliseconds and draws
+ * no randomness. Milliseconds must be integers: `setTimeout` truncates, so a
+ * fractional bound never described the delay a caller would get.
+ *
+ * @throws {RangeError} If `minMs` or `maxMs` is not a non-negative integer, or
+ *                      if `maxMs` is less than `minMs`.
  */
 export function randomJitter(maxMs?: number): Promise<void>;
-export function randomJitter(minMs: number, maxMs: number): Promise<void>;
-export function randomJitter(minOrMax = 100, maxMs?: number): Promise<void> {
-  const min = maxMs === undefined ? 0 : minOrMax;
-  const max = maxMs === undefined ? minOrMax : maxMs;
+export function randomJitter(minMs: number | undefined, maxMs: number): Promise<void>;
+export function randomJitter(minOrMax?: number, maxMs?: number): Promise<void> {
+  // No default parameter: `randomJitter(undefined, 50)` must read as "no
+  // lower bound, upper bound 50", not as the one-argument form.
+  const min = maxMs === undefined ? 0 : (minOrMax ?? 0);
+  const max = maxMs === undefined ? (minOrMax ?? 100) : maxMs;
 
-  if (!Number.isFinite(min) || !Number.isFinite(max)) {
-    throw new RangeError("minMs and maxMs must be finite numbers.");
-  }
-  if (min < 0) {
-    throw new RangeError("minMs must be non-negative.");
-  }
+  assertInteger("randomJitter", "minMs", min, 0);
+  assertInteger("randomJitter", "maxMs", max, 0);
   if (max < min) {
-    throw new RangeError("maxMs must be greater than or equal to minMs.");
+    throw new RangeError(
+      `randomJitter: maxMs must be an integer >= minMs (${min}), got ${showValue(max)}.`,
+    );
   }
 
-  const range = max - min;
-  if (range === 0) {
-    return new Promise((resolve) => setTimeout(resolve, min));
-  }
-
-  const buf = new Uint32Array(1);
-  crypto.getRandomValues(buf);
-  return new Promise((resolve) => setTimeout(resolve, min + (buf[0]! % range)));
+  const delay = max === min ? min : secureRandomNumber(min, max);
+  return new Promise((resolve) => setTimeout(resolve, delay));
 }

@@ -439,12 +439,12 @@ const n2 = generator.next(50, 150); // 50 to 149
 const n3 = generator.next(10, [3, 5, 7]); // 0-9, excluding 3, 5, 7
 const n4 = generator.next(50, 100, new Set([55, 60, 65])); // 50-99, excluding 55, 60, 65
 
-// Get a secure random number (more memory-efficient for single use)
+// Get a secure random number (draws from a shared buffered generator)
 const num = secureRandomNumber(100); // 0 to 99
 const num2 = secureRandomNumber(50, 150); // 50 to 149
 const num3 = secureRandomNumber(10, [2, 4, 6]); // 0-9, excluding 2, 4, 6
 
-// Generate random bytes
+// Generate random bytes (length is an integer in [0, 2**31 - 1])
 const key = secureRandomBytes(32); // 256-bit key material (Uint8Array)
 
 // Securely shuffle an array in-place
@@ -463,7 +463,10 @@ secureShuffle(list2, gen);
 await randomJitter(); // 0-99ms
 await randomJitter(50); // 0-49ms
 await randomJitter(50, 100); // 50-99ms
+await randomJitter(undefined, 50); // 0-49ms — same as randomJitter(50)
 ```
+
+`secureRandomNumber` and `randomJitter` share one buffered generator, so they cost a `crypto.getRandomValues` call per 256 draws; `createSecureRandomGenerator()` hands back a private one. `randomJitter` bounds must be non-negative integers — `setTimeout` truncates, so a fractional bound never described the delay — and `secureRandomBytes` refuses a length above `2**31 - 1` rather than allocating gigabytes and filling them for hours.
 
 ### UUID (v4 / v7)
 

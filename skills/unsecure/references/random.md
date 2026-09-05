@@ -26,7 +26,7 @@ rng.next(50, 100, new Set([75])); // [50, 100) excluding 75
 
 ## secureRandomNumber()
 
-One-shot version (no buffer reuse). Creates a new `Uint32Array(1)` per call. Better for isolated single calls; prefer the buffered generator for loops.
+Same draw as `rng.next()`, taken from a generator shared by the whole process — one `crypto.getRandomValues` call per 256 draws, rejection sampling included. Reach for `createSecureRandomGenerator()` when a caller wants a generator of its own; there is no throughput reason to.
 
 ```ts
 import { secureRandomNumber } from "unsecure";
@@ -38,7 +38,7 @@ secureRandomNumber(10, [2, 4, 6]); // [0, 10) excluding evens
 
 ## secureRandomBytes()
 
-Generate a `Uint8Array` of cryptographically secure random bytes. Handles the 65536-byte `crypto.getRandomValues` limit internally via chunking.
+Generate a `Uint8Array` of cryptographically secure random bytes. Handles the 65536-byte `crypto.getRandomValues` limit internally via chunking. `length` must be an integer in `[0, 2**31 - 1]`; anything larger throws `RangeError` instead of allocating gigabytes and filling them for hours.
 
 ```ts
 import { secureRandomBytes } from "unsecure";
@@ -77,7 +77,10 @@ import { randomJitter } from "unsecure";
 await randomJitter(); // 0–99ms
 await randomJitter(50); // 0–49ms
 await randomJitter(50, 200); // 50–199ms
+await randomJitter(undefined, 50); // 0–49ms — an absent lower bound is 0
 ```
+
+Bounds must be non-negative integers (`setTimeout` truncates, so a fractional bound never described the delay), and `maxMs === minMs` resolves after exactly that many milliseconds without drawing randomness. Otherwise `RangeError`.
 
 ## Use Case: Secure Lottery / Drawing
 
@@ -106,21 +109,18 @@ async function handleLogin(credentials: Credentials) {
 }
 ```
 
-## Pitfall: Using secureRandomNumber() in Hot Loops
+## Pitfall: Expecting an Isolated Generator from secureRandomNumber()
 
-`secureRandomNumber()` creates a new `Uint32Array(1)` per call and calls `crypto.getRandomValues` each time. For many random numbers, the buffered generator is significantly faster.
+`secureRandomNumber()` and `randomJitter()` draw from one process-wide buffered generator, so a test that stubs `crypto.getRandomValues` sees the stub only once every 256 draws. Create a private generator when the draws must be isolated.
 
 ```ts
-// ❌ Slow in tight loops
-for (let i = 0; i < 10000; i++) {
-  values.push(secureRandomNumber(100));
-}
+// ❌ Assumes every call reaches crypto.getRandomValues
+vi.spyOn(crypto, "getRandomValues").mockImplementation(fill);
+secureRandomNumber(100);
 
-// ✅ Use buffered generator (batches crypto.getRandomValues calls)
+// ✅ A generator of your own, refilled on its first draw
 const rng = createSecureRandomGenerator();
-for (let i = 0; i < 10000; i++) {
-  values.push(rng.next(100));
-}
+rng.next(100);
 ```
 
 ## Pitfall: Using Math.random() Alongside This Library
