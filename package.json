@@ -103,9 +103,12 @@
     },
     "runtime": {
       "name": "node",
-      "version": ">=24.11.0",
+      "version": "^22.12 || >=24",
       "onFail": "error"
     }
+  },
+  "engines": {
+    "node": "^22.12 || >=24"
   },
   "packageManager": "pnpm@11.13.0"
 }
