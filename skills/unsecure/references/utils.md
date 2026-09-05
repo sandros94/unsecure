@@ -59,6 +59,21 @@ Every codec follows the same contract:
 decoded as UTF-8), `Uint8Array` in → `Uint8Array` out. Override with
 `{ returnAs: "string" | "uint8array" | "bytes" }` (`"bytes"` aliases `"uint8array"`).
 
+Byte output always owns an `ArrayBuffer` exactly its own length — never a view
+into a pool or a longer scratch buffer.
+
+## Text handling
+
+`Uint8Array` input is the _encoded text's_ bytes, read one character per byte.
+A byte >= 0x80 is therefore a character no alphabet carries: strict throws,
+loose drops it. A leading `EF BB BF` is three such characters, not a BOM to
+skip.
+
+On the way out, a decoded U+FEFF is kept — it is part of the byte string, not
+a signature. Strict decode requires the bytes to be valid UTF-8 and throws
+`SyntaxError` otherwise; loose substitutes U+FFFD. Ask for
+`{ returnAs: "bytes" }` when the payload is not text.
+
 ## Hex
 
 ```ts

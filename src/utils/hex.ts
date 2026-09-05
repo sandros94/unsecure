@@ -131,8 +131,9 @@ export function hexParse(input: string | Uint8Array, options?: DecodeOptions): s
   _assertData(input, "Hex.parse");
   const { text, wantString } = _parsePrep(input, options);
   if (!text) return wantString ? "" : new Uint8Array(0);
-  const body = _hexBody(text, options?.loose ?? false, "Hex.parse");
-  return _parseFinalize(_decodeHex(body), wantString);
+  const loose = options?.loose ?? false;
+  const body = _hexBody(text, loose, "Hex.parse");
+  return _parseFinalize(_decodeHex(body), wantString, !loose, "Hex.parse");
 }
 
 /** Hex codec: `Hex.stringify(bytes)` / `Hex.parse(text)`. Strict decode by default. */

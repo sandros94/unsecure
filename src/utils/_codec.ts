@@ -5,8 +5,39 @@ export { type BytesSource, toBytes } from "../_internal/bytes.ts";
 /** Shared UTF-8 `TextEncoder` instance. */
 export { textEncoder } from "../_internal/bytes.ts";
 
-/** Shared UTF-8 `TextDecoder` instance. */
-export const textDecoder: TextDecoder = /* @__PURE__ */ new TextDecoder();
+/**
+ * Shared UTF-8 `TextDecoder` instance. `ignoreBOM` keeps a leading U+FEFF in
+ * the output: what the codecs decode is a byte string, and a BOM inside it is
+ * payload, not a signature to swallow.
+ */
+export const textDecoder: TextDecoder = /* @__PURE__ */ new TextDecoder("utf-8", {
+  ignoreBOM: true,
+});
+
+/** Strict output decoder: invalid UTF-8 throws rather than yielding U+FFFD. */
+const _fatalDecoder: TextDecoder = /* @__PURE__ */ new TextDecoder("utf-8", {
+  ignoreBOM: true,
+  fatal: true,
+});
+
+const _LATIN1_CHUNK = 0x8000;
+
+/**
+ * Read encoded text out of raw bytes, one character per byte. UTF-8 decoding
+ * would fold multi-byte sequences into single characters and swallow a leading
+ * BOM, hiding bytes the codec has to judge; Latin-1 leaves every byte >= 0x80
+ * visible as a character no alphabet carries. `TextDecoder("latin1")` is not
+ * available on every runtime, so the mapping is done by hand.
+ */
+/* @__NO_SIDE_EFFECTS__ */
+function _latin1(bytes: Uint8Array): string {
+  if (bytes.length <= _LATIN1_CHUNK) return String.fromCharCode(...bytes);
+  let text = "";
+  for (let i = 0; i < bytes.length; i += _LATIN1_CHUNK) {
+    text += String.fromCharCode(...bytes.subarray(i, i + _LATIN1_CHUNK));
+  }
+  return text;
+}
 
 /**
  * Decoder output shape. Omit to mirror the input (`string` in → `string` out,
@@ -44,13 +75,24 @@ export function _parsePrep(
   const isBytes = input instanceof Uint8Array;
   const returnAs = options?.returnAs ?? (isBytes ? "uint8array" : "string");
   return {
-    text: isBytes ? textDecoder.decode(input) : input,
+    text: isBytes ? _latin1(input) : input,
     wantString: returnAs === "string",
   };
 }
 
-export function _parseFinalize(bytes: Uint8Array, wantString: boolean): string | Uint8Array {
-  return wantString ? textDecoder.decode(bytes) : bytes;
+export function _parseFinalize(
+  bytes: Uint8Array,
+  wantString: boolean,
+  strict: boolean,
+  label: string,
+): string | Uint8Array {
+  if (!wantString) return bytes;
+  if (!strict) return textDecoder.decode(bytes);
+  try {
+    return _fatalDecoder.decode(bytes);
+  } catch {
+    throw _malformed(label, "decoded bytes are not valid UTF-8.");
+  }
 }
 
 export function _malformed(label: string, detail: string): SyntaxError {

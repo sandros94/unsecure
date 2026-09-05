@@ -378,3 +378,44 @@ describe.concurrent("RFC 4648 §10 test vectors decode in strict mode", () => {
     table.base64.forEach((text, i) => expect(base64Parse(text)).toBe(inputs[i]));
   });
 });
+
+describe.concurrent("Text handling is byte-faithful", () => {
+  it("a BOM in the payload is payload", () => {
+    expect(hexParse("efbbbf68")).toBe("\uFEFFh");
+    expect(base64Parse("77u/aA==")).toBe("\uFEFFh");
+  });
+
+  it("strict rejects decoded bytes that are not valid UTF-8", () => {
+    expect(base64Parse("//8=", { returnAs: "bytes" })).toEqual(Uint8Array.of(0xff, 0xff));
+    expect(() => base64Parse("//8=")).toThrow(
+      /^Base64\.parse: decoded bytes are not valid UTF-8\.$/,
+    );
+    expect(() => hexParse("ffff")).toThrow(/^Hex\.parse: decoded bytes are not valid UTF-8\.$/);
+    expect(base64Parse("//8=", { loose: true })).toBe("\uFFFD\uFFFD");
+  });
+
+  it("Uint8Array input is the encoded text, one character per byte", () => {
+    const bomZg = Uint8Array.of(0xef, 0xbb, 0xbf, 0x5a, 0x67, 0x3d, 0x3d); // BOM + "Zg=="
+    expect(() => base64Parse(bomZg)).toThrow(/invalid base64 character "ï" at index 0\./);
+    expect(base64Parse(bomZg, { loose: true })).toEqual(Uint8Array.of(0x66));
+    expect(() => base64Parse(Uint8Array.of(0x5a, 0x67, 0xc3, 0xa9))).toThrow(
+      /invalid base64 character "Ã" at index 2\./,
+    );
+    expect(base64Parse(enc.encode("Zg=="))).toEqual(Uint8Array.of(0x66));
+  });
+
+  it("byte output owns a buffer exactly its own length", () => {
+    const outputs = [
+      hexParse("deadbeef", { returnAs: "bytes" }),
+      hexParse("dead beef", { loose: true, returnAs: "bytes" }),
+      base64Parse("Zm9vYmFy", { returnAs: "bytes" }),
+      base64Parse("Zm9v YmFy", { loose: true, returnAs: "bytes" }),
+      base32Parse("MZXW6===", { returnAs: "bytes" }),
+      base32Parse("MZXW 6", { loose: true, returnAs: "bytes" }),
+    ];
+    for (const out of outputs) {
+      expect(out.byteOffset).toBe(0);
+      expect(out.buffer.byteLength).toBe(out.byteLength);
+    }
+  });
+});

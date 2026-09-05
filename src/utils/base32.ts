@@ -221,7 +221,8 @@ export function base32Parse(
   const { text, wantString } = _parsePrep(input, options);
   if (!text) return wantString ? "" : new Uint8Array(0);
   const table = _decodeTable(alphabet, chars, loose);
-  return _parseFinalize(_decodeBase32(text, table, loose, "Base32.parse"), wantString);
+  const bytes = _decodeBase32(text, table, loose, "Base32.parse");
+  return _parseFinalize(bytes, wantString, !loose, "Base32.parse");
 }
 
 /**

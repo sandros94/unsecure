@@ -204,8 +204,9 @@ export function base64Parse(
   const { text, wantString } = _parsePrep(input, options);
   if (!text) return wantString ? "" : new Uint8Array(0);
   const alphabet = options?.alphabet ?? "base64";
-  const bytes = _decodeBase64(text, alphabet, options?.loose ?? false, "Base64.parse");
-  return _parseFinalize(bytes, wantString);
+  const loose = options?.loose ?? false;
+  const bytes = _decodeBase64(text, alphabet, loose, "Base64.parse");
+  return _parseFinalize(bytes, wantString, !loose, "Base64.parse");
 }
 
 /**
