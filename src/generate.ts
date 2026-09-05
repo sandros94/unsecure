@@ -1,42 +1,40 @@
-import {
-  createSecureRandomGenerator,
-  type SecureRandomGenerator,
-  secureShuffle,
-} from "./random.ts";
+import { createSecureRandomGenerator, secureShuffle } from "./random.ts";
+import { assertInteger, showValue } from "./_internal/assert.ts";
 
 export interface SecureGenerateOptions {
   /**
-   * The desired length of the password.
+   * The desired length of the password, in code points. An integer >= 1.
    *
    * @default 16
    */
   length?: number;
   /**
-   * Include uppercase letters.
+   * Include uppercase letters, or a custom set of characters to draw from.
    *
    * @default true
    */
   uppercase?: boolean | string;
   /**
-   * Include lowercase letters.
+   * Include lowercase letters, or a custom set of characters to draw from.
    *
    * @default true
    */
   lowercase?: boolean | string;
   /**
-   * Include numbers.
+   * Include numbers, or a custom set of characters to draw from.
    *
    * @default true
    */
   numbers?: boolean | string;
   /**
-   * Include special characters.
+   * Include special characters, or a custom set of characters to draw from.
    *
    * @default true
    */
   specials?: boolean | string;
   /**
-   * Include a timestamp at the beginning of the string.
+   * Include a timestamp at the beginning of the string. `true` stamps the
+   * current time; a `Date` stamps that instant. It must be a valid date.
    *
    * @default false
    */
@@ -45,7 +43,8 @@ export interface SecureGenerateOptions {
 
 /**
  * Default character sets. The SPECIALS set is curated to avoid characters that
- * can break strings or commands in shells and .env files.
+ * can break strings or commands in shells and .env files. The four are
+ * disjoint, which is what {@link secureGenerate} requires of any set.
  */
 const DEFAULT_UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const DEFAULT_LOWERCASE = "abcdefghijklmnopqrstuvwxyz";
@@ -56,9 +55,21 @@ const DEFAULT_LENGTH = 16;
 
 /**
  * Generates a cryptographically secure string based on the provided options.
- * @param {SecureGenerateOptions} options - The configuration for string generation.
- * @returns {string} The generated string.
- * @throws {Error} if no character types are selected.
+ *
+ * Every enabled category contributes at least one character, the rest is drawn
+ * from their union, and the result is shuffled. Sets are read by code point, so
+ * `length` counts characters as a reader would — an emoji is one — and the
+ * output never contains half of a surrogate pair.
+ *
+ * @param options The configuration for string generation.
+ * @returns The generated string.
+ *
+ * @throws {RangeError} If `length` is not an integer >= 1, if `timestamp` is an
+ *                      invalid `Date`, or if a character appears in more than one
+ *                      place across the selected sets.
+ * @throws {TypeError} If `timestamp` is neither `true` nor a `Date`.
+ * @throws {Error} If no character types are selected, or `length` leaves no room
+ *                 after the timestamp prefix.
  */
 export function secureGenerate(options?: SecureGenerateOptions): string {
   const {
@@ -70,62 +81,42 @@ export function secureGenerate(options?: SecureGenerateOptions): string {
     timestamp,
   } = options ?? {};
 
-  let timestampStr = "";
-  if (timestamp) {
-    const date = timestamp === true ? new Date() : timestamp;
-    timestampStr = date.getTime().toString(36);
-  }
+  assertInteger("secureGenerate", "length", length, 1);
 
-  if (length < 1) {
-    throw new TypeError("Password length must be at least 1.");
-  }
-
+  const timestampStr = _timestampPrefix(timestamp);
   if (timestampStr && length <= timestampStr.length) {
     throw new Error(
-      `Password length must be greater than timestamp length (${timestampStr.length}).`,
+      `secureGenerate: length must be greater than the timestamp prefix (${timestampStr.length} characters), got ${length}.`,
     );
   }
 
+  // Each selected set, by code point, in the order their guaranteed characters
+  // are drawn.
+  const sets: Array<Array<string>> = [];
+  if (_shouldIncludeSet(uppercase)) sets.push(_codePoints(uppercase, DEFAULT_UPPERCASE));
+  if (_shouldIncludeSet(lowercase)) sets.push(_codePoints(lowercase, DEFAULT_LOWERCASE));
+  if (_shouldIncludeSet(numbers)) sets.push(_codePoints(numbers, DEFAULT_NUMBERS));
+  if (_shouldIncludeSet(specials)) sets.push(_codePoints(specials, DEFAULT_SPECIALS));
+
+  if (sets.length === 0) {
+    throw new Error(
+      "secureGenerate: no character types selected. Enable uppercase, lowercase, numbers or specials.",
+    );
+  }
+
+  const charset = sets.flat();
+  _assertDistinct(charset);
+
   const random = createSecureRandomGenerator();
-
-  let charset = "";
-  const guaranteedChars: Array<string> = [];
-
-  // Build the full character set and the list of guaranteed characters
-  if (_shouldIncludeSet(uppercase)) {
-    const { used, guaranteed } = _characterSetBuilder(uppercase, DEFAULT_UPPERCASE, random);
-    charset += used;
-    guaranteedChars.push(guaranteed);
-  }
-  if (_shouldIncludeSet(lowercase)) {
-    const { used, guaranteed } = _characterSetBuilder(lowercase, DEFAULT_LOWERCASE, random);
-    charset += used;
-    guaranteedChars.push(guaranteed);
-  }
-  if (_shouldIncludeSet(numbers)) {
-    const { used, guaranteed } = _characterSetBuilder(numbers, DEFAULT_NUMBERS, random);
-    charset += used;
-    guaranteedChars.push(guaranteed);
-  }
-  if (_shouldIncludeSet(specials)) {
-    const { used, guaranteed } = _characterSetBuilder(specials, DEFAULT_SPECIALS, random);
-    charset += used;
-    guaranteedChars.push(guaranteed);
-  }
-
-  if (!charset) {
-    throw new Error("Cannot generate string. No character types selected.");
-  }
+  const guaranteedChars = sets.map((set) => set[random.next(set.length)]!);
 
   const lengthToGenerate = length - timestampStr.length;
   const remainingLength = lengthToGenerate - guaranteedChars.length;
-  const randomChars = [];
+  const randomChars: Array<string> = [];
 
   // Fill the rest of the string length with random characters from the full set
-  if (remainingLength > 0) {
-    for (let i = 0; i < remainingLength; i++) {
-      randomChars.push(charset[random.next(charset.length)]);
-    }
+  for (let i = 0; i < remainingLength; i++) {
+    randomChars.push(charset[random.next(charset.length)]!);
   }
 
   // Combine guaranteed characters with random ones and shuffle securely
@@ -143,15 +134,38 @@ function _shouldIncludeSet<T extends boolean | string>(set: T): set is Exclude<T
   return set !== false && (set === true || (typeof set === "string" && set.length > 0));
 }
 
-function _characterSetBuilder(
-  set: string | true | undefined,
-  defaultSet: string,
-  random: SecureRandomGenerator,
-) {
-  const used = typeof set === "string" ? set : defaultSet;
+/** Split a set into whole code points, so an astral character stays one draw. */
+function _codePoints(set: string | true, defaultSet: string): Array<string> {
+  return Array.from(typeof set === "string" ? set : defaultSet);
+}
 
-  return {
-    used,
-    guaranteed: used[random.next(used.length)]!,
-  };
+/**
+ * A character repeated within one set, or shared by two of them, would be drawn
+ * twice as often as its neighbours — a silent bias in the distribution the
+ * generator exists to provide.
+ */
+function _assertDistinct(charset: Array<string>): void {
+  const seen = new Set<string>();
+  for (const char of charset) {
+    if (seen.has(char)) {
+      throw new RangeError(
+        `secureGenerate: character sets must not repeat a character; ${showValue(char)} appears more than once.`,
+      );
+    }
+    seen.add(char);
+  }
+}
+
+/** The base36 timestamp prefix, or an empty string when none was asked for. */
+function _timestampPrefix(timestamp: true | Date | undefined): string {
+  if (!timestamp) return "";
+  const date = timestamp === true ? new Date() : timestamp;
+  if (!(date instanceof Date)) {
+    throw new TypeError(`secureGenerate: timestamp must be a Date, got ${showValue(date)}.`);
+  }
+  const time = date.getTime();
+  if (Number.isNaN(time)) {
+    throw new RangeError(`secureGenerate: timestamp must be a valid Date, got ${date.toString()}.`);
+  }
+  return time.toString(36);
 }

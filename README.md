@@ -192,7 +192,7 @@ const macKey = await hkdf(ikm, { salt, info: "authenticate" });
 
 RFC 4226 (HOTP) and RFC 6238 (TOTP) one-time password generation and verification, built on top of `hmac()`.
 
-Secrets can be passed as raw `Uint8Array` bytes or as a base32-encoded `string`.
+Secrets can be passed as raw bytes (`Uint8Array`, `ArrayBuffer`, `DataView`, …) or as a base32-encoded `string`, and must decode to at least one byte.
 
 > [!NOTE]
 > The RFCs recommend the secret to be at least as long as the hash output (20 bytes for SHA-1, 32 for SHA-256, 48 for SHA-384, 64 for SHA-512). The default `generateOTPSecret()` produces 20 bytes, which works with any algorithm but is ideal for SHA-1. Use `generateOTPSecret(32)` or `generateOTPSecret(64)` when targeting SHA-256 or SHA-512.
@@ -296,6 +296,8 @@ const hotpUri = otpauthURI({
 ### secureGenerate
 
 Generates a cryptographically secure string. You can customize its length and character set (all enabled by default). If a string is passed it will be used as a set of allowed characters.
+
+`length` is a count of code points and must be an integer `>= 1`; a `Date` timestamp must be a valid one. Character sets are read by code point, so an emoji counts as one character and is never split, and no character may appear twice — within a set or across two of them — because a repeat would be drawn more often than its neighbours.
 
 Internally it uses a buffer, which is constantly updated, to minimize Web Crypto API calls and greatly improve performance. This becomes useful when generating 128-512 characters long tokens.
 
