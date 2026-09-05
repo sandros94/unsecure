@@ -65,20 +65,26 @@ describe.concurrent("Random-based Functions", () => {
 
     it("should throw RangeError when max is 0 or negative", () => {
       expect(() => secureRandomNumber(0)).toThrow(RangeError);
-      expect(() => secureRandomNumber(0)).toThrow("max must be greater than min.");
+      expect(() => secureRandomNumber(0)).toThrow(
+        "SecureRandomGenerator.next: max must be greater than min.",
+      );
       expect(() => secureRandomNumber(-5)).toThrow(RangeError);
     });
 
     it("should throw RangeError when max is not an integer", () => {
       const max = 3.14;
       expect(() => secureRandomNumber(max)).toThrow(RangeError);
-      expect(() => secureRandomNumber(max)).toThrow("min and max must be integers.");
+      expect(() => secureRandomNumber(max)).toThrow(
+        "SecureRandomGenerator.next: min and max must be integers.",
+      );
     });
 
     it("should throw RangeError when range is greater than 2**32", () => {
       const max = 2 ** 32 + 1;
       expect(() => secureRandomNumber(max)).toThrow(RangeError);
-      expect(() => secureRandomNumber(max)).toThrow("range must be less than or equal to 2^32.");
+      expect(() => secureRandomNumber(max)).toThrow(
+        "SecureRandomGenerator.next: range must be less than or equal to 2^32.",
+      );
     });
   });
 
@@ -129,14 +135,18 @@ describe.concurrent("Random-based Functions", () => {
 
     it("should throw RangeError when max <= min", () => {
       expect(() => secureRandomNumber(10, 10)).toThrow(RangeError);
-      expect(() => secureRandomNumber(10, 10)).toThrow("max must be greater than min.");
+      expect(() => secureRandomNumber(10, 10)).toThrow(
+        "SecureRandomGenerator.next: max must be greater than min.",
+      );
       expect(() => secureRandomNumber(10, 5)).toThrow(RangeError);
     });
 
     it("should throw RangeError when min or max are not integers", () => {
       expect(() => secureRandomNumber(1.5, 10)).toThrow(RangeError);
       expect(() => secureRandomNumber(1, 10.5)).toThrow(RangeError);
-      expect(() => secureRandomNumber(1.5, 10.5)).toThrow("min and max must be integers.");
+      expect(() => secureRandomNumber(1.5, 10.5)).toThrow(
+        "SecureRandomGenerator.next: min and max must be integers.",
+      );
     });
 
     it("should throw RangeError when range exceeds 2**32", () => {
@@ -144,7 +154,7 @@ describe.concurrent("Random-based Functions", () => {
       const max = 2 ** 32 + 1;
       expect(() => secureRandomNumber(min, max)).toThrow(RangeError);
       expect(() => secureRandomNumber(min, max)).toThrow(
-        "range must be less than or equal to 2^32.",
+        "SecureRandomGenerator.next: range must be less than or equal to 2^32.",
       );
     });
   });
@@ -190,14 +200,14 @@ describe.concurrent("Random-based Functions", () => {
       const ignore = [0, 1, 2, 3, 4];
       expect(() => secureRandomNumber(5, ignore)).toThrow(RangeError);
       expect(() => secureRandomNumber(5, ignore)).toThrow(
-        "Ignore set excludes all possible values in the range.",
+        "SecureRandomGenerator.next: ignore set excludes all possible values in the range.",
       );
     });
 
     it("should throw TypeError for invalid ignore parameter", () => {
       expect(() => secureRandomNumber(10, "invalid" as any)).toThrow(TypeError);
       expect(() => secureRandomNumber(10, "invalid" as any)).toThrow(
-        "ignore must be an iterable of numbers or a Set<number>.",
+        "SecureRandomGenerator.next: ignore must be an iterable of numbers or a Set<number>.",
       );
     });
 
@@ -273,7 +283,9 @@ describe.concurrent("Random-based Functions", () => {
     it("should throw RangeError when max <= min", () => {
       const gen = createSecureRandomGenerator();
       expect(() => gen.next(10, 10)).toThrow(RangeError);
-      expect(() => gen.next(10, 5)).toThrow("max must be greater than min.");
+      expect(() => gen.next(10, 5)).toThrow(
+        "SecureRandomGenerator.next: max must be greater than min.",
+      );
     });
 
     it("should throw RangeError when ignore excludes all values", () => {
@@ -281,27 +293,31 @@ describe.concurrent("Random-based Functions", () => {
       const ignore = new Set([0, 1, 2, 3, 4]);
       expect(() => gen.next(5, ignore)).toThrow(RangeError);
       expect(() => gen.next(5, ignore)).toThrow(
-        "Ignore set excludes all possible values in the range.",
+        "SecureRandomGenerator.next: ignore set excludes all possible values in the range.",
       );
     });
 
     it("should throw RangeError when min or max are not integers", () => {
       const gen = createSecureRandomGenerator();
       expect(() => gen.next(1.5, 10)).toThrow(RangeError);
-      expect(() => gen.next(1.5, 10)).toThrow("min and max must be integers.");
+      expect(() => gen.next(1.5, 10)).toThrow(
+        "SecureRandomGenerator.next: min and max must be integers.",
+      );
     });
 
     it("should throw RangeError when range exceeds 2**32", () => {
       const gen = createSecureRandomGenerator();
       expect(() => gen.next(0, 2 ** 32 + 1)).toThrow(RangeError);
-      expect(() => gen.next(0, 2 ** 32 + 1)).toThrow("range must be less than or equal to 2^32.");
+      expect(() => gen.next(0, 2 ** 32 + 1)).toThrow(
+        "SecureRandomGenerator.next: range must be less than or equal to 2^32.",
+      );
     });
 
     it("should throw TypeError for invalid ignore parameter", () => {
       const gen = createSecureRandomGenerator();
       expect(() => gen.next(10, "invalid" as any)).toThrow(TypeError);
       expect(() => gen.next(10, "invalid" as any)).toThrow(
-        "ignore must be an iterable of numbers or a Set<number>.",
+        "SecureRandomGenerator.next: ignore must be an iterable of numbers or a Set<number>.",
       );
     });
 
@@ -544,6 +560,18 @@ describe("randomJitter", () => {
     it("throws RangeError when maxMs is negative (single-arg form)", () => {
       expect(() => randomJitter(-5)).toThrow(
         "randomJitter: maxMs must be an integer >= 0, got -5.",
+      );
+    });
+
+    it("throws RangeError for a null bound instead of taking the default", () => {
+      expect(() => randomJitter(null as any)).toThrow(
+        "randomJitter: maxMs must be an integer >= 0, got null.",
+      );
+      expect(() => randomJitter(null as any, 50)).toThrow(
+        "randomJitter: minMs must be an integer >= 0, got null.",
+      );
+      expect(() => randomJitter(0, null as any)).toThrow(
+        "randomJitter: maxMs must be an integer >= 0, got null.",
       );
     });
 

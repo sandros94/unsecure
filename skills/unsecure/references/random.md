@@ -24,6 +24,8 @@ rng.next(50, 100, new Set([75])); // [50, 100) excluding 75
 - `RangeError` if `max <= min`, range > 2³², or ignore set excludes all values
 - `TypeError` if ignore is not an iterable or Set
 
+Both name their source as `SecureRandomGenerator.next`, whether the draw was asked for through the generator, `secureRandomNumber()`, `secureShuffle()` or `randomJitter()`.
+
 ## secureRandomNumber()
 
 Same draw as `rng.next()`, taken from a generator shared by the whole process — one `crypto.getRandomValues` call per 256 draws, rejection sampling included. Reach for `createSecureRandomGenerator()` when a caller wants a generator of its own; there is no throughput reason to.
@@ -80,7 +82,7 @@ await randomJitter(50, 200); // 50–199ms
 await randomJitter(undefined, 50); // 0–49ms — an absent lower bound is 0
 ```
 
-Bounds must be non-negative integers (`setTimeout` truncates, so a fractional bound never described the delay), and `maxMs === minMs` resolves after exactly that many milliseconds without drawing randomness. Otherwise `RangeError`.
+Bounds must be non-negative integers (`setTimeout` truncates, so a fractional bound never described the delay), and `maxMs === minMs` resolves after exactly that many milliseconds without drawing randomness. Otherwise `RangeError` — `null` included: only an absent bound (`undefined`) takes a default.
 
 ## Use Case: Secure Lottery / Drawing
 
