@@ -530,7 +530,7 @@ hexParse("68656c6c6f", { returnAs: "uint8array" }); // Uint8Array
 base64Stringify(bytes, { alphabet: "base64url" });
 base64Parse(token, { alphabet: "base64url", returnAs: "bytes" });
 
-// Base32 (RFC 4648) + base32hex / crockford / custom alphabets
+// Base32 (RFC 4648) + base32hex / crockford / custom 32-char alphabets
 Base32.stringify("foobar"); // "MZXW6YTBOI======"
 base32Stringify(secret, { padding: false }); // unpadded (e.g. OTP secrets)
 base32Parse(userSecret, { loose: true, returnAs: "uint8array" }); // tolerate spaces/case

@@ -178,6 +178,51 @@ describe.concurrent("Unified codec API", () => {
       expect(Base32.parse("MZXW 6YTB OI==\n====", { loose: true })).toBe("foobar");
     });
 
+    it("strict accepts only the canonical encoding", () => {
+      expect(base32Parse("MZXW6===")).toBe("foo");
+      expect(base32Parse("MZXW6")).toBe("foo");
+      expect(() => base32Parse("MZXW7===")).toThrow(SyntaxError); // bits past the last byte
+      expect(() => base32Parse("MZ=XW6===")).toThrow(SyntaxError); // padding inside the body
+      expect(() => base32Parse("MZXW6=")).toThrow(SyntaxError); // 5 symbols need 3 pads
+      expect(() => base32Parse("M")).toThrow(SyntaxError); // cannot encode a byte
+      expect(base32Parse("MZXW6YQ")).toBe("foob"); // 7 symbols can
+      expect(() => base32Parse("MZXW6YTBO")).toThrow(SyntaxError); // 1 past a block
+    });
+
+    it("strict is uppercase-only for the RFC alphabets; loose folds case", () => {
+      expect(() => base32Parse("mzxw6===")).toThrow(SyntaxError);
+      expect(base32Parse("mzxw6===", { loose: true })).toBe("foo");
+      expect(() => base32Parse("cpnmu===", { alphabet: "base32hex" })).toThrow(SyntaxError);
+      expect(base32Parse("cpnmu===", { alphabet: "base32hex", loose: true })).toBe("foo");
+    });
+
+    it("crockford decodes case-insensitively with O/I/L aliases in strict mode", () => {
+      const text = base32Stringify("foobar", { alphabet: "crockford" });
+      expect(base32Parse(text.toLowerCase(), { alphabet: "crockford" })).toBe("foobar");
+      // 0 and O, 1 and I/L are the same symbol by Crockford's own spec.
+      expect(base32Parse("0", { alphabet: "crockford", loose: true, returnAs: "bytes" })).toEqual(
+        base32Parse("O", { alphabet: "crockford", loose: true, returnAs: "bytes" }),
+      );
+      expect(base32Parse("1G", { alphabet: "crockford", returnAs: "bytes" })).toEqual(
+        base32Parse("LG", { alphabet: "crockford", returnAs: "bytes" }),
+      );
+    });
+
+    it("rejects unusable custom alphabets", () => {
+      const bad: Array<[string, string]> = [
+        ["repeats a character", "AABCDEFGHIJKLMNOPQRSTUVWXYZ23456"],
+        ["contains the padding character", "ABCDEFGHIJKLMNOPQRSTUVWXYZ23456="],
+        ["contains whitespace", "ABCDEFGHIJKLMNOPQRSTUVWXYZ23456 "],
+        ["contains a non-ASCII character", "ABCDEFGHIJKLMNOPQRSTUVWXYZ23456é"],
+      ];
+      for (const [, alphabet] of bad) {
+        expect(alphabet.length).toBe(32);
+        expect(() => base32Stringify("x", { alphabet })).toThrow(SyntaxError);
+        expect(() => base32Parse("AA", { alphabet })).toThrow(SyntaxError);
+      }
+      expect(() => base32Parse("", { alphabet: "tooshort" })).toThrow(SyntaxError);
+    });
+
     it("round-trips every single byte (all variants)", () => {
       for (const alphabet of ["base32", "base32hex", "crockford"] as const) {
         for (let i = 0; i < 256; i++) {

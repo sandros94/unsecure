@@ -90,8 +90,14 @@ base64Parse(untrusted, { loose: true }); // tolerant (accepts either alphabet)
 ## Base32
 
 `alphabet` accepts `"base32"` (RFC 4648, default), `"base32hex"`,
-`"crockford"`, or a custom 32-character string. Padded by default except
-Crockford; `{ padding: false }` to override.
+`"crockford"`, or a custom 32-character string — 32 distinct ASCII characters,
+none of them `=` or whitespace; anything else throws `SyntaxError`. Padded by
+default except Crockford; `{ padding: false }` to override.
+
+Strict decode is uppercase-only for `base32` and `base32hex`; `{ loose: true }`
+folds case. Crockford is case-insensitive in both modes and maps `O`→0,
+`I`/`L`→1, per that alphabet's own spec. A custom alphabet is taken literally
+in both modes — its case may carry meaning.
 
 ```ts
 base32Stringify("foobar"); // "MZXW6YTBOI======"
@@ -101,6 +107,9 @@ base32Parse("MZXW6YTBOI", { returnAs: "bytes" }); // raw bytes
 
 // Crockford decode is case-insensitive and maps O→0, I/L→1.
 base32Parse(id, { alphabet: "crockford" });
+
+base32Parse("MZXW6"); // unpadded is canonical too
+base32Parse("MZXW7==="); // throws: bits set past the final byte
 ```
 
 ## Strict and loose
