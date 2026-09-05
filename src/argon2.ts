@@ -537,6 +537,10 @@ function _derive(
  * This is the raw KDF. For storing and checking passwords use {@link argon2Hash} and
  * {@link argon2Verify}, which carry the parameters and the salt in the tag itself.
  *
+ * The `async` signature is for symmetry with `hash()`: the derivation runs synchronously on the
+ * calling thread until it completes, so `await` does not yield the event loop. Where the caller
+ * shares a thread with other traffic, run it in a worker thread.
+ *
  * When `returnAs` is not specified, the return type mirrors the `password` input:
  * - `string` password returns a hex `string`
  * - `BufferSource` password returns a `Uint8Array<ArrayBuffer>`
@@ -602,6 +606,8 @@ export async function argon2(
  * already stored: an old hash still verifies at the cost it was made with, and can be rewritten
  * on next use.
  *
+ * Runs synchronously on the calling thread despite the `async` signature — see {@link argon2}.
+ *
  * @param password The plaintext.
  * @param options Variant, cost parameters, optional `secret` / `data`, and an optional `salt`.
  * @returns A Promise resolving to the PHC string.
@@ -638,6 +644,8 @@ export async function argon2Hash(
  * A `phc` this module cannot have written is refused by throwing, not by returning `false`: a
  * stored value in an unknown format is a bug or a migration nobody performed, and answering
  * "wrong password" would hide it.
+ *
+ * Runs synchronously on the calling thread despite the `async` signature — see {@link argon2}.
  *
  * @param phc The stored PHC string.
  * @param password The plaintext offered.

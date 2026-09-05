@@ -232,6 +232,9 @@ await argon2Verify(peppered, submitted, { secret: process.env.PEPPER });
 const key = await argon2(passphrase, salt, { m: 65536, t: 3, length: 64, returnAs: "bytes" });
 ```
 
+> [!IMPORTANT]
+> The `async` signature is for symmetry with `hash()` and `hmac()`: the derivation itself runs synchronously on the calling thread, so `await argon2Hash()` does not yield the event loop — at the defaults it holds the thread for roughly 140 ms per call. Where logins share a thread with other traffic (a Node, Bun, or Deno server), run the call in a worker thread. A CLI, a build step, or a runtime that gives each request its own isolate can call it inline.
+
 > [!NOTE]
 > Only version `0x13` (`v=19`) is produced or accepted. A stored string naming another version, an unknown variant, or a shape that is not PHC is refused by **throwing** rather than by returning `false` — a value in an unexpected format is a bug or an unperformed migration, and answering "wrong password" would hide it. A wrong password is the only thing that returns `false`.
 

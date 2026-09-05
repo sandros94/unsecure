@@ -98,6 +98,10 @@ await argon2Verify("not-a-phc-string", password); // throws SyntaxError
 await argon2Verify(phc.replace("v=19", "v=16"), password); // throws Error
 ```
 
+## Pitfall: Expecting `await` to Yield
+
+All three functions are `async` for symmetry with `hash()` and `hmac()`, but the derivation runs synchronously on the calling thread: the promise settles only after every block has been computed, and nothing else on that thread runs in the meantime. At the defaults that is about 140 ms per call, during which a server on the same thread answers nobody. Where logins share a thread with other requests, run the hash in a worker thread and `await` its message instead; a CLI, a build step, or a per-request isolate can call it inline.
+
 ## Pitfall: Raising `p` to Go Faster
 
 `p` is a parameter of the function, not a threading hint. Lanes are computed sequentially here (there is no portable shared-memory threading to use), so raising `p` changes the tag without making anything faster. Leave it at `1` unless you have to match tags produced by a parallel implementation.
@@ -113,4 +117,4 @@ await argon2Verify(user?.passwordHash ?? ABSENT, submitted);
 
 ## Note on Cost
 
-Pure JavaScript Argon2 is roughly an order of magnitude slower than a native binding — measured on a laptop, about 155 ms per hash at the defaults against about 13 ms for `@node-rs/argon2`, and on par with `@noble/hashes`. That is a real cost per login, and it is also the only option on a runtime that refuses WebAssembly instantiation. Lower `m` before you lower `t`; OWASP's fallbacks (`m=12288,t=3`, `m=9216,t=4`, `m=7168,t=5`) trade memory for passes at roughly constant strength.
+Pure JavaScript Argon2 is roughly an order of magnitude slower than a native binding — measured on a laptop, about 155 ms per hash at the defaults against about 13 ms for `@node-rs/argon2`, and on par with `@noble/hashes`. That is a real cost per login, paid on the calling thread (see the pitfall above), and it is also the only option on a runtime that refuses WebAssembly instantiation. Lower `m` before you lower `t`; OWASP's fallbacks (`m=12288,t=3`, `m=9216,t=4`, `m=7168,t=5`) trade memory for passes at roughly constant strength.
