@@ -308,11 +308,14 @@ function _hashPrime(input: Uint8Array, length: number): Uint8Array<ArrayBuffer> 
   out.set(v.subarray(0, 32));
   let position = 32;
   while (length - position > 64) {
-    v = blake2b(v);
+    const next = blake2b(v);
+    v.fill(0);
+    v = next;
     out.set(v.subarray(0, 32), position);
     position += 32;
   }
   out.set(blake2b(v, length - position), position);
+  v.fill(0);
   return out;
 }
 
@@ -525,7 +528,19 @@ function _derive(
     const last = _BLOCK * (laneLength * lane + laneLength - 1);
     for (let i = 0; i < _BLOCK; i++) final[i] ^= memory[last + i];
   }
-  return _hashPrime(_writeBlock(final), length);
+  const finalBytes = _writeBlock(final);
+  const tag = _hashPrime(finalBytes, length);
+
+  // Nothing derived from the password outlives the call: the collector makes no promise about
+  // when it reclaims a buffer, and the module-level scratch would otherwise keep the last block
+  // of the last derivation for as long as the module is loaded.
+  memory.fill(0);
+  address.fill(0);
+  h0.fill(0);
+  final.fill(0);
+  finalBytes.fill(0);
+  _R.fill(0);
+  return tag;
 }
 
 // #region Public API

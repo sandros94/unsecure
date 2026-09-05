@@ -143,6 +143,13 @@ class _Blake2b {
     const out = new Uint8Array(this.outLength);
     // `h` already sits in little-endian order, so each byte is a shift out of its half.
     for (let i = 0; i < out.length; i++) out[i] = (this.h[i >>> 2] >>> ((i & 3) << 3)) & 0xff;
+
+    // The state is single-use, so neither the chain value nor the last block needs to survive
+    // the digest; the shared scratch would otherwise hold that block until the next call.
+    this.h.fill(0);
+    this.block.fill(0);
+    _V.fill(0);
+    _M.fill(0);
     return out;
   }
 
