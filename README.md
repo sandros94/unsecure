@@ -297,6 +297,8 @@ const hotpUri = otpauthURI({
 
 Generates a cryptographically secure string. You can customize its length and character set (all enabled by default). If a string is passed it will be used as a set of allowed characters.
 
+Every enabled character set contributes at least one character, provided `length` — less any timestamp prefix — is at least the number of enabled sets; below that the result is cut to `length` after the shuffle, so which sets appear is a draw.
+
 `length` is a count of code points and must be an integer `>= 1`; a `Date` timestamp must be a valid one. Character sets are read by code point, so an emoji counts as one character and is never split, and no character may appear twice — within a set or across two of them — because a repeat would be drawn more often than its neighbours.
 
 Internally it uses a buffer, which is constantly updated, to minimize Web Crypto API calls and greatly improve performance. This becomes useful when generating 128-512 characters long tokens.

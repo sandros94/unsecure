@@ -56,8 +56,11 @@ const DEFAULT_LENGTH = 16;
 /**
  * Generates a cryptographically secure string based on the provided options.
  *
- * Every enabled category contributes at least one character, the rest is drawn
- * from their union, and the result is shuffled. Sets are read by code point, so
+ * Every enabled category contributes at least one character when `length` —
+ * less any timestamp prefix — is at least the number of enabled categories;
+ * below that the shuffled result is cut to `length`, so which categories
+ * survive is a draw. The rest is drawn from their union, and the result is
+ * shuffled. Sets are read by code point, so
  * `length` counts characters as a reader would — an emoji is one — and the
  * output never contains half of a surrogate pair.
  *
