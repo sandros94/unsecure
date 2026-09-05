@@ -10,8 +10,13 @@ import type { Base32Alphabet, Base64Alphabet } from "../src/utils/index.ts";
 
 type Codec = "hex" | "base64" | "base32";
 
-/** Bytes on success; the error class and our label prefix on failure. */
+/** Bytes on success; the whole `SyntaxError` message on failure. */
 type Outcome = readonly number[] | { readonly syntaxError: string };
+
+/** A strict decode that must fail with exactly this message, on any backend. */
+function throws(message: string): Outcome {
+  return { syntaxError: message };
+}
 
 interface Vector {
   readonly codec: Codec;
@@ -23,9 +28,6 @@ interface Vector {
 
 const FOO = [102, 111, 111] as const;
 const FOOBAR = [102, 111, 111, 98, 97, 114] as const;
-const B64_THROWS = { syntaxError: "Base64.parse" } as const;
-const B32_THROWS = { syntaxError: "Base32.parse" } as const;
-const HEX_THROWS = { syntaxError: "Hex.parse" } as const;
 
 const VECTORS: readonly Vector[] = [
   { codec: "base64", text: "", strict: [], loose: [] },
@@ -46,20 +48,75 @@ const VECTORS: readonly Vector[] = [
   { codec: "base64", text: "Zg==", strict: [102], loose: [102] },
   { codec: "base64", text: "Zg", strict: [102], loose: [102] },
   // Set bits past the final byte: two texts for one byte string.
-  { codec: "base64", text: "Zh==", strict: B64_THROWS, loose: [102] },
-  { codec: "base64", text: "Zh", strict: B64_THROWS, loose: [102] },
+  {
+    codec: "base64",
+    text: "Zh==",
+    strict: throws("Base64.parse: the last base64 symbol sets bits past the final byte."),
+    loose: [102],
+  },
+  {
+    codec: "base64",
+    text: "Zh",
+    strict: throws("Base64.parse: the last base64 symbol sets bits past the final byte."),
+    loose: [102],
+  },
   // Padding present but not the count the length calls for.
-  { codec: "base64", text: "Zm9vYg=", strict: B64_THROWS, loose: [102, 111, 111, 98] },
-  { codec: "base64", text: "Zm9vYmFy=", strict: B64_THROWS, loose: FOOBAR },
-  { codec: "base64", text: "====", strict: B64_THROWS, loose: [] },
-  { codec: "base64", text: "Zg=Zg==", strict: B64_THROWS, loose: [102, 6, 96] },
+  {
+    codec: "base64",
+    text: "Zm9vYg=",
+    strict: throws('Base64.parse: expected 2 "=" padding characters, found 1.'),
+    loose: [102, 111, 111, 98],
+  },
+  {
+    codec: "base64",
+    text: "Zm9vYmFy=",
+    strict: throws('Base64.parse: unexpected "=" padding.'),
+    loose: FOOBAR,
+  },
+  {
+    codec: "base64",
+    text: "====",
+    strict: throws('Base64.parse: unexpected "=" padding.'),
+    loose: [],
+  },
+  {
+    codec: "base64",
+    text: "Zg=Zg==",
+    strict: throws('Base64.parse: invalid base64 character "=" at index 2.'),
+    loose: [102, 6, 96],
+  },
   // A trailing symbol that cannot start a byte.
-  { codec: "base64", text: "Zm9vY", strict: B64_THROWS, loose: FOO },
-  { codec: "base64", text: "Zm 9v", strict: B64_THROWS, loose: FOO },
-  { codec: "base64", text: "Zg=@", strict: B64_THROWS, loose: [102] },
-  { codec: "base64", text: "!!!", strict: B64_THROWS, loose: [] },
+  {
+    codec: "base64",
+    text: "Zm9vY",
+    strict: throws("Base64.parse: 5 base64 symbols cannot encode whole bytes."),
+    loose: FOO,
+  },
+  {
+    codec: "base64",
+    text: "Zm 9v",
+    strict: throws('Base64.parse: invalid base64 character " " at index 2.'),
+    loose: FOO,
+  },
+  {
+    codec: "base64",
+    text: "Zg=@",
+    strict: throws('Base64.parse: invalid base64 character "=" at index 2.'),
+    loose: [102],
+  },
+  {
+    codec: "base64",
+    text: "!!!",
+    strict: throws('Base64.parse: invalid base64 character "!" at index 0.'),
+    loose: [],
+  },
   // Alphabets are enforced in strict, folded in loose.
-  { codec: "base64", text: "Zm9v-A", strict: B64_THROWS, loose: [102, 111, 111, 248] },
+  {
+    codec: "base64",
+    text: "Zm9v-A",
+    strict: throws('Base64.parse: invalid base64 character "-" at index 4.'),
+    loose: [102, 111, 111, 248],
+  },
   { codec: "base64", text: "+/8=", strict: [0xfb, 0xff], loose: [0xfb, 0xff] },
   {
     codec: "base64",
@@ -68,34 +125,111 @@ const VECTORS: readonly Vector[] = [
     strict: [0xfb, 0xff],
     loose: [0xfb, 0xff],
   },
-  { codec: "base64", text: "+/8=", alphabet: "base64url", strict: B64_THROWS, loose: [0xfb, 0xff] },
+  {
+    codec: "base64",
+    text: "+/8=",
+    alphabet: "base64url",
+    strict: throws('Base64.parse: invalid base64 character "+" at index 0.'),
+    loose: [0xfb, 0xff],
+  },
 
   { codec: "base32", text: "", strict: [], loose: [] },
   { codec: "base32", text: "MZXW6YTBOI======", strict: FOOBAR, loose: FOOBAR },
   { codec: "base32", text: "MZXW6===", strict: FOO, loose: FOO },
   { codec: "base32", text: "MZXW6", strict: FOO, loose: FOO },
-  { codec: "base32", text: "MZXW7===", strict: B32_THROWS, loose: FOO },
-  { codec: "base32", text: "MZ=XW6===", strict: B32_THROWS, loose: FOO },
-  { codec: "base32", text: "MZXW6=", strict: B32_THROWS, loose: FOO },
-  { codec: "base32", text: "MZXW 6", strict: B32_THROWS, loose: FOO },
-  { codec: "base32", text: "M", strict: B32_THROWS, loose: [] },
-  { codec: "base32", text: "========", strict: B32_THROWS, loose: [] },
-  { codec: "base32", text: "mzxw6===", strict: B32_THROWS, loose: FOO },
+  {
+    codec: "base32",
+    text: "MZXW7===",
+    strict: throws("Base32.parse: the last base32 symbol sets bits past the final byte."),
+    loose: FOO,
+  },
+  {
+    codec: "base32",
+    text: "MZ=XW6===",
+    strict: throws('Base32.parse: invalid base32 character "=" at index 2.'),
+    loose: FOO,
+  },
+  {
+    codec: "base32",
+    text: "MZXW6=",
+    strict: throws('Base32.parse: expected 3 "=" padding characters, found 1.'),
+    loose: FOO,
+  },
+  {
+    codec: "base32",
+    text: "MZXW 6",
+    strict: throws('Base32.parse: invalid base32 character " " at index 4.'),
+    loose: FOO,
+  },
+  {
+    codec: "base32",
+    text: "M",
+    strict: throws("Base32.parse: 1 base32 symbols cannot encode whole bytes."),
+    loose: [],
+  },
+  {
+    codec: "base32",
+    text: "========",
+    strict: throws('Base32.parse: unexpected "=" padding.'),
+    loose: [],
+  },
+  {
+    codec: "base32",
+    text: "mzxw6===",
+    strict: throws('Base32.parse: invalid base32 character "m" at index 0.'),
+    loose: FOO,
+  },
   { codec: "base32", text: "CPNMU===", alphabet: "base32hex", strict: FOO, loose: FOO },
-  { codec: "base32", text: "cpnmu===", alphabet: "base32hex", strict: B32_THROWS, loose: FOO },
+  {
+    codec: "base32",
+    text: "cpnmu===",
+    alphabet: "base32hex",
+    strict: throws('Base32.parse: invalid base32 character "c" at index 0.'),
+    loose: FOO,
+  },
   { codec: "base32", text: "OO", alphabet: "crockford", strict: [0], loose: [0] },
   { codec: "base32", text: "oo", alphabet: "crockford", strict: [0], loose: [0] },
 
   { codec: "hex", text: "", strict: [], loose: [] },
   { codec: "hex", text: "666f6f", strict: FOO, loose: FOO },
   { codec: "hex", text: "666F6F", strict: FOO, loose: FOO },
-  { codec: "hex", text: "666f6", strict: HEX_THROWS, loose: [102, 111] },
-  { codec: "hex", text: "66 6f 6f", strict: HEX_THROWS, loose: FOO },
-  { codec: "hex", text: "zz666f6f", strict: HEX_THROWS, loose: FOO },
-  { codec: "hex", text: "666f6fzz", strict: HEX_THROWS, loose: FOO },
-  { codec: "hex", text: "66:6f:6f", strict: HEX_THROWS, loose: FOO },
+  {
+    codec: "hex",
+    text: "666f6",
+    strict: throws("Hex.parse: 5 hexadecimal characters cannot encode whole bytes."),
+    loose: [102, 111],
+  },
+  {
+    codec: "hex",
+    text: "66 6f 6f",
+    strict: throws('Hex.parse: invalid hexadecimal character " " at index 2.'),
+    loose: FOO,
+  },
+  {
+    codec: "hex",
+    text: "zz666f6f",
+    strict: throws('Hex.parse: invalid hexadecimal character "z" at index 0.'),
+    loose: FOO,
+  },
+  {
+    codec: "hex",
+    text: "666f6fzz",
+    strict: throws('Hex.parse: invalid hexadecimal character "z" at index 6.'),
+    loose: FOO,
+  },
+  {
+    codec: "hex",
+    text: "66:6f:6f",
+    strict: throws('Hex.parse: invalid hexadecimal character ":" at index 2.'),
+    loose: FOO,
+  },
   // Loose drops non-digits, not "prefixes": the 0 of "0x" is a hex digit.
-  { codec: "hex", text: "0x66", strict: HEX_THROWS, loose: [0x06] },
+  {
+    codec: "hex",
+    text: "0x66",
+    strict: throws('Hex.parse: invalid hexadecimal character "x" at index 1.'),
+    loose: [0x06],
+  },
 ];
 
 type Codecs = typeof import("../src/utils/index.ts");
@@ -128,9 +262,7 @@ function outcome(run: () => Uint8Array): Outcome | { readonly unexpected: string
   try {
     return [...run()];
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      return { syntaxError: error.message.slice(0, error.message.indexOf(":")) };
-    }
+    if (error instanceof SyntaxError) return { syntaxError: error.message };
     return { unexpected: String(error) };
   }
 }
