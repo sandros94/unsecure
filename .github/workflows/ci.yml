@@ -19,7 +19,7 @@ jobs:
       # One failing runtime should not hide the result on the others.
       fail-fast: false
       matrix:
-        node-version: ["22.12", "24", "26"]
+        node-version: ["22", "24", "26"]
 
     steps:
       - name: Checkout code
