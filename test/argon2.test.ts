@@ -196,7 +196,6 @@ describe.concurrent("argon2Hash / argon2Verify", () => {
       "",
       "not-a-phc-string",
       valid.slice(1),
-      valid.replace("$v=19$", "$"),
       valid.replace("m=64,t=2,p=1", "m=64,p=1"),
       // PHC forbids base64 padding.
       `${valid}=`,
@@ -219,6 +218,13 @@ describe.concurrent("argon2Hash / argon2Verify", () => {
     const phc = (await argon2Hash(password, CHEAP)).replace("$v=19$", "$v=16$");
     await expect(argon2Verify(phc, password)).rejects.toThrow(
       "Unsupported argon2 version: 16. Only 19 (0x13) is supported.",
+    );
+  });
+
+  it("reads a PHC string with no version field as 0x10 and refuses it by version", async () => {
+    const phc = (await argon2Hash(password, CHEAP)).replace("$v=19$", "$");
+    await expect(argon2Verify(phc, password)).rejects.toThrow(
+      "Unsupported argon2 version: 16 (no v= field). Only 19 (0x13) is supported.",
     );
   });
 });

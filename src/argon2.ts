@@ -121,10 +121,11 @@ const _DEFAULT_SALT_LENGTH = 16;
  * `$argon2id$v=19$m=…,t=…,p=…$salt$tag`, the PHC string format.
  *
  * The variant and version are captured rather than spelled out so that an unsupported value is
- * refused by name instead of looking like a syntax error.
+ * refused by name instead of looking like a syntax error. The version field is optional in the
+ * format — a string without one predates `0x13` — so its absence is refused the same way.
  */
 const _PHC =
-  /^\$([a-z0-9]+)\$v=(\d+)\$m=(\d+),t=(\d+),p=(\d+)\$([A-Za-z0-9+/]+)\$([A-Za-z0-9+/]+)$/;
+  /^\$([a-z0-9]+)\$(?:v=(\d+)\$)?m=(\d+),t=(\d+),p=(\d+)\$([A-Za-z0-9+/]+)\$([A-Za-z0-9+/]+)$/;
 
 // #region Compression
 
@@ -697,12 +698,18 @@ export async function argon2Verify(
     throw new SyntaxError("argon2Verify: malformed PHC string.");
   }
 
-  const [, variant, version, m, t, p, salt, tag] = parsed;
+  const [, variant, , m, t, p, salt, tag] = parsed;
+  // An unmatched optional group is `undefined` at runtime whatever the array type says.
+  const version: string | undefined = parsed[2];
   if (!_isVariant(variant)) {
     throw new Error(`Unsupported argon2 variant: ${JSON.stringify(variant)}.`);
   }
-  if (Number(version) !== _VERSION) {
-    throw new Error(`Unsupported argon2 version: ${version}. Only 19 (0x13) is supported.`);
+  // A string with no `v=` field predates version 0x13 and decodes as 0x10, so it is refused by
+  // version rather than by shape.
+  const versionNumber = version === undefined ? 0x10 : Number(version);
+  if (versionNumber !== _VERSION) {
+    const found = version === undefined ? `${versionNumber} (no v= field)` : version;
+    throw new Error(`Unsupported argon2 version: ${found}. Only 19 (0x13) is supported.`);
   }
 
   // The alphabet is already constrained by `_PHC`, so a loose decode only tolerates the

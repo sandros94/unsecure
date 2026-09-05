@@ -91,7 +91,7 @@ if (ok && !user.passwordHash.includes("m=19456,t=2,p=1")) {
 
 ## Pitfall: Expecting `false` for a Malformed Hash
 
-Only a wrong password returns `false`. A `phc` that is not a well-formed PHC string throws `SyntaxError`, and one naming an unknown variant or a version other than `0x13` throws `Error`. That is deliberate: a stored value in an unexpected format is a bug or a migration nobody ran, and reporting it as "wrong password" would bury it.
+Only a wrong password returns `false`. A `phc` that is not a well-formed PHC string throws `SyntaxError`, and one naming an unknown variant or a version other than `0x13` — including a string with no `v=` field, which predates it — throws `Error`. That is deliberate: a stored value in an unexpected format is a bug or a migration nobody ran, and reporting it as "wrong password" would bury it.
 
 ```ts
 await argon2Verify("not-a-phc-string", password); // throws SyntaxError
