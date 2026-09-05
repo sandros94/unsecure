@@ -1,6 +1,7 @@
 import type { DigestAlgorithm, DigestReturnAs } from "./hash.ts";
 import { encodeBytes } from "./_internal/encoding.ts";
 import { HASH_LENGTH, normalizeAlgorithm } from "./_internal/algorithm.ts";
+import { assertInteger } from "./_internal/assert.ts";
 import { type BytesSource, toCryptoBytes } from "./_internal/bytes.ts";
 
 /** RFC 5869 treats an absent salt or info as a zero-length one. */
@@ -70,8 +71,8 @@ export interface HKDFOptions {
  * @returns Derived bytes encoded according to `returnAs`, or mirroring the
  *          `ikm` input type when `returnAs` is omitted.
  *
- * @throws {RangeError} If `length` is not a positive integer or exceeds
- *                      `255 * HashLen` for the chosen algorithm.
+ * @throws {RangeError} If `length` is not an integer from 1 to `255 * HashLen`
+ *                      for the chosen algorithm (8160 for SHA-256).
  *
  * @example
  * // BytesSource ikm -> Uint8Array output (default)
@@ -111,15 +112,9 @@ export async function hkdf(
   const { length = 32, salt, info, returnAs } = options;
   const algorithm = normalizeAlgorithm(options.algorithm ?? "SHA-256", "hkdf");
 
-  if (!Number.isInteger(length) || length < 1) {
-    throw new RangeError("length must be a positive integer.");
-  }
-  const maxLen = 255 * HASH_LENGTH[algorithm];
-  if (length > maxLen) {
-    throw new RangeError(
-      `HKDF with ${algorithm} can derive at most ${maxLen} bytes, requested ${length}.`,
-    );
-  }
+  // RFC 5869 caps one derivation at 255 * HashLen bytes; both ends of the
+  // range are the same check, so the message reads like every other one.
+  assertInteger("hkdf", "length", length, 1, 255 * HASH_LENGTH[algorithm]);
 
   const isBufferInput = typeof ikm !== "string";
   const ikmBytes = toCryptoBytes(ikm, "hkdf");

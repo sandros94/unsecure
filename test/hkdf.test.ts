@@ -181,18 +181,23 @@ describe("hkdf API", () => {
 
   it("throws on non-positive or non-integer length", async () => {
     await expect(hkdf(ikm, { length: 0, salt })).rejects.toThrow(RangeError);
+    await expect(hkdf(ikm, { length: 0, salt })).rejects.toThrow(
+      "hkdf: length must be an integer between 1 and 8160, got 0.",
+    );
     await expect(hkdf(ikm, { length: -1, salt })).rejects.toThrow(RangeError);
-    await expect(hkdf(ikm, { length: 2.5, salt })).rejects.toThrow(RangeError);
+    await expect(hkdf(ikm, { length: 2.5, salt })).rejects.toThrow(
+      "hkdf: length must be an integer between 1 and 8160, got 2.5.",
+    );
   });
 
   it("throws when length exceeds 255 * HashLen", async () => {
     // SHA-256: max 255 * 32 = 8160
     await expect(hkdf(ikm, { algorithm: "SHA-256", length: 8161, salt })).rejects.toThrow(
-      /at most 8160/,
+      "hkdf: length must be an integer between 1 and 8160, got 8161.",
     );
     // SHA-1: max 255 * 20 = 5100
     await expect(hkdf(ikm, { algorithm: "SHA-1", length: 5101, salt })).rejects.toThrow(
-      /at most 5100/,
+      "hkdf: length must be an integer between 1 and 5100, got 5101.",
     );
   });
 
@@ -219,7 +224,7 @@ describe("hkdf algorithm names", () => {
 
   it("enforces 255 * HashLen for a lowercase algorithm name", async () => {
     await expect(hkdf(ikm, { algorithm: "sha-256" as any, length: 9000 })).rejects.toThrow(
-      "HKDF with SHA-256 can derive at most 8160 bytes, requested 9000.",
+      "hkdf: length must be an integer between 1 and 8160, got 9000.",
     );
   });
 
