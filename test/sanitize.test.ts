@@ -412,3 +412,58 @@ describe("property handling", () => {
     expect(copy.plain).toBe(1);
   });
 });
+
+describe("array elements", () => {
+  it("never invokes an accessor stored at an array index", () => {
+    const arr: unknown[] = [];
+    Object.defineProperty(arr, 0, {
+      enumerable: true,
+      configurable: true,
+      get() {
+        throw new Error("accessor invoked");
+      },
+    });
+    arr[1] = JSON.parse('{"__proto__": {"evil": true}}');
+
+    expect(() => sanitizeObject({ body: arr })).not.toThrow();
+    expect(Object.prototype.hasOwnProperty.call(arr[1], "__proto__")).toBe(false);
+    expect(() => sanitizeObjectCopy({ body: arr })).not.toThrow();
+  });
+
+  it("copies around an accessor index, keeping every other element in place", () => {
+    const arr: unknown[] = ["first"];
+    Object.defineProperty(arr, 1, {
+      enumerable: true,
+      configurable: true,
+      get() {
+        throw new Error("accessor invoked");
+      },
+    });
+    arr[2] = { safe: 1 };
+
+    const copy = sanitizeObjectCopy({ body: arr }) as any;
+    expect(copy.body.length).toBe(3);
+    expect(copy.body[0]).toBe("first");
+    expect(Object.prototype.hasOwnProperty.call(copy.body, 1)).toBe(false);
+    expect(copy.body[2]).toEqual({ safe: 1 });
+  });
+
+  it("does not read a hole through a polluted Array.prototype", () => {
+    Object.defineProperty(Array.prototype, "1", {
+      configurable: true,
+      get() {
+        throw new Error("prototype accessor invoked");
+      },
+    });
+    try {
+      const holey: unknown[] = [JSON.parse('{"__proto__": {"evil": true}}')];
+      holey.length = 2;
+
+      expect(() => sanitizeObject({ body: holey })).not.toThrow();
+      expect(Object.prototype.hasOwnProperty.call(holey[0], "__proto__")).toBe(false);
+      expect(() => sanitizeObjectCopy({ body: holey })).not.toThrow();
+    } finally {
+      delete (Array.prototype as any)["1"];
+    }
+  });
+});

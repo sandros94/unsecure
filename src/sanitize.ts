@@ -31,9 +31,11 @@ export function safeJsonParse<T = any>(json: string): T {
  * Strips own properties named `__proto__`, `prototype`, and `constructor`
  * through nested objects and arrays, enumerable or not. Cycle-safe.
  *
- * Values are read from their property descriptors, so a getter is never
- * invoked: an accessor is neither traversed nor removed unless its name is
- * one of the three.
+ * Values are read from their property descriptors — array elements included —
+ * so a getter is never invoked: an accessor is neither traversed nor removed
+ * unless its name is one of the three. A `Proxy` is the exception and cannot
+ * be otherwise: its traps run for every property operation, so a proxied
+ * object is traversed through its own traps.
  *
  * Returns the same reference for convenience. Use {@link sanitizeObjectCopy}
  * if you need a deep copy with the original preserved.
@@ -59,7 +61,10 @@ export function sanitizeObject<T extends Record<string, unknown> | undefined>(ob
  * reference, exactly as {@link sanitizeObject} leaves it in place.
  *
  * Only own enumerable data properties are copied — the JSON shape. Accessors
- * are skipped rather than invoked, so the copy never runs caller code.
+ * are skipped rather than invoked, so the copy never runs caller code; an
+ * accessor at an array index leaves a hole there and the elements after it
+ * keep their positions. A `Proxy` is traversed through its own traps, which
+ * run whatever the copy asks for.
  *
  * Cycle-safe: circular references in the input are preserved in the output
  * (pointing at the copied node, not the original reference).
@@ -90,10 +95,15 @@ function _sanitizeInPlace(root: object, seen: WeakSet<object>): void {
   while (stack.length > 0) {
     const current = stack.pop()!;
 
-    // Array branch: numeric for-loop avoids the Object.keys alloc for dense arrays.
+    // Array branch: numeric for-loop avoids the Object.keys alloc for dense
+    // arrays. Elements come from their descriptors for the same reason the
+    // object branch reads them that way — an index can hold an accessor, and a
+    // hole would otherwise be read through a polluted `Array.prototype`.
     if (Array.isArray(current)) {
       for (let i = 0; i < current.length; i++) {
-        const v = current[i];
+        const descriptor = Object.getOwnPropertyDescriptor(current, i);
+        if (descriptor === undefined || !("value" in descriptor)) continue;
+        const v = descriptor.value as unknown;
         if (v !== null && typeof v === "object" && !seen.has(v)) {
           seen.add(v);
           stack.push(v);
@@ -174,10 +184,17 @@ function _sanitizeCopy(root: object, seen: WeakMap<object, unknown>): unknown {
   while (stack.length > 0) {
     const { source, target } = stack.pop()!;
 
+    // Elements are read from their descriptors, so an accessor index is
+    // skipped rather than invoked and a hole is not read through a polluted
+    // `Array.prototype`. Both leave a hole at that index in the copy: the
+    // length is set up front, so every other element keeps its position.
     if (Array.isArray(source)) {
       const out = target as unknown[];
+      out.length = source.length;
       for (let i = 0; i < source.length; i++) {
-        out.push(_copyValue(source[i], seen, stack));
+        const descriptor = Object.getOwnPropertyDescriptor(source, i);
+        if (descriptor === undefined || !("value" in descriptor)) continue;
+        out[i] = _copyValue(descriptor.value as unknown, seen, stack);
       }
       continue;
     }
