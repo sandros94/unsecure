@@ -90,7 +90,7 @@ Hashes input data using a specified cryptographic algorithm. It uses the Web Cry
 options:
 
 - **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws a `RangeError`
-- **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default `hex`)
+- **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default mirrors the input type: a string returns hex, a `BytesSource` returns bytes)
 
 > [!WARNING]
 > `hash()` operates on complete data. The Web Crypto API does not support incremental/streaming digests, so for hashing large streams (e.g. file uploads) you'll need a platform-specific API like Node.js's `crypto.createHash()` or Deno's `crypto.subtle.digestStream()`.
@@ -164,7 +164,7 @@ options:
 - **length**: output length in bytes (default `32`, max `255 * HashLen`)
 - **salt**: non-secret but strongly recommended (string or `BytesSource`, default empty)
 - **info**: context label for domain separation (string or `BytesSource`, default empty)
-- **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default `uint8array`)
+- **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default mirrors the `ikm` input type: a string returns hex, a `BytesSource` returns bytes)
 
 ```ts
 import { hkdf } from "unsecure";
@@ -402,7 +402,9 @@ const fake = entropy("abcdefghijklmnop");
 fake.bitsPerSymbol; // 4 (maximum for 16 unique chars)
 fake.longestRun; // 16
 fake.monotonicDirection; // "ascending"
-fake.bigramBitsPerSymbol; // ~2.46 — noticeably low
+// Every adjacent pair here is distinct, so bigram entropy sits at its ceiling
+// for a 16-symbol sample — longestRun is the field that catches this input.
+fake.bigramBitsPerSymbol; // ~3.66
 
 // Random bytes — near-max across the board
 const bytes = new Uint8Array(256);
@@ -614,7 +616,7 @@ Notes:
 - Install latest LTS version of [Node.js](https://nodejs.org/en/)
 - Enable [Corepack](https://github.com/nodejs/corepack) using `corepack enable`
 - Install dependencies using `pnpm install`
-- Run interactive tests using `pnpm dev`
+- Run the test suite using `pnpm test`
 
 </details>
 
