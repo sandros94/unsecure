@@ -1,4 +1,4 @@
-import { Base64, Hex, base64Parse, hexParse } from "../utils/index.ts";
+import { base64Stringify, hexStringify, base64Parse, hexParse } from "../utils/index.ts";
 import type { DigestReturnAs } from "../hash.ts";
 
 /** The text form a `returnAs` names; `"raw"` is bytes, which have none. */
@@ -54,13 +54,13 @@ export function encodeBytes(
       return bytes;
     }
     case "hex": {
-      return Hex.stringify(bytes);
+      return hexStringify(bytes);
     }
     case "base64": {
-      return Base64.stringify(bytes);
+      return base64Stringify(bytes);
     }
     case "base64url": {
-      return Base64.stringify(bytes, { alphabet: "base64url" });
+      return base64Stringify(bytes, { alphabet: "base64url" });
     }
   }
 }
