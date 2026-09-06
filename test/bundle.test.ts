@@ -186,6 +186,31 @@ const ENTRIES: ReadonlyArray<Entry> = [
   },
 ];
 
+interface UnusedCall {
+  /** The single name imported from the module. */
+  name: string;
+  /** The module, relative to `src`. */
+  module: string;
+  /** A call whose result is discarded. */
+  call: string;
+  /** Minified bytes that may survive once the call is dropped. */
+  ceiling: number;
+}
+
+/**
+ * A call whose result nobody reads must take its work with it. That is what
+ * `@__NO_SIDE_EFFECTS__` promises on every value-returning function, and a
+ * missing annotation shows up here as a whole module surviving.
+ */
+const UNUSED_CALLS: ReadonlyArray<UnusedCall> = [
+  { name: "secureCompare", module: "compare.ts", call: 'secureCompare("a", "b")', ceiling: 0 },
+  { name: "hexParse", module: "utils/index.ts", call: 'hexParse("ab")', ceiling: 0 },
+  { name: "sanitizeObjectCopy", module: "sanitize.ts", call: "sanitizeObjectCopy({})", ceiling: 0 },
+  { name: "uuidv7", module: "uuid.ts", call: "uuidv7()", ceiling: 0 },
+  { name: "hash", module: "hash.ts", call: 'hash("x")', ceiling: 0 },
+  { name: "hotp", module: "otp.ts", call: 'hotp("JBSWY3DP", 0)', ceiling: 0 },
+];
+
 /** The id of the generated entry, `\0`-prefixed so nothing tries to read it. */
 const VIRTUAL_ENTRY = "\0unsecure-bundle-entry";
 
@@ -195,9 +220,13 @@ const VIRTUAL_ENTRY = "\0unsecure-bundle-entry";
  * which would measure nothing.
  */
 async function bundleImport(entry: Entry): Promise<string> {
-  const source = `import { ${entry.name} } from ${JSON.stringify(path.join(SRC, entry.module))};
+  return bundleSource(`import { ${entry.name} } from ${JSON.stringify(path.join(SRC, entry.module))};
 console.log(${entry.name});
-`;
+`);
+}
+
+/** Bundle an entry module given as source text and return the minified code. */
+async function bundleSource(source: string): Promise<string> {
   const build = await rolldown({
     input: VIRTUAL_ENTRY,
     platform: "neutral",
@@ -236,6 +265,25 @@ describe("tree-shaking", () => {
         for (const marker of entry.absent) {
           expect(code, `${entry.name} bundle must not contain ${marker}`).not.toContain(marker);
         }
+      },
+      TIMEOUT,
+    );
+  }
+});
+
+describe("unused-call elimination", () => {
+  for (const entry of UNUSED_CALLS) {
+    it(
+      `drops ${entry.call} entirely when its result is unused`,
+      async () => {
+        const code = await bundleSource(
+          `import { ${entry.name} } from ${JSON.stringify(path.join(SRC, entry.module))};\n${entry.call};\n`,
+        );
+        const size = new TextEncoder().encode(code).length;
+        expect(
+          size,
+          `${entry.call} leaves ${size} bytes behind; a value-returning function on its path is missing @__NO_SIDE_EFFECTS__`,
+        ).toBeLessThanOrEqual(entry.ceiling);
       },
       TIMEOUT,
     );
