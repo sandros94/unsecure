@@ -89,16 +89,16 @@
   "devDependencies": {
     "@noble/hashes": "^2.4.0",
     "@node-rs/argon2": "^2.2.0",
-    "@types/node": "^24",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@types/node": "^24.13.3",
+    "@vitest/coverage-v8": "^4.1.11",
     "obuild": "^0.4.38",
     "oxfmt": "^0.59.0",
-    "oxlint": "^1.74.0",
+    "oxlint": "^1.81.0",
     "oxlint-tsgolint": "^0.24.0",
-    "rolldown": "1.2.0",
-    "simple-git-hooks": "^2.13.1",
+    "rolldown": "1.2.7",
+    "simple-git-hooks": "^2.14.0",
     "typescript": "~7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "resolutions": {
     "unsecure": "link:."
