@@ -6,8 +6,8 @@ HMAC signing and constant-time verification via `crypto.subtle`.
 
 ```ts
 async function hmac(
-  secret: string | BufferSource,
-  data: string | BufferSource,
+  secret: string | BytesSource,
+  data: string | BytesSource,
   options?: {
     algorithm?: "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512"; // default: "SHA-256"
     returnAs?: "hex" | "base64" | "b64" | "base64url" | "b64url" | "uint8array" | "bytes";
@@ -15,20 +15,26 @@ async function hmac(
 ): Promise<string | Uint8Array>;
 
 async function hmacVerify(
-  secret: string | BufferSource,
-  data: string | BufferSource,
-  signature: string | Uint8Array,
+  secret: string | BytesSource,
+  data: string | BytesSource,
+  signature: string | BytesSource | null | undefined,
   options?: { algorithm?; returnAs? },
 ): Promise<boolean>;
 ```
 
+Algorithm names are matched case-insensitively (`"sha-256"` works); anything else throws a `RangeError` naming the four supported digests, before Web Crypto is reached.
+
 **Return type inference** (for `hmac()`):
 
 - `string` data → `string` (hex) by default
-- `BufferSource` data → `Uint8Array` by default
+- `BytesSource` data → `Uint8Array` by default
 - Explicit `returnAs` overrides the default
 
-`hmacVerify()` uses `secureCompare()` internally for constant-time comparison.
+`hmacVerify()` compares raw MAC bytes with `secureCompare()`, in constant time. A `BytesSource` signature is compared as-is; a **string** signature is decoded strictly with the codec named by `returnAs` — the format `hmac()` would have produced for the same options — so one options object serves both calls. `returnAs: "uint8array"` / `"bytes"` (and an omitted `returnAs`) read a string signature as hex.
+
+Untrusted input never throws: a `null` or `undefined` signature, text that is not a canonical encoding, or a value that is neither text nor bytes simply fails to verify. An empty `secret` or an unsupported `algorithm` still throws — those describe the server, not the request.
+
+`hmac()` and `hmacVerify()` both reject an empty `secret` with `RangeError: hmac: secret must not be empty.` before Web Crypto is reached; a secret that failed to load is a deployment bug, not a bad signature.
 
 ## Examples
 
@@ -60,7 +66,7 @@ import { hmacVerify } from "unsecure/hmac";
 import { randomJitter } from "unsecure/random";
 
 async function handleWebhook(req: Request) {
-  const signature = req.headers.get("x-signature")!;
+  const signature = req.headers.get("x-signature");
   const body = await req.text();
 
   const valid = await hmacVerify(WEBHOOK_SECRET, body, signature);
@@ -91,7 +97,7 @@ if (await hmacVerify(secret, data, receivedHmac)) { ... }
 When using `hmacVerify()`, the `returnAs` option must match the format of the `signature` argument. If the signature was produced as base64, verify with `{ returnAs: "base64" }`.
 
 ```ts
-// ❌ Signature is base64 but verifying without returnAs (defaults to hex)
+// ❌ Signature is base64 but verifying without returnAs (decoded as hex)
 const sig = await hmac(secret, data, { returnAs: "base64" });
 await hmacVerify(secret, data, sig); // WRONG — will fail
 

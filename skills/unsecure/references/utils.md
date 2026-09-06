@@ -1,15 +1,19 @@
 # Encoding Utilities (`unsecure/utils`)
 
-JSON-style codecs for hex, base64 (incl. URL-safe), and base32 — each exposes
-`stringify` (bytes → text) and `parse` (text → bytes), available from the
+Codecs for hex, base64 (incl. URL-safe), and base32 — each a `stringify`
+(bytes → text) / `parse` (text → bytes) pair, available from the
 `unsecure/utils` subpath and re-exported from the main barrel.
 
 ```ts
-import { Hex, Base64, Base32 } from "unsecure/utils";
+import { hexStringify, hexParse } from "unsecure/utils";
 
-Hex.stringify(bytes); // "deadbeef…"
-Hex.parse("deadbeef", { returnAs: "bytes" }); // Uint8Array
+hexStringify(bytes); // "deadbeef…"
+hexParse("deadbeef", { returnAs: "bytes" }); // Uint8Array
 ```
+
+The `Hex`, `Base64` and `Base32` objects group the same functions JSON-style —
+`Hex.stringify` _is_ `hexStringify`. Import the flat functions when you want a
+bundle to carry one codec instead of three.
 
 For CDN delivery prefer the `unsecure/utils` subpath; for bundlers either the
 subpath or the main barrel is fine (tree-shakes under `sideEffects: false`).
@@ -18,12 +22,19 @@ subpath or the main barrel is fine (tree-shakes under `sideEffects: false`).
 
 ```ts
 import {
+  hexStringify,
+  hexParse,
+  base64Stringify,
+  base64Parse,
+  base32Stringify,
+  base32Parse,
   Hex,
   Base64,
   Base32,
   textEncoder,
   textDecoder,
   // types
+  type BytesSource,
   type DecodeReturnAs,
   type DecodeOptions,
   type Base64Alphabet,
@@ -35,8 +46,10 @@ import {
 
 Every codec follows the same contract:
 
-- **`stringify(data, options?)`** — `data` is `Uint8Array` or a `string` (UTF-8
-  encoded first). Returns the encoded string. `null` / `undefined` throws `TypeError`.
+- **`stringify(data, options?)`** — `data` is a `string` (UTF-8 encoded first)
+  or any `BytesSource`: an `ArrayBuffer` (shared or not), a `DataView`, or any
+  typed array. Returns the encoded string.
+  `null` / `undefined` throws `TypeError`.
 - **`parse(input, options?)`** — `input` is the encoded `string` (or its
   `Uint8Array` bytes). Returns bytes or a UTF-8 string; see `returnAs` below.
   **Strict by default** — malformed input throws `SyntaxError`. Pass
@@ -46,16 +59,33 @@ Every codec follows the same contract:
 decoded as UTF-8), `Uint8Array` in → `Uint8Array` out. Override with
 `{ returnAs: "string" | "uint8array" | "bytes" }` (`"bytes"` aliases `"uint8array"`).
 
+Byte output always owns an `ArrayBuffer` exactly its own length — never a view
+into a pool or a longer scratch buffer.
+
+## Text handling
+
+`Uint8Array` input is the _encoded text's_ bytes, read one character per byte.
+A byte >= 0x80 is therefore a character no alphabet carries: strict throws,
+loose drops it. A leading `EF BB BF` is three such characters, not a BOM to
+skip.
+
+On the way out, a decoded U+FEFF is kept — it is part of the byte string, not
+a signature. Strict decode requires the bytes to be valid UTF-8 and throws
+`SyntaxError` otherwise; loose substitutes U+FFFD. Ask for
+`{ returnAs: "bytes" }` when the payload is not text.
+
 ## Hex
 
 ```ts
-Hex.stringify("hello"); // "68656c6c6f"
-Hex.stringify(new Uint8Array([0xde, 0xad])); // "dead"
-Hex.parse("68656c6c6f"); // "hello"
-Hex.parse("68656c6c6f", { returnAs: "uint8array" }); // Uint8Array
+hexStringify("hello"); // "68656c6c6f"
+hexStringify(new Uint8Array([0xde, 0xad])); // "dead"
+hexParse("68656c6c6f"); // "hello"
+hexParse("68656c6c6f", { returnAs: "uint8array" }); // Uint8Array
 
-Hex.parse("zz"); // throws SyntaxError (strict)
-Hex.parse("abc", { loose: true, returnAs: "bytes" }); // Uint8Array [0xab] (drops the odd nibble)
+hexParse("zz"); // throws SyntaxError (strict)
+hexParse("de ad"); // throws: whitespace is a character like any other
+hexParse("de ad", { loose: true, returnAs: "bytes" }); // Uint8Array [0xde, 0xad]
+hexParse("abc", { loose: true, returnAs: "bytes" }); // Uint8Array [0xab] (drops the odd nibble)
 ```
 
 ## Base64
@@ -64,40 +94,62 @@ Standard by default. Pass `{ alphabet: "base64url" }` for URL-safe (`-_`,
 unpadded by default). `{ padding: false }` drops `=` on any alphabet.
 
 ```ts
-Base64.stringify(new Uint8Array([1, 2, 3])); // "AQID"
-Base64.stringify(bytes, { padding: false }); // unpadded
-Base64.stringify(bytes, { alphabet: "base64url" }); // URL-safe, unpadded
+base64Stringify(new Uint8Array([1, 2, 3])); // "AQID"
+base64Stringify(bytes, { padding: false }); // unpadded
+base64Stringify(bytes, { alphabet: "base64url" }); // URL-safe, unpadded
 
-Base64.parse("AQID", { returnAs: "bytes" }); // Uint8Array
-Base64.parse(token, { alphabet: "base64url" }); // strict URL-safe decode
-Base64.parse(untrusted, { loose: true }); // tolerant (accepts either alphabet)
+base64Parse("AQID", { returnAs: "bytes" }); // Uint8Array
+base64Parse(token, { alphabet: "base64url" }); // strict URL-safe decode
+base64Parse("Zm9vYg"); // unpadded is canonical too
+base64Parse(untrusted, { loose: true }); // tolerant (accepts either alphabet)
 ```
 
 ## Base32
 
 `alphabet` accepts `"base32"` (RFC 4648, default), `"base32hex"`,
-`"crockford"`, or a custom 32-character string. Padded by default except
-Crockford; `{ padding: false }` to override.
+`"crockford"`, or a custom 32-character string — 32 distinct ASCII characters,
+none of them `=` or whitespace; anything else throws `SyntaxError`. Padded by
+default except Crockford; `{ padding: false }` to override.
+
+Strict decode is uppercase-only for `base32` and `base32hex`; `{ loose: true }`
+folds case. Crockford is case-insensitive in both modes and maps `O`→0,
+`I`/`L`→1, per that alphabet's own spec. A custom alphabet is taken literally
+in both modes — its case may carry meaning.
 
 ```ts
-Base32.stringify("foobar"); // "MZXW6YTBOI======"
-Base32.stringify(secret, { padding: false }); // unpadded (e.g. OTP secrets)
-Base32.stringify(bytes, { alphabet: "crockford" }); // Crockford, unpadded
-Base32.parse("MZXW6YTBOI", { returnAs: "bytes" }); // raw bytes
+base32Stringify("foobar"); // "MZXW6YTBOI======"
+base32Stringify(secret, { padding: false }); // unpadded (e.g. OTP secrets)
+base32Stringify(bytes, { alphabet: "crockford" }); // Crockford, unpadded
+base32Parse("MZXW6YTBOI", { returnAs: "bytes" }); // raw bytes
 
 // Crockford decode is case-insensitive and maps O→0, I/L→1.
-Base32.parse(id, { alphabet: "crockford" });
+base32Parse(id, { alphabet: "crockford" });
+
+base32Parse("MZXW6"); // unpadded is canonical too
+base32Parse("MZXW7==="); // throws: bits set past the final byte
 ```
 
-## Strictness & runtimes
+## Strict and loose
 
-`parse` is strict by default to avoid decode malleability (distinct inputs
-decoding to the same bytes). Where a runtime ships the TC39 methods
-(`Uint8Array.fromBase64`/`fromHex`), strict decode uses them directly.
+`parse` is strict by default to avoid decode malleability — two texts
+decoding to the same bytes.
 
-- **base64** tolerates ASCII whitespace in strict mode (matches native `fromBase64`).
-- **hex** rejects whitespace in strict mode (matches native `fromHex`).
-- **base32** rejects whitespace in strict mode; `{ loose: true }` skips it.
+**Strict accepts exactly the canonical encoding of some byte string:**
+
+- characters from the selected alphabet only — whitespace is a character like
+  any other, and is rejected;
+- `=` only as a trailing run, and only in the count the body length calls for,
+  or absent entirely. Unpadded is canonical, so anything `stringify` emits —
+  including `{ padding: false }` and the unpadded `base64url` default —
+  round-trips;
+- a length that can encode whole bytes (`Zm9vY` cannot);
+- no set bits past the final byte (`Zg==` decodes `f`; `Zh==` does not decode).
+
+**Loose normalizes and never throws on shape:** every character outside the
+alphabet is dropped (whitespace, `=`, junk, anything non-ASCII), base64 folds
+`-_` onto `+/` and accepts either alphabet, a trailing symbol that cannot
+start a byte is dropped, and bits past the final byte are ignored. Nullish
+input still throws `TypeError`.
 
 Use `{ loose: true }` for user-supplied values that may be formatted (e.g.
 OTP secrets pasted with spaces).
@@ -111,24 +163,13 @@ const bytes = textEncoder.encode("hello");
 const str = textDecoder.decode(bytes);
 ```
 
-## Deprecated (removed in 0.3.0)
-
-The flat functions are now thin `loose` wrappers over the codecs — replace them:
-
-| Deprecated              | Replacement                                                                |
-| ----------------------- | -------------------------------------------------------------------------- |
-| `hexEncode(x)`          | `Hex.stringify(x)`                                                         |
-| `hexDecode(x, o)`       | `Hex.parse(x, o)` (strict — add `{ loose: true }` to match old behavior)   |
-| `base64Encode(x)`       | `Base64.stringify(x)`                                                      |
-| `base64Decode(x, o)`    | `Base64.parse(x, o)` (add `{ loose: true }` for old behavior)              |
-| `base64UrlEncode(x)`    | `Base64.stringify(x, { alphabet: "base64url" })`                           |
-| `base64UrlDecode(x, o)` | `Base64.parse(x, { alphabet: "base64url", ...o })` (add `{ loose: true }`) |
-| `base32Encode(x)`       | `Base32.stringify(x)` (padded) or `{ padding: false }`                     |
-| `base32Decode(x, o)`    | `Base32.parse(x, o)` (add `{ loose: true }` for old behavior)              |
-
 ## Internal: Buffer / native detection
 
 Encoding prefers Node.js `Buffer` when available, then the TC39
-`Uint8Array.toBase64`/`fromBase64`/`toHex`/`fromHex` methods, then manual
-fallbacks. Strict decode prefers the TC39 methods (Buffer can't enforce an
-alphabet). Transparent to callers — the API is identical everywhere.
+`Uint8Array.toBase64`/`toHex` methods, then manual fallbacks.
+
+Decoding settles the contract in JavaScript first and hands a backend only
+canonical, fully padded, standard-alphabet text to bulk-decode. Native
+`fromBase64`'s own strict mode is never used: it enforces a different contract
+(padding mandatory, whitespace fatal), and the result must not depend on which
+runtime is underneath. Same bytes, same error, everywhere.

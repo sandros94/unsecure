@@ -204,3 +204,266 @@ describe("safeJsonParse", () => {
     expect(() => safeJsonParse("not json")).toThrow(SyntaxError);
   });
 });
+
+describe("sanitizeObjectCopy pass-through", () => {
+  it("passes non-plain values through by reference", () => {
+    class Thing {
+      v = 1;
+    }
+    const date = new Date(0);
+    const map = new Map([["a", 1]]);
+    const set = new Set([1]);
+    const bytes = new Uint8Array([1, 2]);
+    const regexp = /x/g;
+    const fn = (): number => 1;
+    const instance = new Thing();
+
+    const copy = sanitizeObjectCopy({ date, map, set, bytes, regexp, fn, instance } as any) as any;
+
+    expect(copy.date).toBe(date);
+    expect(copy.map).toBe(map);
+    expect(copy.set).toBe(set);
+    expect(copy.bytes).toBe(bytes);
+    expect(copy.regexp).toBe(regexp);
+    expect(copy.fn).toBe(fn);
+    expect(copy.instance).toBe(instance);
+  });
+
+  it("copies null-prototype nested objects onto Object.prototype", () => {
+    const nested = Object.create(null) as Record<string, unknown>;
+    nested.safe = 1;
+    const copy = sanitizeObjectCopy({ nested }) as any;
+    expect(copy.nested).not.toBe(nested);
+    expect(Object.getPrototypeOf(copy.nested)).toBe(Object.prototype);
+    expect(copy.nested.safe).toBe(1);
+  });
+});
+
+describe("sanitizeObjectCopy root pass-through", () => {
+  it("returns a non-plain root unchanged", () => {
+    const map = new Map([["a", 1]]);
+    expect(sanitizeObjectCopy(map as any)).toBe(map);
+  });
+});
+
+describe("deep nesting", () => {
+  const DEPTH = 100_000;
+
+  function deepObject(): Record<string, unknown> {
+    const root: Record<string, unknown> = {};
+    let node = root;
+    for (let i = 0; i < DEPTH; i++) {
+      const next: Record<string, unknown> = {};
+      node.a = next;
+      node = next;
+    }
+    node.leaf = 1;
+    return root;
+  }
+
+  function depthOf(value: unknown): number {
+    let depth = 0;
+    let node = value as Record<string, unknown> | undefined;
+    while (node && typeof node === "object" && "a" in node) {
+      node = node.a as Record<string, unknown>;
+      depth++;
+    }
+    return depth;
+  }
+
+  it("sanitizeObject walks a 100 000-level tree", () => {
+    const obj = deepObject();
+    expect(depthOf(sanitizeObject(obj))).toBe(DEPTH);
+  });
+
+  it("sanitizeObjectCopy copies a 100 000-level tree", () => {
+    const obj = deepObject();
+    const copy = sanitizeObjectCopy(obj);
+    // `expect().not.toBe()` builds a structural hint that recurses.
+    expect(copy === obj).toBe(false);
+    expect(depthOf(copy)).toBe(DEPTH);
+  });
+
+  it("safeJsonParse parses a 100 000-level payload", () => {
+    const json = `{"a":`.repeat(DEPTH) + "1" + "}".repeat(DEPTH);
+    expect(depthOf(safeJsonParse(json))).toBe(DEPTH);
+  });
+
+  it("safeJsonParse strips dangerous keys deep in a 10 000-level payload", () => {
+    const inner = '{"__proto__":{"evil":true},"ok":1}';
+    const json = `{"a":`.repeat(10_000) + inner + "}".repeat(10_000);
+    let node = safeJsonParse<any>(json);
+    for (let i = 0; i < 10_000; i++) node = node.a;
+    expect(Object.prototype.hasOwnProperty.call(node, "__proto__")).toBe(false);
+    expect(node.ok).toBe(1);
+  });
+
+  it("safeJsonParse sanitizes array and primitive roots", () => {
+    expect(safeJsonParse('[{"__proto__":{"x":1},"ok":2}]')).toEqual([{ ok: 2 }]);
+    expect(safeJsonParse("42")).toBe(42);
+    expect(safeJsonParse("null")).toBeNull();
+    expect(safeJsonParse('"text"')).toBe("text");
+  });
+
+  it("sanitizeObject strips a dangerous key deep in a 10 000-level tree", () => {
+    const root: Record<string, unknown> = {};
+    let node = root;
+    for (let i = 0; i < 10_000; i++) {
+      const next: Record<string, unknown> = {};
+      node.a = next;
+      node = next;
+    }
+    Object.defineProperty(node, "constructor", { value: 1, configurable: true, enumerable: true });
+    sanitizeObject(root);
+    expect(Object.prototype.hasOwnProperty.call(node, "constructor")).toBe(false);
+  });
+});
+
+describe("property handling", () => {
+  it("removes a non-enumerable own dangerous key", () => {
+    const obj: Record<string, unknown> = {};
+    Object.defineProperty(obj, "__proto__", {
+      value: { poisoned: true },
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    });
+    sanitizeObject(obj);
+    expect(Object.prototype.hasOwnProperty.call(obj, "__proto__")).toBe(false);
+  });
+
+  it("never invokes an accessor while traversing", () => {
+    let reads = 0;
+    const obj: Record<string, unknown> = { safe: 1 };
+    Object.defineProperty(obj, "trap", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        reads++;
+        return {};
+      },
+    });
+    sanitizeObject(obj);
+    expect(reads).toBe(0);
+    // The accessor itself is left alone — only dangerous names are removed.
+    expect(Object.prototype.hasOwnProperty.call(obj, "trap")).toBe(true);
+  });
+
+  it("removes a dangerous key that is an accessor without invoking it", () => {
+    let reads = 0;
+    const obj: Record<string, unknown> = {};
+    Object.defineProperty(obj, "constructor", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        reads++;
+        return 1;
+      },
+    });
+    sanitizeObject(obj);
+    expect(Object.prototype.hasOwnProperty.call(obj, "constructor")).toBe(false);
+    expect(reads).toBe(0);
+  });
+
+  it("traverses into a non-enumerable own data property", () => {
+    const inner = JSON.parse('{"__proto__": {"evil": true}}');
+    const obj: Record<string, unknown> = {};
+    Object.defineProperty(obj, "hidden", {
+      value: inner,
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    });
+    sanitizeObject(obj);
+    expect(Object.prototype.hasOwnProperty.call(inner, "__proto__")).toBe(false);
+  });
+
+  it("refuses a frozen object holding a dangerous key", () => {
+    const obj = Object.freeze(JSON.parse('{"__proto__": {"x": 1}, "safe": 1}'));
+    expect(() => sanitizeObject(obj)).toThrow(TypeError);
+    expect(() => sanitizeObject(obj)).toThrow(
+      'sanitizeObject: cannot remove "__proto__" from a frozen object; use sanitizeObjectCopy().',
+    );
+  });
+
+  it("leaves a frozen object without dangerous keys alone", () => {
+    const obj = Object.freeze({ safe: 1 });
+    expect(sanitizeObject(obj)).toBe(obj);
+  });
+
+  it("copy skips accessors and non-enumerable properties", () => {
+    let reads = 0;
+    const input: Record<string, unknown> = { plain: 1 };
+    Object.defineProperty(input, "lazy", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        reads++;
+        return 2;
+      },
+    });
+    Object.defineProperty(input, "hidden", { value: 3, enumerable: false, configurable: true });
+
+    const copy = sanitizeObjectCopy(input) as any;
+
+    expect(reads).toBe(0);
+    expect(Object.prototype.hasOwnProperty.call(copy, "lazy")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(copy, "hidden")).toBe(false);
+    expect(copy.plain).toBe(1);
+  });
+});
+
+describe("array elements", () => {
+  it("never invokes an accessor stored at an array index", () => {
+    const arr: unknown[] = [];
+    Object.defineProperty(arr, 0, {
+      enumerable: true,
+      configurable: true,
+      get() {
+        throw new Error("accessor invoked");
+      },
+    });
+    arr[1] = JSON.parse('{"__proto__": {"evil": true}}');
+
+    expect(() => sanitizeObject({ body: arr })).not.toThrow();
+    expect(Object.prototype.hasOwnProperty.call(arr[1], "__proto__")).toBe(false);
+    expect(() => sanitizeObjectCopy({ body: arr })).not.toThrow();
+  });
+
+  it("copies around an accessor index, keeping every other element in place", () => {
+    const arr: unknown[] = ["first"];
+    Object.defineProperty(arr, 1, {
+      enumerable: true,
+      configurable: true,
+      get() {
+        throw new Error("accessor invoked");
+      },
+    });
+    arr[2] = { safe: 1 };
+
+    const copy = sanitizeObjectCopy({ body: arr }) as any;
+    expect(copy.body.length).toBe(3);
+    expect(copy.body[0]).toBe("first");
+    expect(Object.prototype.hasOwnProperty.call(copy.body, 1)).toBe(false);
+    expect(copy.body[2]).toEqual({ safe: 1 });
+  });
+
+  it("does not read a hole through a polluted Array.prototype", () => {
+    Object.defineProperty(Array.prototype, "1", {
+      configurable: true,
+      get() {
+        throw new Error("prototype accessor invoked");
+      },
+    });
+    try {
+      const holey: unknown[] = [JSON.parse('{"__proto__": {"evil": true}}')];
+      holey.length = 2;
+
+      expect(() => sanitizeObject({ body: holey })).not.toThrow();
+      expect(Object.prototype.hasOwnProperty.call(holey[0], "__proto__")).toBe(false);
+      expect(() => sanitizeObjectCopy({ body: holey })).not.toThrow();
+    } finally {
+      delete (Array.prototype as any)["1"];
+    }
+  });
+});

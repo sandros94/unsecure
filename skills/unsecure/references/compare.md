@@ -1,18 +1,20 @@
 # secureCompare()
 
-Constant-time comparison to prevent timing attacks. Compares two values (string or `Uint8Array`) in a way that takes the same time regardless of where the first difference occurs.
+Constant-time comparison to prevent timing attacks. Compares two values (a string or any byte container: `Uint8Array`, `ArrayBuffer`, `DataView`, a `SharedArrayBuffer`-backed view, …) in a way that takes the same time regardless of where the first difference occurs.
 
 ## Signature
 
 ```ts
 function secureCompare(
-  expected: Uint8Array | string | undefined,
-  received: Uint8Array | string | undefined,
+  expected: string | BytesSource | undefined,
+  received: string | BytesSource | null | undefined,
   options?: { strict?: boolean }, // default: { strict: false }
 ): boolean;
 ```
 
 **Critical rule:** The `expected` parameter (first argument) determines the loop length. Always pass the **trusted, server-side value** as `expected` and the **untrusted, user-provided value** as `received`.
+
+**`received` behavior:** `received` is untrusted input. A string or any `BytesSource` is compared; anything else — `null` from a missing header, `undefined` from a missing DB column, a number or an array out of a JSON body — is a mismatch and returns `false` without throwing. A wrong `expected` type is a bug in your own code and throws a `TypeError`.
 
 **Empty / undefined `expected` behavior:**
 
@@ -38,6 +40,8 @@ secureCompare("hello", new TextEncoder().encode("hello")); // true
 
 // Handles undefined / empty gracefully (returns false, no throw)
 secureCompare("expected", undefined); // false
+secureCompare("expected", req.headers.get("x-signature")); // false when absent — no `!` needed
+secureCompare("expected", 12345); // false — not text or bytes
 secureCompare("", "something"); // false
 secureCompare(undefined, undefined); // false — never "empty matches empty"
 

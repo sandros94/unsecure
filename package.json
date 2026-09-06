@@ -73,8 +73,8 @@
     "lint": "oxlint . && oxfmt --check .",
     "fmt": "oxlint --fix . && oxfmt .",
     "prepack": "pnpm build",
-    "test": "vitest run --slowTestThreshold=1000",
-    "test:coverage": "vitest run --coverage --slowTestThreshold=1000",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "bench": "vitest bench --run"
   },
@@ -98,14 +98,13 @@
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
-      "version": "11.13.0",
+      "version": "11.25.0",
       "onFail": "download"
     },
     "runtime": {
       "name": "node",
-      "version": ">=24.11.0",
+      "version": "^22.13 || >=24",
       "onFail": "error"
     }
-  },
-  "packageManager": "pnpm@11.13.0"
+  }
 }

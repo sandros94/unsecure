@@ -15,6 +15,8 @@ function secureGenerate(options?: {
 }): string;
 ```
 
+**Input contract:** `length` is an integer `>= 1`, counted in code points (`RangeError` otherwise, `NaN` / `Infinity` / `5.5` included); a `Date` passed as `timestamp` must be valid. Sets are iterated by code point, so an astral character is one draw and the output never contains half a surrogate pair. A character may not appear twice across the selected sets — `{ numbers: "0123456789", specials: "0!" }` throws `RangeError`, because the repeat would skew the distribution.
+
 **Key behavior:** Each enabled character category is guaranteed to appear at least once in the output — the function picks one random character from each category, fills the rest from the full charset, then securely shuffles.
 
 When a `string` is passed instead of `true` for a category, it replaces the default character set with the provided characters.
@@ -45,6 +47,8 @@ const pin = secureGenerate({
   lowercase: false,
   specials: false,
 });
+
+// Custom sets must not overlap: "0" in two sets throws RangeError
 
 // Custom character set for numbers
 const oddPin = secureGenerate({

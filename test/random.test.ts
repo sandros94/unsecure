@@ -65,20 +65,26 @@ describe.concurrent("Random-based Functions", () => {
 
     it("should throw RangeError when max is 0 or negative", () => {
       expect(() => secureRandomNumber(0)).toThrow(RangeError);
-      expect(() => secureRandomNumber(0)).toThrow("max must be greater than min.");
+      expect(() => secureRandomNumber(0)).toThrow(
+        "SecureRandomGenerator.next: max must be greater than min.",
+      );
       expect(() => secureRandomNumber(-5)).toThrow(RangeError);
     });
 
     it("should throw RangeError when max is not an integer", () => {
       const max = 3.14;
       expect(() => secureRandomNumber(max)).toThrow(RangeError);
-      expect(() => secureRandomNumber(max)).toThrow("min and max must be integers.");
+      expect(() => secureRandomNumber(max)).toThrow(
+        "SecureRandomGenerator.next: min and max must be integers.",
+      );
     });
 
     it("should throw RangeError when range is greater than 2**32", () => {
       const max = 2 ** 32 + 1;
       expect(() => secureRandomNumber(max)).toThrow(RangeError);
-      expect(() => secureRandomNumber(max)).toThrow("range must be less than or equal to 2^32.");
+      expect(() => secureRandomNumber(max)).toThrow(
+        "SecureRandomGenerator.next: range must be less than or equal to 2^32.",
+      );
     });
   });
 
@@ -129,14 +135,18 @@ describe.concurrent("Random-based Functions", () => {
 
     it("should throw RangeError when max <= min", () => {
       expect(() => secureRandomNumber(10, 10)).toThrow(RangeError);
-      expect(() => secureRandomNumber(10, 10)).toThrow("max must be greater than min.");
+      expect(() => secureRandomNumber(10, 10)).toThrow(
+        "SecureRandomGenerator.next: max must be greater than min.",
+      );
       expect(() => secureRandomNumber(10, 5)).toThrow(RangeError);
     });
 
     it("should throw RangeError when min or max are not integers", () => {
       expect(() => secureRandomNumber(1.5, 10)).toThrow(RangeError);
       expect(() => secureRandomNumber(1, 10.5)).toThrow(RangeError);
-      expect(() => secureRandomNumber(1.5, 10.5)).toThrow("min and max must be integers.");
+      expect(() => secureRandomNumber(1.5, 10.5)).toThrow(
+        "SecureRandomGenerator.next: min and max must be integers.",
+      );
     });
 
     it("should throw RangeError when range exceeds 2**32", () => {
@@ -144,7 +154,7 @@ describe.concurrent("Random-based Functions", () => {
       const max = 2 ** 32 + 1;
       expect(() => secureRandomNumber(min, max)).toThrow(RangeError);
       expect(() => secureRandomNumber(min, max)).toThrow(
-        "range must be less than or equal to 2^32.",
+        "SecureRandomGenerator.next: range must be less than or equal to 2^32.",
       );
     });
   });
@@ -190,14 +200,14 @@ describe.concurrent("Random-based Functions", () => {
       const ignore = [0, 1, 2, 3, 4];
       expect(() => secureRandomNumber(5, ignore)).toThrow(RangeError);
       expect(() => secureRandomNumber(5, ignore)).toThrow(
-        "Ignore set excludes all possible values in the range.",
+        "SecureRandomGenerator.next: ignore set excludes all possible values in the range.",
       );
     });
 
     it("should throw TypeError for invalid ignore parameter", () => {
       expect(() => secureRandomNumber(10, "invalid" as any)).toThrow(TypeError);
       expect(() => secureRandomNumber(10, "invalid" as any)).toThrow(
-        "ignore must be an iterable of numbers or a Set<number>.",
+        "SecureRandomGenerator.next: ignore must be an iterable of numbers or a Set<number>.",
       );
     });
 
@@ -273,7 +283,9 @@ describe.concurrent("Random-based Functions", () => {
     it("should throw RangeError when max <= min", () => {
       const gen = createSecureRandomGenerator();
       expect(() => gen.next(10, 10)).toThrow(RangeError);
-      expect(() => gen.next(10, 5)).toThrow("max must be greater than min.");
+      expect(() => gen.next(10, 5)).toThrow(
+        "SecureRandomGenerator.next: max must be greater than min.",
+      );
     });
 
     it("should throw RangeError when ignore excludes all values", () => {
@@ -281,27 +293,31 @@ describe.concurrent("Random-based Functions", () => {
       const ignore = new Set([0, 1, 2, 3, 4]);
       expect(() => gen.next(5, ignore)).toThrow(RangeError);
       expect(() => gen.next(5, ignore)).toThrow(
-        "Ignore set excludes all possible values in the range.",
+        "SecureRandomGenerator.next: ignore set excludes all possible values in the range.",
       );
     });
 
     it("should throw RangeError when min or max are not integers", () => {
       const gen = createSecureRandomGenerator();
       expect(() => gen.next(1.5, 10)).toThrow(RangeError);
-      expect(() => gen.next(1.5, 10)).toThrow("min and max must be integers.");
+      expect(() => gen.next(1.5, 10)).toThrow(
+        "SecureRandomGenerator.next: min and max must be integers.",
+      );
     });
 
     it("should throw RangeError when range exceeds 2**32", () => {
       const gen = createSecureRandomGenerator();
       expect(() => gen.next(0, 2 ** 32 + 1)).toThrow(RangeError);
-      expect(() => gen.next(0, 2 ** 32 + 1)).toThrow("range must be less than or equal to 2^32.");
+      expect(() => gen.next(0, 2 ** 32 + 1)).toThrow(
+        "SecureRandomGenerator.next: range must be less than or equal to 2^32.",
+      );
     });
 
     it("should throw TypeError for invalid ignore parameter", () => {
       const gen = createSecureRandomGenerator();
       expect(() => gen.next(10, "invalid" as any)).toThrow(TypeError);
       expect(() => gen.next(10, "invalid" as any)).toThrow(
-        "ignore must be an iterable of numbers or a Set<number>.",
+        "SecureRandomGenerator.next: ignore must be an iterable of numbers or a Set<number>.",
       );
     });
 
@@ -347,21 +363,37 @@ describe.concurrent("Random-based Functions", () => {
     });
 
     it("should handle lengths larger than the 65536-byte getRandomValues limit", () => {
-      const bytes = secureRandomBytes(65537);
-      expect(bytes.length).toBe(65537);
-      // Verify it's not all zeros (would indicate second chunk wasn't filled)
-      const secondChunkSlice = bytes.subarray(65536);
-      expect(secondChunkSlice.some((b) => b !== 0)).toBe(true);
+      // Every chunk is checked over a wide slice: a one-byte tail is all-zero
+      // once in 256 draws, which would make this test fail at random rather
+      // than when a chunk is genuinely left unfilled.
+      const length = 3 * 65_536 + 5000;
+      const bytes = secureRandomBytes(length);
+      expect(bytes.length).toBe(length);
+      for (let offset = 0; offset < length; offset += 65_536) {
+        const chunk = bytes.subarray(offset, Math.min(offset + 65_536, length));
+        expect(chunk.some((b) => b !== 0)).toBe(true);
+      }
     });
 
     it("should throw RangeError for negative length", () => {
       expect(() => secureRandomBytes(-1)).toThrow(RangeError);
-      expect(() => secureRandomBytes(-1)).toThrow("length must be a non-negative integer.");
+      expect(() => secureRandomBytes(-1)).toThrow(
+        "secureRandomBytes: length must be an integer between 0 and 2147483647, got -1.",
+      );
     });
 
     it("should throw RangeError for non-integer length", () => {
       expect(() => secureRandomBytes(3.14)).toThrow(RangeError);
-      expect(() => secureRandomBytes(3.14)).toThrow("length must be a non-negative integer.");
+      expect(() => secureRandomBytes(3.14)).toThrow(
+        "secureRandomBytes: length must be an integer between 0 and 2147483647, got 3.14.",
+      );
+    });
+
+    it("should throw RangeError above the 2**31 - 1 ceiling", () => {
+      expect(() => secureRandomBytes(2 ** 31)).toThrow(RangeError);
+      expect(() => secureRandomBytes(2 ** 31)).toThrow(
+        "secureRandomBytes: length must be an integer between 0 and 2147483647, got 2147483648.",
+      );
     });
   });
 
@@ -425,105 +457,122 @@ describe.concurrent("Random-based Functions", () => {
 });
 
 describe("randomJitter", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-  afterEach(() => {
-    vi.useRealTimers();
-  });
+  /** Capture the delays a run of calls hands to `setTimeout`. */
+  function delaysOf(call: () => void, runs: number): number[] {
+    const delays: number[] = [];
+    const spy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+      _fn: () => void,
+      ms?: number,
+    ) => {
+      delays.push(ms as number);
+      return 0 as unknown as ReturnType<typeof setTimeout>;
+    }) as typeof setTimeout);
+    try {
+      for (let i = 0; i < runs; i++) call();
+    } finally {
+      spy.mockRestore();
+    }
+    return delays;
+  }
 
-  it("should resolve after a random delay within default range", async () => {
-    const spy = vi.spyOn(crypto, "getRandomValues").mockImplementation((arr) => {
-      (arr as Uint32Array)[0] = 42;
-      return arr;
-    });
+  /** Every captured delay sits in `[min, max)`, and the draw actually varies. */
+  function assertDrawnWithin(delays: number[], min: number, max: number): void {
+    expect(delays.every((ms) => Number.isInteger(ms))).toBe(true);
+    expect(Math.min(...delays)).toBeGreaterThanOrEqual(min);
+    expect(Math.max(...delays)).toBeLessThan(max);
+    // A constant delay would satisfy the bounds; the draw must actually vary.
+    expect(new Set(delays).size).toBeGreaterThan(1);
+  }
 
-    const promise = randomJitter();
-    // 42 % 100 = 42ms
-    vi.advanceTimersByTime(41);
-    await expect(Promise.race([promise, Promise.resolve("pending")])).resolves.toBe("pending");
-    vi.advanceTimersByTime(1);
-    await expect(promise).resolves.toBeUndefined();
-
-    spy.mockRestore();
-  });
-
-  it("should respect custom maxMs", async () => {
-    const spy = vi.spyOn(crypto, "getRandomValues").mockImplementation((arr) => {
-      (arr as Uint32Array)[0] = 250;
-      return arr;
-    });
-
-    const promise = randomJitter(50);
-    // 250 % 50 = 0ms
-    vi.advanceTimersByTime(0);
-    await expect(promise).resolves.toBeUndefined();
-
-    spy.mockRestore();
+  it("defaults to [0, 100)", () => {
+    const delays = delaysOf(() => void randomJitter(), 500);
+    expect(delays).toHaveLength(500);
+    assertDrawnWithin(delays, 0, 100);
   });
 
-  it("should handle maxMs of 1 (always 0ms delay)", async () => {
-    const promise = randomJitter(1);
-    vi.advanceTimersByTime(0);
-    await expect(promise).resolves.toBeUndefined();
+  it("uses [0, maxMs) for the one-argument form", () => {
+    const delays = delaysOf(() => void randomJitter(50), 500);
+    expect(delays).toHaveLength(500);
+    assertDrawnWithin(delays, 0, 50);
   });
 
-  it("should respect minMs and maxMs range", async () => {
-    const spy = vi.spyOn(crypto, "getRandomValues").mockImplementation((arr) => {
-      (arr as Uint32Array)[0] = 7;
-      return arr;
-    });
-
-    const promise = randomJitter(50, 100);
-    // min=50, range=50, 7 % 50 = 7, delay = 50 + 7 = 57ms
-    vi.advanceTimersByTime(56);
-    await expect(Promise.race([promise, Promise.resolve("pending")])).resolves.toBe("pending");
-    vi.advanceTimersByTime(1);
-    await expect(promise).resolves.toBeUndefined();
-
-    spy.mockRestore();
+  it("uses [minMs, maxMs) for the two-argument form", () => {
+    const delays = delaysOf(() => void randomJitter(50, 100), 500);
+    expect(delays).toHaveLength(500);
+    assertDrawnWithin(delays, 50, 100);
   });
 
-  it("should resolve with minMs delay when range is 1", async () => {
-    const promise = randomJitter(30, 31);
-    // range=1, any value % 1 = 0, delay = 30 + 0 = 30ms
-    vi.advanceTimersByTime(29);
-    await expect(Promise.race([promise, Promise.resolve("pending")])).resolves.toBe("pending");
-    vi.advanceTimersByTime(1);
-    await expect(promise).resolves.toBeUndefined();
+  it("reads an undefined minMs as no lower bound, not as the one-argument form", () => {
+    const delays = delaysOf(() => void randomJitter(undefined, 50), 500);
+    expect(delays).toHaveLength(500);
+    assertDrawnWithin(delays, 0, 50);
   });
 
-  it("should delay exactly minMs when maxMs === minMs (no jitter)", async () => {
-    // Fail loudly if we ever call the RNG in the zero-range path.
-    const spy = vi.spyOn(crypto, "getRandomValues");
-
-    const promise = randomJitter(42, 42);
-    vi.advanceTimersByTime(41);
-    await expect(Promise.race([promise, Promise.resolve("pending")])).resolves.toBe("pending");
-    vi.advanceTimersByTime(1);
-    await expect(promise).resolves.toBeUndefined();
-    expect(spy).not.toHaveBeenCalled();
-
-    spy.mockRestore();
+  it("returns minMs exactly when maxMs equals minMs", () => {
+    expect(delaysOf(() => void randomJitter(42, 42), 3)).toEqual([42, 42, 42]);
   });
 
-  describe("input validation", () => {
+  it("returns 0 when maxMs is 1", () => {
+    expect(delaysOf(() => void randomJitter(1), 3)).toEqual([0, 0, 0]);
+  });
+
+  describe("timing", () => {
     beforeEach(() => {
-      // Don't advance timers during synchronous validation; real timers are fine.
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
       vi.useRealTimers();
     });
 
+    it("resolves only after the delay has elapsed", async () => {
+      const promise = randomJitter(42, 42);
+      vi.advanceTimersByTime(41);
+      await expect(Promise.race([promise, Promise.resolve("pending")])).resolves.toBe("pending");
+      vi.advanceTimersByTime(1);
+      await expect(promise).resolves.toBeUndefined();
+    });
+
+    it("draws no randomness when the range is empty", async () => {
+      const spy = vi.spyOn(crypto, "getRandomValues");
+      const promise = randomJitter(30, 30);
+      vi.advanceTimersByTime(30);
+      await expect(promise).resolves.toBeUndefined();
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+  });
+
+  describe("input validation", () => {
     it("throws RangeError when maxMs < minMs", () => {
       expect(() => randomJitter(100, 50)).toThrow(RangeError);
+      expect(() => randomJitter(100, 50)).toThrow(
+        "randomJitter: maxMs must be an integer >= minMs (100), got 50.",
+      );
     });
 
     it("throws RangeError when minMs is negative", () => {
-      expect(() => randomJitter(-1, 10)).toThrow(RangeError);
+      expect(() => randomJitter(-1, 10)).toThrow(
+        "randomJitter: minMs must be an integer >= 0, got -1.",
+      );
       expect(() => randomJitter(-1)).toThrow(RangeError);
     });
 
     it("throws RangeError when maxMs is negative (single-arg form)", () => {
-      expect(() => randomJitter(-5)).toThrow(RangeError);
+      expect(() => randomJitter(-5)).toThrow(
+        "randomJitter: maxMs must be an integer >= 0, got -5.",
+      );
+    });
+
+    it("throws RangeError for a null bound instead of taking the default", () => {
+      expect(() => randomJitter(null as any)).toThrow(
+        "randomJitter: maxMs must be an integer >= 0, got null.",
+      );
+      expect(() => randomJitter(null as any, 50)).toThrow(
+        "randomJitter: minMs must be an integer >= 0, got null.",
+      );
+      expect(() => randomJitter(0, null as any)).toThrow(
+        "randomJitter: maxMs must be an integer >= 0, got null.",
+      );
     });
 
     it("throws RangeError when minMs or maxMs is non-finite", () => {
@@ -532,5 +581,29 @@ describe("randomJitter", () => {
       expect(() => randomJitter(0, Number.NaN)).toThrow(RangeError);
       expect(() => randomJitter(0, Number.POSITIVE_INFINITY)).toThrow(RangeError);
     });
+
+    it("throws RangeError on fractional milliseconds", () => {
+      // setTimeout truncates, so a fractional bound never described the delay.
+      expect(() => randomJitter(1.5)).toThrow(
+        "randomJitter: maxMs must be an integer >= 0, got 1.5.",
+      );
+      expect(() => randomJitter(0.5, 10)).toThrow(
+        "randomJitter: minMs must be an integer >= 0, got 0.5.",
+      );
+    });
+  });
+});
+
+describe("secureRandomNumber uniformity", () => {
+  it("stays uniform across 300 000 draws over 3 buckets", () => {
+    const draws = 300_000;
+    const counts = [0, 0, 0];
+    for (let i = 0; i < draws; i++) counts[secureRandomNumber(3)]!++;
+
+    expect(counts[0]! + counts[1]! + counts[2]!).toBe(draws);
+    // Expected 100 000 each; sigma is ~258, so 2000 is ~7.7 sigma.
+    for (const count of counts) {
+      expect(Math.abs(count - draws / 3)).toBeLessThan(2000);
+    }
   });
 });

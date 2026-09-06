@@ -5,14 +5,15 @@ Prototype-pollution sanitization utilities. Remove own properties named `__proto
 ## Signatures
 
 ```ts
-// Mutates the input in place; returns the same reference.
+// Mutates the input in place; returns the same reference. Throws TypeError on a
+// frozen object that holds a dangerous key.
 function sanitizeObject<T extends Record<string, unknown> | undefined>(obj: T): T;
 
 // Returns a sanitized deep copy; input is never mutated. Cycle-safe.
 function sanitizeObjectCopy<T extends Record<string, unknown> | undefined>(obj: T): T;
 
-// Strips dangerous keys during JSON.parse via a reviver (never materializes them).
-function safeJsonParse<T = unknown>(json: string): T;
+// JSON.parse, then the in-place sanitizer. Any JSON root: object, array or primitive.
+function safeJsonParse<T = any>(json: string): T;
 ```
 
 ## Which one to use
@@ -23,15 +24,19 @@ function safeJsonParse<T = unknown>(json: string): T;
 | Already have a parsed object you own     | `sanitizeObject` (fastest) |
 | Must preserve the caller's object        | `sanitizeObjectCopy`       |
 
-`safeJsonParse` is cheapest because dangerous keys never materialize on the parsed result (the reviver drops them before assignment). `sanitizeObject` is the fastest of the two post-parse variants — single-pass traversal, no intermediate allocations, mutates in place.
+`safeJsonParse` parses and then sanitizes in place, so the value it returns holds no dangerous key at any depth. `sanitizeObject` is the fastest of the two post-parse variants — single-pass traversal, no intermediate allocations, mutates in place.
 
 ## Behavior
 
-- Deep traversal over objects and arrays.
+- Deep traversal over objects and arrays, driven by an explicit stack — nesting depth is bounded by memory, not by the call stack, so a deeply nested payload cannot overflow it.
 - Cycle-safe (`sanitizeObject` uses `WeakSet`; `sanitizeObjectCopy` uses `WeakMap` and rewires cycles to point at the copied node, not the original).
-- Only own properties named exactly `__proto__`, `prototype`, and `constructor` are removed.
-- Leaves `Date`, `Map`, `Set`, functions, and primitives unchanged (but traverses into them if nested inside plain objects/arrays).
-- `undefined` and non-object inputs are returned unchanged.
+- Only own properties named exactly `__proto__`, `prototype`, and `constructor` are removed. `sanitizeObject` enumerates own property _names_, so a non-enumerable `__proto__` planted with `Object.defineProperty` is removed too.
+- No getter is ever invoked — every value, object property or array element, comes from its property descriptor. `sanitizeObject` leaves accessors in place (a dangerous _name_ is deleted unread); `sanitizeObjectCopy` copies own enumerable data properties only, so accessors do not appear in the copy, and an accessor at an array index leaves a hole at that index instead of shifting the later elements.
+- A `Proxy` is traversed through its own traps: they run for every property operation, `getOwnPropertyDescriptor` included, so proxied code does run. Sanitize the target rather than the proxy when that matters.
+- `sanitizeObject` throws `TypeError` when a dangerous key cannot be deleted (frozen or sealed object): `sanitizeObject: cannot remove "__proto__" from a frozen object; use sanitizeObjectCopy().`
+- Object identity survives both: `sanitizeObject` strips dangerous own keys from every object it reaches and never replaces one; `sanitizeObjectCopy` rebuilds arrays and plain objects (rooted on `Object.prototype` or on `null`) and carries every other value — `Date`, `Map`, `Set`, typed arrays, `RegExp`, class instances, functions — into the copy by reference, so `copy.when === input.when` for a `Date`.
+- Neither function reads what a non-plain object holds: `Map` entries, `Set` members and a class instance's own state are never traversed, so they are never sanitized. Carried by reference means unchanged _and_ unsanitized — run such contents through `safeJsonParse(JSON.stringify(x))` or sanitize them yourself when they are untrusted.
+- `undefined` and non-object inputs are returned unchanged, as is a copy root that is not an array or plain object.
 - `sanitizeObjectCopy` returns plain objects rooted on `Object.prototype` even when the input had a `null` prototype.
 
 ## Examples
@@ -74,12 +79,13 @@ async function readBody(req: Request) {
 
 `sanitizeObject` does a single pass over each node:
 
-- iterates `Object.keys(current)` once
+- iterates `Object.getOwnPropertyNames(current)` once
 - inlines the dangerous-key check into that same loop (no speculative `hasOwnProperty` + `delete` on absent keys)
-- recurses on values without allocating an intermediate values array
-- arrays iterate via numeric for-loop (faster than `Object.keys` on dense arrays)
+- pays one `getOwnPropertyDescriptor` per surviving key — the price of never calling a getter
+- pushes child nodes onto a traversal stack without allocating an intermediate values array
+- arrays iterate via numeric for-loop (faster than `Object.keys` on dense arrays), one `getOwnPropertyDescriptor` per index
 
-For deep trees the single-pass rewrite noticeably reduces both allocations and branches compared to a "scan for bad keys, then scan values" approach.
+For deep trees the single-pass walk noticeably reduces both allocations and branches compared to a "scan for bad keys, then scan values" approach.
 
 ## Pitfall: Mutation (`sanitizeObject`) vs Copy (`sanitizeObjectCopy`)
 
@@ -97,4 +103,4 @@ const safe2 = safeJsonParse(rawText);
 
 ## Pitfall: Assuming Non-Plain Objects Are Sanitized "Hard"
 
-These utilities strip dangerous **own properties**. They do not re-home class instances, convert `Map`s, or alter prototype chains. If you need a strictly plain object, use `sanitizeObjectCopy` (it rebuilds onto `Object.prototype`) or feed the input through `safeJsonParse(JSON.stringify(obj))`.
+These utilities strip dangerous **own properties** from arrays and plain objects. They do not re-home class instances, convert `Map`s, or alter prototype chains — a `Date` or a `Map` reached from a sanitized tree is the same object it was, dangerous own properties and all. If you need a strictly plain, fully-walked structure, feed the input through `safeJsonParse(JSON.stringify(obj))`.

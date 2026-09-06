@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { hash } from "../src/hash.ts";
-import { hexEncode, base64Encode, base64UrlEncode } from "../src/utils/index.ts";
+import { hexStringify, base64Stringify } from "../src/utils/index.ts";
 
 describe("hash utility", () => {
   const testString =
@@ -12,9 +12,9 @@ describe("hash utility", () => {
     82, 28, 176, 65, 95, 26, 6, 66, 132, 86, 217, 239, 78, 148, 140, 2, 112, 168, 6, 68, 35, 37, 37,
     60, 183, 168, 166, 183, 228, 61, 169, 199,
   ]);
-  const sha256Hex = hexEncode(sha256);
-  const sha256Base64 = base64Encode(sha256);
-  const sha256Base64Url = base64UrlEncode(sha256);
+  const sha256Hex = hexStringify(sha256);
+  const sha256Base64 = base64Stringify(sha256);
+  const sha256Base64Url = base64Stringify(sha256, { alphabet: "base64url" });
   const sha1Hex = "e2cb0ebe7cfd01ff810f5c3ef321bd6779d1f05f";
   const sha384Hex =
     "ad34d79a7831c2ca6de3012696b9b25746cb7491f613bb6a3716d05de01f84bf180b5758bd3185fcea084ac9c2ba01b4";
@@ -147,5 +147,60 @@ describe("hash utility", () => {
   it("should return ArrayBuffer-backed Uint8Array (not SharedArrayBuffer)", async () => {
     const result = await hash(testString, { returnAs: "uint8array" });
     expect(result.buffer).toBeInstanceOf(ArrayBuffer);
+  });
+});
+
+describe("hash algorithm names", () => {
+  it("accepts a lowercase algorithm name", async () => {
+    const lower = await hash("hello world", { algorithm: "sha-256" as any });
+    const canonical = await hash("hello world", { algorithm: "SHA-256" });
+    expect(lower).toBe(canonical);
+  });
+
+  it("accepts a mixed-case algorithm name for every supported digest", async () => {
+    for (const [messy, canonical] of [
+      ["sha-1", "SHA-1"],
+      ["Sha-256", "SHA-256"],
+      ["sha-384", "SHA-384"],
+      ["SHA-512", "SHA-512"],
+    ] as const) {
+      expect(await hash("data", { algorithm: messy as any })).toBe(
+        await hash("data", { algorithm: canonical }),
+      );
+    }
+  });
+
+  it("rejects an unknown algorithm with a RangeError that lists the supported ones", async () => {
+    await expect(hash("data", { algorithm: "SHA-3" as any })).rejects.toThrow(
+      'hash: unsupported algorithm "SHA-3"; expected one of SHA-1, SHA-256, SHA-384, SHA-512.',
+    );
+    await expect(hash("data", { algorithm: "SHA-3" as any })).rejects.toBeInstanceOf(RangeError);
+  });
+
+  it("rejects a non-string algorithm with a TypeError", async () => {
+    await expect(hash("data", { algorithm: 256 as any })).rejects.toBeInstanceOf(TypeError);
+  });
+});
+
+describe("hash input contract", () => {
+  it("hashes every BytesSource shape to the same digest", async () => {
+    const bytes = new TextEncoder().encode("hello world");
+    const plain = await hash(bytes, { returnAs: "hex" });
+    const padded = new Uint8Array(bytes.byteLength + 5);
+    padded.set(bytes, 5);
+    const offset = new Uint8Array(padded.buffer, 5, bytes.byteLength);
+    const shared = new Uint8Array(new SharedArrayBuffer(bytes.byteLength));
+    shared.set(bytes);
+
+    expect(await hash(bytes.buffer as ArrayBuffer, { returnAs: "hex" })).toBe(plain);
+    expect(await hash(new DataView(bytes.buffer as ArrayBuffer), { returnAs: "hex" })).toBe(plain);
+    expect(await hash(offset, { returnAs: "hex" })).toBe(plain);
+    expect(await hash(shared, { returnAs: "hex" })).toBe(plain);
+  });
+
+  it("rejects data that is neither text nor bytes", async () => {
+    await expect(hash([1, 2, 3] as any)).rejects.toThrow(
+      "hash: expected a string, ArrayBuffer or ArrayBuffer view, got Array.",
+    );
   });
 });

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { hotp, hotpVerify, totp, totpVerify, generateOTPSecret, otpauthURI } from "../src/otp.ts";
-import { base32Encode, base32Decode } from "../src/utils/index.ts";
+import { base32Stringify, base32Parse, hexParse } from "../src/utils/index.ts";
 
 // RFC 4226 test secret: ASCII "12345678901234567890" (20 bytes)
 const RFC4226_SECRET = new TextEncoder().encode("12345678901234567890");
@@ -41,7 +41,7 @@ describe("HOTP (RFC 4226)", () => {
     });
 
     it("should accept base32 string secret", async () => {
-      const b32 = base32Encode(RFC4226_SECRET);
+      const b32 = base32Stringify(RFC4226_SECRET);
       const code = await hotp(b32, 0);
       expect(code).toBe("755224");
     });
@@ -58,7 +58,7 @@ describe("HOTP (RFC 4226)", () => {
   describe("hotpVerify()", () => {
     it("should return valid for correct OTP", async () => {
       const result = await hotpVerify(RFC4226_SECRET, "755224", 0);
-      expect(result).toEqual({ valid: true, delta: 0 });
+      expect(result).toEqual({ valid: true, delta: 0, counter: 0 });
     });
 
     it("should return invalid for wrong OTP", async () => {
@@ -69,7 +69,7 @@ describe("HOTP (RFC 4226)", () => {
     it("should find OTP within window", async () => {
       // OTP for counter=3 is "969429"
       const result = await hotpVerify(RFC4226_SECRET, "969429", 0, { window: 5 });
-      expect(result).toEqual({ valid: true, delta: 3 });
+      expect(result).toEqual({ valid: true, delta: 3, counter: 3 });
     });
 
     it("should fail when OTP is outside window", async () => {
@@ -141,7 +141,7 @@ describe("TOTP (RFC 6238)", () => {
     });
 
     it("should accept base32 string secret", async () => {
-      const b32 = base32Encode(RFC6238_SHA1_SECRET);
+      const b32 = base32Stringify(RFC6238_SHA1_SECRET);
       const code = await totp(b32, { time: 59, digits: 8 });
       expect(code).toBe("94287082");
     });
@@ -171,7 +171,7 @@ describe("TOTP (RFC 6238)", () => {
         time: 59,
         digits: 8,
       });
-      expect(result).toEqual({ valid: true, delta: 0 });
+      expect(result).toEqual({ valid: true, delta: 0, step: 1 });
     });
 
     it("should verify within window (previous step)", async () => {
@@ -182,7 +182,7 @@ describe("TOTP (RFC 6238)", () => {
         digits: 8,
         window: 1,
       });
-      expect(result).toEqual({ valid: true, delta: -1 });
+      expect(result).toEqual({ valid: true, delta: -1, step: 0 });
     });
 
     it("should verify within window (next step)", async () => {
@@ -193,7 +193,7 @@ describe("TOTP (RFC 6238)", () => {
         digits: 8,
         window: 1,
       });
-      expect(result).toEqual({ valid: true, delta: 1 });
+      expect(result).toEqual({ valid: true, delta: 1, step: 1 });
     });
 
     it("should fail outside window", async () => {
@@ -221,7 +221,7 @@ describe("TOTP (RFC 6238)", () => {
       const code = await totp(RFC6238_SHA1_SECRET, { digits: 8 });
       const result = await totpVerify(RFC6238_SHA1_SECRET, code, { digits: 8 });
       vi.restoreAllMocks();
-      expect(result).toEqual({ valid: true, delta: 0 });
+      expect(result).toEqual({ valid: true, delta: 0, step: 1 });
     });
   });
 });
@@ -243,7 +243,7 @@ describe("generateOTPSecret()", () => {
     const secret = generateOTPSecret(32);
     // 32 bytes → ceil(32 * 8 / 5) = 52 chars (with 4 padding chars stripped)
     // Actually: 32 bytes = 256 bits, 256/5 = 51.2, so 52 base32 chars, padded to 56, minus padding
-    const decoded = base32Decode(secret, { returnAs: "uint8array" });
+    const decoded = base32Parse(secret, { loose: true, returnAs: "uint8array" });
     expect(decoded).toHaveLength(32);
   });
 
@@ -255,14 +255,14 @@ describe("generateOTPSecret()", () => {
 
   it("should roundtrip through base32 decode", () => {
     const secret = generateOTPSecret();
-    const bytes = base32Decode(secret, { returnAs: "uint8array" });
+    const bytes = base32Parse(secret, { loose: true, returnAs: "uint8array" });
     expect(bytes).toHaveLength(20);
   });
 });
 
 describe("otpauthURI()", () => {
   const secret = new TextEncoder().encode("12345678901234567890");
-  const secretB32 = base32Encode(secret).replace(/=+$/, "");
+  const secretB32 = base32Stringify(secret).replace(/=+$/, "");
 
   it("should generate a valid TOTP URI", () => {
     const uri = otpauthURI({
@@ -350,5 +350,442 @@ describe("otpauthURI()", () => {
     });
     expect(uri).toMatch(/otpauth:\/\/totp\/test\?/);
     expect(uri).not.toContain("issuer=");
+  });
+});
+
+describe("OTP algorithm names", () => {
+  it("accepts a lowercase algorithm name", async () => {
+    expect(await hotp(RFC4226_SECRET, 0, { algorithm: "sha-1" as any })).toBe("755224");
+    expect(
+      await totp(RFC6238_SHA256_SECRET, { time: 59, digits: 8, algorithm: "sha-256" as any }),
+    ).toBe("46119246");
+  });
+
+  it("rejects an unknown algorithm with a RangeError naming the function", async () => {
+    await expect(hotp(RFC4226_SECRET, 0, { algorithm: "SHA-2" as any })).rejects.toThrow(
+      'hotp: unsupported algorithm "SHA-2"; expected one of SHA-1, SHA-256, SHA-384, SHA-512.',
+    );
+    await expect(totp(RFC4226_SECRET, { algorithm: "SHA-2" as any })).rejects.toThrow(
+      'totp: unsupported algorithm "SHA-2"',
+    );
+  });
+});
+
+describe("OTP input validation", () => {
+  it("rejects a counter that is not a safe non-negative integer", async () => {
+    await expect(hotp(RFC4226_SECRET, Number.NaN)).rejects.toThrow(
+      "hotp: counter must be an integer >= 0, got NaN.",
+    );
+    await expect(hotp(RFC4226_SECRET, undefined as any)).rejects.toThrow(
+      "hotp: counter must be an integer >= 0, got undefined.",
+    );
+    await expect(hotp(RFC4226_SECRET, Number.POSITIVE_INFINITY)).rejects.toBeInstanceOf(RangeError);
+    await expect(hotp(RFC4226_SECRET, -1)).rejects.toBeInstanceOf(RangeError);
+    await expect(hotp(RFC4226_SECRET, 1.5)).rejects.toBeInstanceOf(RangeError);
+    await expect(hotp(RFC4226_SECRET, 2 ** 53)).rejects.toBeInstanceOf(RangeError);
+  });
+
+  it("rejects a missing counter in hotpVerify instead of verifying against 0", async () => {
+    await expect(hotpVerify(RFC4226_SECRET, "755224", undefined as any)).rejects.toThrow(
+      "hotpVerify: counter must be an integer >= 0, got undefined.",
+    );
+  });
+
+  it("rejects digits outside the 6..8 range", async () => {
+    await expect(hotp(RFC4226_SECRET, 0, { digits: 1.5 })).rejects.toThrow(
+      "hotp: digits must be an integer between 6 and 8, got 1.5.",
+    );
+    await expect(hotp(RFC4226_SECRET, 0, { digits: -1 })).rejects.toBeInstanceOf(RangeError);
+    await expect(hotp(RFC4226_SECRET, 0, { digits: 12 })).rejects.toBeInstanceOf(RangeError);
+    await expect(totp(RFC4226_SECRET, { digits: 5 })).rejects.toThrow(
+      "totp: digits must be an integer between 6 and 8, got 5.",
+    );
+    await expect(hotpVerify(RFC4226_SECRET, "755224", 0, { digits: 9 })).rejects.toBeInstanceOf(
+      RangeError,
+    );
+    await expect(totpVerify(RFC4226_SECRET, "755224", { digits: 0 })).rejects.toBeInstanceOf(
+      RangeError,
+    );
+  });
+
+  it("rejects a period below 1", async () => {
+    await expect(totp(RFC4226_SECRET, { period: 0 })).rejects.toThrow(
+      "totp: period must be an integer >= 1, got 0.",
+    );
+    await expect(totp(RFC4226_SECRET, { period: -30 })).rejects.toBeInstanceOf(RangeError);
+    await expect(totp(RFC4226_SECRET, { period: 2.5 })).rejects.toBeInstanceOf(RangeError);
+    await expect(totpVerify(RFC4226_SECRET, "000000", { period: 0 })).rejects.toBeInstanceOf(
+      RangeError,
+    );
+  });
+
+  it("rejects a non-finite time", async () => {
+    await expect(totp(RFC4226_SECRET, { time: Number.NaN })).rejects.toThrow(
+      "totp: time must be a finite number of seconds, got NaN.",
+    );
+    await expect(totp(RFC4226_SECRET, { time: Number.POSITIVE_INFINITY })).rejects.toBeInstanceOf(
+      RangeError,
+    );
+    await expect(totpVerify(RFC4226_SECRET, "000000", { time: Number.NaN })).rejects.toBeInstanceOf(
+      RangeError,
+    );
+  });
+
+  it("accepts a fractional time by flooring it", async () => {
+    expect(await totp(RFC6238_SHA1_SECRET, { time: 59.9, digits: 8 })).toBe(
+      await totp(RFC6238_SHA1_SECRET, { time: 59, digits: 8 }),
+    );
+  });
+
+  it("rejects a negative window instead of never matching", async () => {
+    await expect(hotpVerify(RFC4226_SECRET, "755224", 0, { window: -1 })).rejects.toThrow(
+      "hotpVerify: window must be an integer >= 0, got -1.",
+    );
+    await expect(totpVerify(RFC4226_SECRET, "755224", { window: -1 })).rejects.toThrow(
+      "totpVerify: window must be an integer >= 0, got -1.",
+    );
+  });
+
+  it("rejects an empty secret, naming the function the caller wrote", async () => {
+    await expect(hotp("", 0)).rejects.toThrow("hotp: secret must not be empty.");
+    await expect(hotp(new Uint8Array(0), 0)).rejects.toBeInstanceOf(RangeError);
+    await expect(totp("")).rejects.toThrow("totp: secret must not be empty.");
+    await expect(hotpVerify("", "755224", 0)).rejects.toThrow(
+      "hotpVerify: secret must not be empty.",
+    );
+    await expect(totpVerify("", "755224")).rejects.toThrow("totpVerify: secret must not be empty.");
+  });
+
+  it("rejects null where a numeric option has a default", async () => {
+    await expect(totp(RFC4226_SECRET, { period: null as any })).rejects.toThrow(
+      "totp: period must be an integer >= 1, got null.",
+    );
+    await expect(totp(RFC4226_SECRET, { time: null as any })).rejects.toThrow(
+      "totp: time must be a finite number of seconds, got null.",
+    );
+    await expect(totpVerify(RFC4226_SECRET, "755224", { period: null as any })).rejects.toThrow(
+      "totpVerify: period must be an integer >= 1, got null.",
+    );
+    await expect(totpVerify(RFC4226_SECRET, "755224", { time: null as any })).rejects.toThrow(
+      "totpVerify: time must be a finite number of seconds, got null.",
+    );
+  });
+
+  it("rejects a time whose window would leave the safe integer range", async () => {
+    await expect(
+      totpVerify(RFC4226_SECRET, "755224", {
+        time: Number.MAX_SAFE_INTEGER,
+        period: 1,
+        window: 2,
+      }),
+    ).rejects.toThrow(
+      "totpVerify: time must leave every step of the window a safe integer, got 9007199254740991.",
+    );
+  });
+
+  it("rejects a secret that is neither text nor bytes", async () => {
+    await expect(hotp([1, 2, 3] as any, 0)).rejects.toThrow(
+      "hotp: expected a string, ArrayBuffer or ArrayBuffer view, got Array.",
+    );
+  });
+
+  it("accepts every BytesSource shape as a secret", async () => {
+    const buffer = RFC4226_SECRET.buffer as ArrayBuffer;
+    expect(await hotp(buffer, 0)).toBe("755224");
+    expect(await hotp(new DataView(buffer), 0)).toBe("755224");
+  });
+
+  it("treats a missing OTP as invalid rather than throwing", async () => {
+    expect(await hotpVerify(RFC4226_SECRET, null, 0)).toEqual({ valid: false, delta: 0 });
+    expect(await hotpVerify(RFC4226_SECRET, undefined, 0)).toEqual({ valid: false, delta: 0 });
+    expect(await totpVerify(RFC4226_SECRET, null, { time: 59 })).toEqual({
+      valid: false,
+      delta: 0,
+    });
+  });
+
+  it("rejects a generateOTPSecret length below 1", () => {
+    expect(() => generateOTPSecret(0)).toThrow(
+      "generateOTPSecret: length must be an integer >= 1, got 0.",
+    );
+    expect(() => generateOTPSecret(-1)).toThrow(RangeError);
+    expect(() => generateOTPSecret(1.5)).toThrow(RangeError);
+  });
+});
+
+describe("OTP boundary edges", () => {
+  it("rejects a counter whose window would leave the safe-integer range", async () => {
+    await expect(
+      hotpVerify(RFC4226_SECRET, "000000", Number.MAX_SAFE_INTEGER, { window: 1 }),
+    ).rejects.toThrow(
+      `hotpVerify: counter must be an integer between 0 and ${Number.MAX_SAFE_INTEGER - 1}, got ${Number.MAX_SAFE_INTEGER}.`,
+    );
+    await expect(
+      hotpVerify(RFC4226_SECRET, "000000", Number.MAX_SAFE_INTEGER - 1, { window: 1 }),
+    ).resolves.toEqual({ valid: false, delta: 0 });
+  });
+});
+
+describe("OTP verify window", () => {
+  // A secret whose SHA-1 codes collide inside the window: at time 1700000000
+  // with period 30 the code "565842" is produced both 7 steps back and 2 steps
+  // ahead, which is the only way to observe which match gets reported.
+  const COLLIDING_SECRET = hexParse("a7322f3a0fbd77c478d63aba2cbca69e1b366537", {
+    returnAs: "bytes",
+  });
+
+  it("reports the nearest matching step, not the most negative one", async () => {
+    const result = await totpVerify(COLLIDING_SECRET, "565842", {
+      time: 1_700_000_000,
+      window: 8,
+    });
+    expect(result).toEqual({ valid: true, delta: 2, step: 56666668 });
+  });
+
+  it("computes every HOTP candidate in the window whether or not one matches", async () => {
+    const sign = vi.spyOn(crypto.subtle, "sign");
+    try {
+      await hotpVerify(RFC4226_SECRET, "755224", 0, { window: 4 });
+      expect(sign).toHaveBeenCalledTimes(5);
+
+      sign.mockClear();
+      await hotpVerify(RFC4226_SECRET, "000000", 0, { window: 4 });
+      expect(sign).toHaveBeenCalledTimes(5);
+    } finally {
+      sign.mockRestore();
+    }
+  });
+
+  it("computes every TOTP candidate in the window whether or not one matches", async () => {
+    const code = await totp(RFC6238_SHA1_SECRET, { time: 59, digits: 8 });
+    const sign = vi.spyOn(crypto.subtle, "sign");
+    try {
+      await totpVerify(RFC6238_SHA1_SECRET, code, { time: 59, digits: 8, window: 3 });
+      expect(sign).toHaveBeenCalledTimes(7);
+
+      sign.mockClear();
+      await totpVerify(RFC6238_SHA1_SECRET, "00000000", { time: 59, digits: 8, window: 3 });
+      expect(sign).toHaveBeenCalledTimes(7);
+    } finally {
+      sign.mockRestore();
+    }
+  });
+
+  it("still reports 0 when the current step matches", async () => {
+    const code = await totp(RFC6238_SHA1_SECRET, { time: 59, digits: 8 });
+    expect(await totpVerify(RFC6238_SHA1_SECRET, code, { time: 59, digits: 8, window: 5 })).toEqual(
+      { valid: true, delta: 0, step: 1 },
+    );
+  });
+});
+
+describe("OTP replay protection", () => {
+  // time 59 with a 30-second period is step 1; 29 is step 0 and 89 is step 2.
+  const current = () => totp(RFC6238_SHA1_SECRET, { time: 59, digits: 8 });
+
+  it("refuses the code of a step that was already accepted", async () => {
+    const otp = await current();
+    const first = await totpVerify(RFC6238_SHA1_SECRET, otp, { time: 59, digits: 8 });
+    expect(first).toEqual({ valid: true, delta: 0, step: 1 });
+    const replay = await totpVerify(RFC6238_SHA1_SECRET, otp, {
+      time: 59,
+      digits: 8,
+      lastAccepted: first.step,
+    });
+    expect(replay).toEqual({ valid: false, delta: 0 });
+    expect("step" in replay).toBe(false);
+  });
+
+  it("refuses an older code once a newer step has been accepted", async () => {
+    const older = await totp(RFC6238_SHA1_SECRET, { time: 29, digits: 8 });
+    const open = { time: 59, digits: 8, window: 1 };
+    expect(await totpVerify(RFC6238_SHA1_SECRET, older, open)).toEqual({
+      valid: true,
+      delta: -1,
+      step: 0,
+    });
+    expect(await totpVerify(RFC6238_SHA1_SECRET, older, { ...open, lastAccepted: 1 })).toEqual({
+      valid: false,
+      delta: 0,
+    });
+  });
+
+  it("accepts a code newer than the last accepted step", async () => {
+    const next = await totp(RFC6238_SHA1_SECRET, { time: 89, digits: 8 });
+    expect(
+      await totpVerify(RFC6238_SHA1_SECRET, next, {
+        time: 59,
+        digits: 8,
+        window: 1,
+        lastAccepted: 1,
+      }),
+    ).toEqual({ valid: true, delta: 1, step: 2 });
+  });
+
+  it("still computes every candidate when lastAccepted refuses the match", async () => {
+    const otp = await current();
+    const sign = vi.spyOn(crypto.subtle, "sign");
+    try {
+      const result = await totpVerify(RFC6238_SHA1_SECRET, otp, {
+        time: 59,
+        digits: 8,
+        window: 3,
+        lastAccepted: 1,
+      });
+      expect(result).toEqual({ valid: false, delta: 0 });
+      expect(sign).toHaveBeenCalledTimes(7);
+    } finally {
+      sign.mockRestore();
+    }
+  });
+
+  it("validates lastAccepted like every other bounded option", async () => {
+    const otp = await current();
+    for (const bad of [-1, 1.5, Number.NaN, null, "1"]) {
+      await expect(
+        totpVerify(RFC6238_SHA1_SECRET, otp, {
+          time: 59,
+          digits: 8,
+          lastAccepted: bad as unknown as number,
+        }),
+      ).rejects.toThrow(/totpVerify: lastAccepted must be an integer >= 0/);
+    }
+  });
+
+  it("reports the counter hotpVerify matched, and none when it did not", async () => {
+    // "969429" is the RFC 4226 code for counter 3.
+    expect(await hotpVerify(RFC4226_SECRET, "969429", 2, { window: 5 })).toEqual({
+      valid: true,
+      delta: 1,
+      counter: 3,
+    });
+    const miss = await hotpVerify(RFC4226_SECRET, "000000", 2, { window: 5 });
+    expect(miss).toEqual({ valid: false, delta: 0 });
+    expect("counter" in miss).toBe(false);
+  });
+});
+
+describe("otpauthURI() encoding", () => {
+  const secret = new TextEncoder().encode("12345678901234567890");
+  const secretB32 = base32Stringify(secret).replace(/=+$/, "");
+
+  it("percent-encodes query values instead of using '+' for spaces", () => {
+    const uri = otpauthURI({
+      type: "totp",
+      secret,
+      account: "user@example.com",
+      issuer: "My App",
+    });
+    expect(uri).toContain("issuer=My%20App");
+    expect(uri).not.toContain("issuer=My+App");
+  });
+
+  it("percent-encodes reserved characters in the issuer", () => {
+    const uri = otpauthURI({
+      type: "totp",
+      secret,
+      account: "a&b=c",
+      issuer: "A&B",
+    });
+    expect(uri).toContain("issuer=A%26B");
+    expect(uri).toContain("A%26B:a%26b%3Dc");
+  });
+
+  it("canonicalizes a string secret", () => {
+    const uri = otpauthURI({
+      type: "totp",
+      secret: "jbsw y3dp ehpk 3pxp",
+      account: "test",
+    });
+    expect(uri).toContain("secret=JBSWY3DPEHPK3PXP&");
+  });
+
+  it("keeps the query parameter order", () => {
+    const uri = otpauthURI({
+      type: "totp",
+      secret,
+      account: "test",
+      issuer: "MyApp",
+    });
+    expect(uri).toBe(
+      `otpauth://totp/MyApp:test?secret=${secretB32}&issuer=MyApp&algorithm=SHA1&digits=6&period=30`,
+    );
+  });
+
+  it("rejects an unknown type", () => {
+    expect(() => otpauthURI({ type: "foo" as any, secret, account: "test" })).toThrow(
+      'otpauthURI: type must be "hotp" or "totp", got "foo".',
+    );
+    expect(() => otpauthURI({ type: undefined as any, secret, account: "test" })).toThrow(
+      TypeError,
+    );
+  });
+
+  it("rejects a counter that is not a safe non-negative integer", () => {
+    expect(() => otpauthURI({ type: "hotp", secret, account: "test", counter: -1 })).toThrow(
+      "otpauthURI: counter must be an integer >= 0, got -1.",
+    );
+    expect(() => otpauthURI({ type: "hotp", secret, account: "test", counter: 1.5 })).toThrow(
+      RangeError,
+    );
+  });
+
+  it("rejects an empty secret", () => {
+    expect(() => otpauthURI({ type: "totp", secret: "", account: "test" })).toThrow(
+      "otpauthURI: secret must not be empty.",
+    );
+    expect(() => otpauthURI({ type: "totp", secret: new Uint8Array(0), account: "test" })).toThrow(
+      RangeError,
+    );
+  });
+
+  it("rejects digits and period outside their range", () => {
+    expect(() => otpauthURI({ type: "totp", secret, account: "test", digits: 9 })).toThrow(
+      RangeError,
+    );
+    expect(() => otpauthURI({ type: "totp", secret, account: "test", period: 0 })).toThrow(
+      RangeError,
+    );
+  });
+});
+
+describe("otpauthURI() label contract", () => {
+  const secret = new TextEncoder().encode("12345678901234567890");
+
+  it("rejects an account that is not a string", () => {
+    expect(() => otpauthURI({ type: "totp", secret, account: 123 as any })).toThrow(
+      "otpauthURI: account must be a string, got 123.",
+    );
+    expect(() => otpauthURI({ type: "totp", secret, account: undefined as any })).toThrow(
+      TypeError,
+    );
+  });
+
+  it("rejects an empty account", () => {
+    expect(() => otpauthURI({ type: "totp", secret, account: "" })).toThrow(
+      "otpauthURI: account must not be empty.",
+    );
+    expect(() => otpauthURI({ type: "totp", secret, account: "" })).toThrow(RangeError);
+  });
+
+  it("rejects an issuer that is not a string", () => {
+    expect(() => otpauthURI({ type: "totp", secret, account: "test", issuer: {} as any })).toThrow(
+      "otpauthURI: issuer must be a string, got Object.",
+    );
+  });
+
+  it("rejects an empty issuer instead of dropping it", () => {
+    expect(() => otpauthURI({ type: "totp", secret, account: "test", issuer: "" })).toThrow(
+      "otpauthURI: issuer must not be empty.",
+    );
+    expect(() => otpauthURI({ type: "totp", secret, account: "test", issuer: "" })).toThrow(
+      RangeError,
+    );
+  });
+
+  it("omits the issuer only when it is undefined", () => {
+    const uri = otpauthURI({ type: "totp", secret, account: "test", issuer: undefined });
+    expect(uri).not.toContain("issuer=");
+    expect(uri.startsWith("otpauth://totp/test?")).toBe(true);
   });
 });

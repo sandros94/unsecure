@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { hkdf } from "../src/hkdf.ts";
-import { hexDecode, hexEncode, base64Encode, base64UrlEncode } from "../src/utils/index.ts";
+import { hexParse, hexStringify, base64Stringify } from "../src/utils/index.ts";
 
 // RFC 5869 Appendix A test vectors.
 // Each vector's IKM / salt / info / expected OKM are given as hex strings.
@@ -76,27 +76,27 @@ const VECTORS = {
 describe.concurrent("hkdf (RFC 5869 vectors)", () => {
   for (const [name, v] of Object.entries(VECTORS)) {
     it(`matches vector ${name.toUpperCase()} (${v.algorithm}, L=${v.length})`, async () => {
-      const out = await hkdf(hexDecode(v.ikm, { returnAs: "uint8array" }), {
+      const out = await hkdf(hexParse(v.ikm, { loose: true, returnAs: "uint8array" }), {
         algorithm: v.algorithm,
         length: v.length,
-        salt: hexDecode(v.salt, { returnAs: "uint8array" }),
-        info: hexDecode(v.info, { returnAs: "uint8array" }),
+        salt: hexParse(v.salt, { loose: true, returnAs: "uint8array" }),
+        info: hexParse(v.info, { loose: true, returnAs: "uint8array" }),
       });
-      expect(hexEncode(out)).toBe(v.okm);
+      expect(hexStringify(out)).toBe(v.okm);
     });
   }
 });
 
 describe("hkdf API", () => {
-  const ikm = hexDecode(VECTORS.a1.ikm, { returnAs: "uint8array" });
-  const salt = hexDecode(VECTORS.a1.salt, { returnAs: "uint8array" });
-  const info = hexDecode(VECTORS.a1.info, { returnAs: "uint8array" });
+  const ikm = hexParse(VECTORS.a1.ikm, { loose: true, returnAs: "uint8array" });
+  const salt = hexParse(VECTORS.a1.salt, { loose: true, returnAs: "uint8array" });
+  const info = hexParse(VECTORS.a1.info, { loose: true, returnAs: "uint8array" });
   const expected = VECTORS.a1.okm;
 
   it("defaults to uint8array output", async () => {
     const out = await hkdf(ikm, { length: VECTORS.a1.length, salt, info });
     expect(out).toBeInstanceOf(Uint8Array);
-    expect(hexEncode(out)).toBe(expected);
+    expect(hexStringify(out)).toBe(expected);
   });
 
   it("defaults to 32-byte length when length is omitted", async () => {
@@ -107,7 +107,7 @@ describe("hkdf API", () => {
   it("defaults to SHA-256 when algorithm is omitted", async () => {
     const explicit = await hkdf(ikm, { algorithm: "SHA-256", length: 16, salt, info });
     const implicit = await hkdf(ikm, { length: 16, salt, info });
-    expect(hexEncode(implicit)).toBe(hexEncode(explicit));
+    expect(hexStringify(implicit)).toBe(hexStringify(explicit));
   });
 
   it("accepts string ikm / salt / info via UTF-8 encoding", async () => {
@@ -120,7 +120,7 @@ describe("hkdf API", () => {
       salt: new TextEncoder().encode("a-pinch-of-salt"),
       info: new TextEncoder().encode("ctx"),
     });
-    expect(hexEncode(stringRun)).toBe(hexEncode(bytesRun));
+    expect(hexStringify(stringRun)).toBe(hexStringify(bytesRun));
   });
 
   it("mirrors string ikm -> hex output when returnAs is omitted", async () => {
@@ -130,13 +130,13 @@ describe("hkdf API", () => {
       info: "ctx",
     });
     expect(typeof hexOut).toBe("string");
-    expect(hexOut).toBe(hexEncode(bytesOut));
+    expect(hexOut).toBe(hexStringify(bytesOut));
   });
 
   it("treats omitted salt as empty (matches RFC 5869 A.3)", async () => {
-    const ikm3 = hexDecode(VECTORS.a3.ikm, { returnAs: "uint8array" });
+    const ikm3 = hexParse(VECTORS.a3.ikm, { loose: true, returnAs: "uint8array" });
     const out = await hkdf(ikm3, { length: VECTORS.a3.length });
-    expect(hexEncode(out)).toBe(VECTORS.a3.okm);
+    expect(hexStringify(out)).toBe(VECTORS.a3.okm);
   });
 
   it("emits the same bytes regardless of returnAs encoding", async () => {
@@ -154,15 +154,15 @@ describe("hkdf API", () => {
       info,
       returnAs: "base64url",
     });
-    expect(hex).toBe(hexEncode(bytes));
-    expect(b64).toBe(base64Encode(bytes));
-    expect(b64url).toBe(base64UrlEncode(bytes));
+    expect(hex).toBe(hexStringify(bytes));
+    expect(b64).toBe(base64Stringify(bytes));
+    expect(b64url).toBe(base64Stringify(bytes, { alphabet: "base64url" }));
   });
 
   it("supports bytes alias and b64 / b64url aliases", async () => {
     const viaBytes = await hkdf(ikm, { length: 16, salt, info, returnAs: "bytes" });
     const viaUint8 = await hkdf(ikm, { length: 16, salt, info, returnAs: "uint8array" });
-    expect(hexEncode(viaBytes)).toBe(hexEncode(viaUint8));
+    expect(hexStringify(viaBytes)).toBe(hexStringify(viaUint8));
 
     const b64 = await hkdf(ikm, { length: 16, salt, info, returnAs: "b64" });
     const base64 = await hkdf(ikm, { length: 16, salt, info, returnAs: "base64" });
@@ -181,18 +181,23 @@ describe("hkdf API", () => {
 
   it("throws on non-positive or non-integer length", async () => {
     await expect(hkdf(ikm, { length: 0, salt })).rejects.toThrow(RangeError);
+    await expect(hkdf(ikm, { length: 0, salt })).rejects.toThrow(
+      "hkdf: length must be an integer between 1 and 8160, got 0.",
+    );
     await expect(hkdf(ikm, { length: -1, salt })).rejects.toThrow(RangeError);
-    await expect(hkdf(ikm, { length: 2.5, salt })).rejects.toThrow(RangeError);
+    await expect(hkdf(ikm, { length: 2.5, salt })).rejects.toThrow(
+      "hkdf: length must be an integer between 1 and 8160, got 2.5.",
+    );
   });
 
   it("throws when length exceeds 255 * HashLen", async () => {
     // SHA-256: max 255 * 32 = 8160
     await expect(hkdf(ikm, { algorithm: "SHA-256", length: 8161, salt })).rejects.toThrow(
-      /at most 8160/,
+      "hkdf: length must be an integer between 1 and 8160, got 8161.",
     );
     // SHA-1: max 255 * 20 = 5100
     await expect(hkdf(ikm, { algorithm: "SHA-1", length: 5101, salt })).rejects.toThrow(
-      /at most 5100/,
+      "hkdf: length must be an integer between 1 and 5100, got 5101.",
     );
   });
 
@@ -205,5 +210,59 @@ describe("hkdf API", () => {
   it("returns ArrayBuffer-backed Uint8Array", async () => {
     const out = await hkdf(ikm, { length: 16, salt, info, returnAs: "uint8array" });
     expect(out.buffer).toBeInstanceOf(ArrayBuffer);
+  });
+});
+
+describe("hkdf algorithm names", () => {
+  const ikm = hexParse(VECTORS.a1.ikm, { loose: true, returnAs: "uint8array" });
+
+  it("accepts a lowercase algorithm name", async () => {
+    const lower = await hkdf(ikm, { algorithm: "sha-256" as any, length: 16, returnAs: "hex" });
+    const canonical = await hkdf(ikm, { algorithm: "SHA-256", length: 16, returnAs: "hex" });
+    expect(lower).toBe(canonical);
+  });
+
+  it("enforces 255 * HashLen for a lowercase algorithm name", async () => {
+    await expect(hkdf(ikm, { algorithm: "sha-256" as any, length: 9000 })).rejects.toThrow(
+      "hkdf: length must be an integer between 1 and 8160, got 9000.",
+    );
+  });
+
+  it("rejects an unknown algorithm with a RangeError", async () => {
+    await expect(hkdf(ikm, { algorithm: "SHA-224" as any, length: 16 })).rejects.toThrow(
+      'hkdf: unsupported algorithm "SHA-224"; expected one of SHA-1, SHA-256, SHA-384, SHA-512.',
+    );
+  });
+});
+
+describe("hkdf input contract", () => {
+  const ikm = hexParse(VECTORS.a1.ikm, { loose: true, returnAs: "uint8array" });
+  const salt = hexParse(VECTORS.a1.salt, { loose: true, returnAs: "uint8array" });
+  const info = hexParse(VECTORS.a1.info, { loose: true, returnAs: "uint8array" });
+
+  const toShared = (bytes: Uint8Array) => {
+    const view = new Uint8Array(new SharedArrayBuffer(bytes.byteLength));
+    view.set(bytes);
+    return view;
+  };
+
+  it("derives the same bytes from SharedArrayBuffer-backed ikm, salt and info", async () => {
+    const expected = VECTORS.a1.okm;
+    const length = VECTORS.a1.length;
+    expect(
+      hexStringify(await hkdf(toShared(ikm), { length, salt, info, returnAs: "uint8array" })),
+    ).toBe(expected);
+    expect(
+      hexStringify(await hkdf(ikm, { length, salt: toShared(salt), info, returnAs: "uint8array" })),
+    ).toBe(expected);
+    expect(
+      hexStringify(await hkdf(ikm, { length, salt, info: toShared(info), returnAs: "uint8array" })),
+    ).toBe(expected);
+  });
+
+  it("rejects ikm that is neither text nor bytes", async () => {
+    await expect(hkdf([1, 2, 3] as any, { length: 16 })).rejects.toThrow(
+      "hkdf: expected a string, ArrayBuffer or ArrayBuffer view, got Array.",
+    );
   });
 });

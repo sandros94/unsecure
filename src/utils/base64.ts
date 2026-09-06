@@ -1,12 +1,18 @@
 import { _Buffer, _hasBuffer, _toBuffer } from "./_buffer.ts";
 import {
+  type _BlockShape,
+  type BytesSource,
   type DecodeOptions,
   type DecodeReturnAs,
   _assertData,
-  _malformed,
+  _decodeSymbols,
+  _looseCount,
   _parseFinalize,
   _parsePrep,
-  _toBytes,
+  _strictBody,
+  _symbols,
+  _wholeBuffer,
+  toBytes,
 } from "./_codec.ts";
 
 interface _ToBase64 {
@@ -19,8 +25,10 @@ interface _FromBase64 {
   ): Uint8Array<ArrayBuffer>;
 }
 
-const _nativeToBase64 = typeof (Uint8Array.prototype as Partial<_ToBase64>).toBase64 === "function";
-const _nativeFromBase64 = typeof (Uint8Array as Partial<_FromBase64>).fromBase64 === "function";
+const _nativeToBase64: boolean = /* @__PURE__ */ (() =>
+  typeof (Uint8Array.prototype as Partial<_ToBase64>).toBase64 === "function")();
+const _nativeFromBase64: boolean = /* @__PURE__ */ (() =>
+  typeof (Uint8Array as Partial<_FromBase64>).fromBase64 === "function")();
 
 /** Standard (`+/`) or URL-safe (`-_`) alphabet. */
 export type Base64Alphabet = "base64" | "base64url";
@@ -40,36 +48,46 @@ export interface Base64StringifyOptions {
 
 export interface Base64ParseOptions extends DecodeOptions {
   /**
-   * Alphabet to enforce in strict mode.
+   * Alphabet to enforce in strict mode. `loose` accepts either alphabet and
+   * ignores this.
    * @default "base64"
    */
   alphabet?: Base64Alphabet;
 }
 
-const _B64_STD_RE = /^[A-Za-z0-9+/]*={0,2}$/;
-const _B64_URL_RE = /^[A-Za-z0-9\-_]*={0,2}$/;
+const _B64_SHAPE: _BlockShape = { bits: 6, group: 4, name: "base64" };
 
-// charCode → 6-bit value; accepts both alphabets (single table serves `+/` and `-_`).
-const _B64_TABLE: Int16Array = /* @__PURE__ */ (() => {
+const _B64_DIGITS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+/** charCode → 6-bit value, `-1` for anything the alphabet does not carry. */
+/* @__NO_SIDE_EFFECTS__ */
+function _b64Table(pairs: string): Int16Array {
   const t = new Int16Array(128).fill(-1);
-  const std = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  for (let i = 0; i < 64; i++) t[std.charCodeAt(i)] = i;
-  t[45] = 62;
-  t[95] = 63;
+  for (let i = 0; i < 62; i++) t[_B64_DIGITS.charCodeAt(i)] = i;
+  for (let i = 0; i < pairs.length; i += 2) {
+    t[pairs.charCodeAt(i)] = 62;
+    t[pairs.charCodeAt(i + 1)] = 63;
+  }
   return t;
-})();
+}
 
+const _B64_TABLE_STD: Int16Array = /* @__PURE__ */ _b64Table("+/");
+const _B64_TABLE_URL: Int16Array = /* @__PURE__ */ _b64Table("-_");
+
+/* @__NO_SIDE_EFFECTS__ */
 function _unpad(s: string): string {
   let end = s.length;
   while (end > 0 && s.charCodeAt(end - 1) === 61) end--;
   return end === s.length ? s : s.slice(0, end);
 }
 
+/* @__NO_SIDE_EFFECTS__ */
 function _padTo4(s: string): string {
   const rem = s.length % 4;
   return rem === 0 ? s : s + "=".repeat(4 - rem);
 }
 
+/* @__NO_SIDE_EFFECTS__ */
 function _encodeBase64(bytes: Uint8Array, alphabet: Base64Alphabet, padding: boolean): string {
   const url = alphabet === "base64url";
   if (_hasBuffer) {
@@ -79,7 +97,10 @@ function _encodeBase64(bytes: Uint8Array, alphabet: Base64Alphabet, padding: boo
     return padding ? s : _unpad(s);
   }
   if (_nativeToBase64) {
-    return (bytes as unknown as _ToBase64).toBase64({ alphabet, omitPadding: !padding });
+    return (_wholeBuffer(bytes) as unknown as _ToBase64).toBase64({
+      alphabet,
+      omitPadding: !padding,
+    });
   }
   let binary = "";
   for (let i = 0; i < bytes.length; i++) {
@@ -90,117 +111,96 @@ function _encodeBase64(bytes: Uint8Array, alphabet: Base64Alphabet, padding: boo
   return padding ? s : _unpad(s);
 }
 
-function _base64Manual(text: string, loose: boolean, label: string): Uint8Array<ArrayBuffer> {
-  const out = new Uint8Array(Math.ceil((text.length * 3) / 4));
-  let bits = 0;
-  let value = 0;
-  let index = 0;
-  for (let i = 0; i < text.length; i++) {
-    const c = text.charCodeAt(i);
-    if (c === 61) continue;
-    const v = c < 128 ? _B64_TABLE[c]! : -1;
-    if (v === -1) {
-      if (loose) continue;
-      throw _malformed(label, "invalid base64 input.");
-    }
-    value = (value << 6) | v;
-    bits += 6;
-    if (bits >= 8) {
-      bits -= 8;
-      out[index++] = (value >>> bits) & 0xff;
-    }
-  }
-  return out.subarray(0, index);
+/**
+ * Bulk-decode canonical, fully padded, standard-alphabet base64. Every backend
+ * agrees on that input, which is why the contract is settled in JS before any
+ * of them runs: native `fromBase64`'s own strict mode enforces a *different*
+ * contract (padding mandatory, whitespace fatal), so it is never asked to
+ * validate — only to decode.
+ */
+/* @__NO_SIDE_EFFECTS__ */
+function _decodeCanonical(padded: string, symbols: number): Uint8Array<ArrayBuffer> {
+  if (_hasBuffer) return new Uint8Array(_Buffer!.from(padded, "base64"));
+  if (_nativeFromBase64) return (Uint8Array as unknown as _FromBase64).fromBase64(padded);
+  return _decodeSymbols(_symbols(padded, _B64_TABLE_STD), symbols, 6);
 }
 
+/* @__NO_SIDE_EFFECTS__ */
 function _decodeBase64(
   text: string,
   alphabet: Base64Alphabet,
   loose: boolean,
   label: string,
 ): Uint8Array<ArrayBuffer> {
+  const url = alphabet === "base64url";
+  let body: string;
   if (loose) {
-    if (_hasBuffer) {
-      return new Uint8Array(_Buffer!.from(text.replace(/-/g, "+").replace(/_/g, "/"), "base64"));
-    }
-    if (_nativeFromBase64) {
-      return (Uint8Array as unknown as _FromBase64).fromBase64(
-        _padTo4(text.replace(/-/g, "+").replace(/_/g, "/")),
-        { lastChunkHandling: "loose" },
-      );
-    }
-    return _base64Manual(text, true, label);
+    // Either alphabet is accepted; `-_` fold onto `+/` before the junk goes.
+    const clean = text
+      .replace(/-/g, "+")
+      .replace(/_/g, "/")
+      .replace(/[^A-Za-z0-9+/]/g, "");
+    body = clean.slice(0, _looseCount(clean.length, _B64_SHAPE));
+  } else {
+    const strict = _strictBody(text, url ? _B64_TABLE_URL : _B64_TABLE_STD, _B64_SHAPE, label);
+    body = url ? strict.replace(/-/g, "+").replace(/_/g, "/") : strict;
   }
-  if (_nativeFromBase64) {
-    return (Uint8Array as unknown as _FromBase64).fromBase64(text, {
-      alphabet,
-      lastChunkHandling: "strict",
-    });
-  }
-  // Fallback strict. Strip ASCII whitespace to match native fromBase64, which
-  // ignores it. Then validate the alphabet with a regex (Buffer decodes `-_`
-  // and `+/` interchangeably, so it can't enforce the alphabet itself).
-  const clean = text.replace(/[\t\n\f\r ]+/g, "");
-  const re = alphabet === "base64url" ? _B64_URL_RE : _B64_STD_RE;
-  if (!re.test(clean)) throw _malformed(label, "invalid base64 input.");
-  let padLen = 0;
-  for (let i = clean.length - 1; i >= 0 && clean.charCodeAt(i) === 61; i--) padLen++;
-  if ((clean.length - padLen) % 4 === 1) throw _malformed(label, "invalid base64 input.");
-  if (_hasBuffer) {
-    const std = alphabet === "base64url" ? clean.replace(/-/g, "+").replace(/_/g, "/") : clean;
-    return new Uint8Array(_Buffer!.from(std, "base64"));
-  }
-  return _base64Manual(clean, false, label);
+  const rem = body.length % 4;
+  return _decodeCanonical(rem === 0 ? body : body + (rem === 2 ? "==" : "="), body.length);
 }
 
 export interface Base64Codec {
-  /**
-   * Encode bytes to base64.
-   *
-   * @param data - raw bytes, or a `string` (UTF-8 encoded first)
-   * @param options - see {@link Base64StringifyOptions}
-   * @returns the base64 string
-   * @throws {TypeError} if `data` is nullish
-   * @example
-   * Base64.stringify(bytes, { alphabet: "base64url" });
-   */
-  stringify(data: Uint8Array | string, options?: Base64StringifyOptions): string;
-  /**
-   * Decode a base64 string. Strict by default; ASCII whitespace is ignored
-   * (matching native `fromBase64`).
-   *
-   * @param input - base64 text, or its ASCII bytes
-   * @param options - see {@link Base64ParseOptions}
-   * @returns decoded bytes, or a UTF-8 `string` when `returnAs` is `"string"`
-   * @throws {SyntaxError} on characters outside the `alphabet`, unless `loose`
-   * @throws {TypeError} if `input` is nullish
-   * @example
-   * Base64.parse(token, { alphabet: "base64url", returnAs: "bytes" });
-   */
-  parse<T extends DecodeReturnAs>(
-    input: string | Uint8Array,
-    options: Base64ParseOptions & { returnAs: T },
-  ): T extends "string" ? string : Uint8Array<ArrayBuffer>;
-  /** Decode a base64 `string` to a UTF-8 string (strict; see {@link Base64ParseOptions}). */
-  parse(input: string, options?: Base64ParseOptions): string;
-  /** Decode base64-as-bytes to bytes (strict; see {@link Base64ParseOptions}). */
-  parse(input: Uint8Array, options?: Base64ParseOptions): Uint8Array<ArrayBuffer>;
+  /** See {@link base64Stringify}. */
+  stringify: typeof base64Stringify;
+  /** See {@link base64Parse}. */
+  parse: typeof base64Parse;
 }
 
-function base64Stringify(data: Uint8Array | string, options?: Base64StringifyOptions): string {
-  _assertData(data, "Base64.stringify");
+/**
+ * Encode bytes to base64.
+ *
+ * @param data - raw bytes (any `BytesSource`), or a `string` (UTF-8 encoded first)
+ * @param options - see {@link Base64StringifyOptions}
+ * @returns the base64 string
+ * @throws {TypeError} if `data` is not a string, `ArrayBuffer` or view over one
+ * @example
+ * base64Stringify(bytes, { alphabet: "base64url" });
+ */
+/* @__NO_SIDE_EFFECTS__ */
+export function base64Stringify(
+  data: string | BytesSource,
+  options?: Base64StringifyOptions,
+): string {
   const alphabet = options?.alphabet ?? "base64";
   const padding = options?.padding ?? alphabet !== "base64url";
-  return _encodeBase64(_toBytes(data), alphabet, padding);
+  return _encodeBase64(toBytes(data, "Base64.stringify"), alphabet, padding);
 }
 
-function base64Parse<T extends DecodeReturnAs>(
+/**
+ * Decode a base64 string. Strict by default: the text must be the canonical
+ * encoding of some byte string — alphabet characters only, no whitespace,
+ * padding either absent or exactly right, no set bits past the final byte.
+ * `{ loose: true }` drops whatever it cannot use instead of throwing.
+ *
+ * @param input - base64 text, or its ASCII bytes
+ * @param options - see {@link Base64ParseOptions}
+ * @returns decoded bytes, or a UTF-8 `string` when `returnAs` is `"string"`
+ * @throws {SyntaxError} on anything but a canonical encoding, unless `loose`
+ * @throws {TypeError} if `input` is nullish
+ * @example
+ * base64Parse(token, { alphabet: "base64url", returnAs: "bytes" });
+ */
+export function base64Parse<T extends DecodeReturnAs>(
   input: string | Uint8Array,
   options: Base64ParseOptions & { returnAs: T },
 ): T extends "string" ? string : Uint8Array<ArrayBuffer>;
-function base64Parse(input: string, options?: Base64ParseOptions): string;
-function base64Parse(input: Uint8Array, options?: Base64ParseOptions): Uint8Array<ArrayBuffer>;
-function base64Parse(
+export function base64Parse(input: string, options?: Base64ParseOptions): string;
+export function base64Parse(
+  input: Uint8Array,
+  options?: Base64ParseOptions,
+): Uint8Array<ArrayBuffer>;
+/* @__NO_SIDE_EFFECTS__ */
+export function base64Parse(
   input: string | Uint8Array,
   options?: Base64ParseOptions,
 ): string | Uint8Array {
@@ -208,54 +208,16 @@ function base64Parse(
   const { text, wantString } = _parsePrep(input, options);
   if (!text) return wantString ? "" : new Uint8Array(0);
   const alphabet = options?.alphabet ?? "base64";
-  const bytes = _decodeBase64(text, alphabet, options?.loose ?? false, "Base64.parse");
-  return _parseFinalize(bytes, wantString);
+  const loose = options?.loose ?? false;
+  const bytes = _decodeBase64(text, alphabet, loose, "Base64.parse");
+  return _parseFinalize(bytes, wantString, !loose, "Base64.parse");
 }
 
 /**
  * Base64 codec: `Base64.stringify(bytes)` / `Base64.parse(text)`. Strict decode
  * by default. Pass `{ alphabet: "base64url" }` for URL-safe (unpadded by default).
  */
-export const Base64: Base64Codec = { stringify: base64Stringify, parse: base64Parse };
-
-/** @deprecated Use `Base64.stringify`. */
-export function base64Encode(data: Uint8Array | string): string {
-  return base64Stringify(data);
-}
-
-/** @deprecated Use `Base64.stringify(data, { alphabet: "base64url" })`. */
-export function base64UrlEncode(data: Uint8Array | string): string {
-  return base64Stringify(data, { alphabet: "base64url", padding: false });
-}
-
-/** @deprecated Use `Base64.parse` (note: `Base64.parse` is strict by default). */
-export function base64Decode<T extends DecodeReturnAs>(
-  data: string | Uint8Array,
-  options: { returnAs: T },
-): T extends "string" ? string : Uint8Array<ArrayBuffer>;
-export function base64Decode(data: string): string;
-export function base64Decode(data: Uint8Array): Uint8Array<ArrayBuffer>;
-export function base64Decode(
-  data: string | Uint8Array,
-  options?: { returnAs?: DecodeReturnAs },
-): Uint8Array<ArrayBuffer> | string {
-  return base64Parse(data as string, { returnAs: options?.returnAs, loose: true });
-}
-
-/** @deprecated Use `Base64.parse(data, { alphabet: "base64url" })` (strict by default). */
-export function base64UrlDecode<T extends DecodeReturnAs>(
-  data: string | Uint8Array,
-  options: { returnAs: T },
-): T extends "string" ? string : Uint8Array<ArrayBuffer>;
-export function base64UrlDecode(data: string): string;
-export function base64UrlDecode(data: Uint8Array): Uint8Array<ArrayBuffer>;
-export function base64UrlDecode(
-  data: string | Uint8Array,
-  options?: { returnAs?: DecodeReturnAs },
-): Uint8Array<ArrayBuffer> | string {
-  return base64Parse(data as string, {
-    alphabet: "base64url",
-    returnAs: options?.returnAs,
-    loose: true,
-  });
-}
+export const Base64: Base64Codec = /* @__PURE__ */ {
+  stringify: base64Stringify,
+  parse: base64Parse,
+};

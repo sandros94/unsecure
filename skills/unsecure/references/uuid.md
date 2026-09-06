@@ -27,7 +27,7 @@ Both `uuidv7()` and `gen.next()` accept an optional `Date` or Unix-ms `number` t
 | ---------------------------------------------------------- | --------------------------- |
 | A random UUID, don't care about version                    | `secureUUID()` (= `uuidv7`) |
 | Sortable UUID for DB PK, scattered calls OK                | `uuidv7()`                  |
-| Sortable UUID for DB PK, strict counter monotonicity       | `createUUIDv7Generator()`   |
+| Sortable UUID for DB PK, strictly monotonic `next()`       | `createUUIDv7Generator()`   |
 | Out-of-order backfill of historical events                 | `uuidv7(date)` or generator |
 | Fully random UUID (e.g. anti-enumeration, no time leakage) | `uuidv4()`                  |
 | Read the creation time back from a UUIDv7                  | `uuidv7Timestamp()`         |
@@ -109,6 +109,7 @@ Key properties:
 - **Overflow.** If >4095 UUIDs are requested within one wall-clock ms, the internal reference advances by 1 ms and the counter reseeds. Uniqueness is preserved.
 - **Clock regression.** If `Date.now()` returns a value ≤ the last internal reference (NTP adjust, VM pause, DST weirdness), the reference is held and the counter keeps incrementing. Output remains unique.
 - **User-supplied timestamps do not perturb internal state.** `gen.next(pastTs)` embeds `pastTs` verbatim, but the counter still progresses from the wall-clock ms. This makes out-of-order backfills safe: each UUID is unique (counter + `rand_b`) and sorts by its embedded timestamp.
+- **Strict monotonicity applies to `next()`.** With no argument every emitted UUID sorts after the previous one, through same-ms calls, overflow, and clock regressions. With a caller-supplied timestamp the embedded ts dominates lex order, and the counter breaks ties only within one wall-clock ms of this process.
 - **Scope.** Monotonicity is per-process. Two separate generators — or two separate processes — will collide in the counter field but remain distinguishable through the 62-bit `rand_b`.
 
 ## Pitfall: Using `uuidv7Timestamp` on an Arbitrary UUID
@@ -138,7 +139,7 @@ const a = gen.next(); // embeds Date.now()
 const b = gen.next(new Date("2020-01-01")); // embeds 2020 → b < a lex order
 ```
 
-If you need "latest inserted sorts last," either feed monotonic timestamps or omit the argument. Two UUIDs with the same embedded ts still sort by their counter within the wall-clock ms.
+If you need "latest inserted sorts last," either feed ascending timestamps or omit the argument. Two UUIDs carrying the same embedded ts sort by their counter only when both calls fall in the same wall-clock millisecond of this process — the counter reseeds randomly on each new millisecond, so a pair straddling a boundary sorts in either order. They are still unique.
 
 ## Pitfall: Treating UUIDv7 Timestamp Precision as Sub-ms
 

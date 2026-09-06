@@ -12,8 +12,14 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
+
+    strategy:
+      # One failing runtime should not hide the result on the others.
+      fail-fast: false
+      matrix:
+        node-version: ["22", "24", "26"]
 
     steps:
       - name: Checkout code
@@ -22,10 +28,10 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
 
-      - name: Setup Node
+      - name: Setup Node ${{ matrix.node-version }}
         uses: actions/setup-node@v6
         with:
-          node-version: 24.11
+          node-version: ${{ matrix.node-version }}
           cache: "pnpm"
 
       - name: Install dependencies
@@ -42,6 +48,29 @@ jobs:
 
       - name: Test code
         run: pnpm test
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare development build
+        run: pnpm dev:prepare
 
       - name: Build packages
         run: pnpm build

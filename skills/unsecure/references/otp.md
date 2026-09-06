@@ -1,8 +1,12 @@
 # OTP (HOTP / TOTP)
 
-RFC 4226 (HOTP) and RFC 6238 (TOTP) one-time password generation and verification, built on top of [`hmac()`](./hmac.md). Secrets can be raw `Uint8Array` or base32-encoded strings.
+RFC 4226 (HOTP) and RFC 6238 (TOTP) one-time password generation and verification, built on top of [`hmac()`](./hmac.md). Secrets can be raw bytes (any `BytesSource`) or base32-encoded strings, and must decode to at least one byte — an empty secret throws `RangeError`, prefixed with the function the caller wrote (`hotp: secret must not be empty.`)
 
-All verification functions use `secureCompare()` internally for constant-time checks.
+Every numeric option is checked at the boundary against its documented range, with a `RangeError` naming the value found: `counter` an integer `>= 0` (and `counter + window` must stay a safe integer), `digits` an integer from 6 to 8, `period` an integer `>= 1`, `window` an integer `>= 0`, `time` any finite number of seconds (floored) that leaves every step of the window a safe integer. Only an omitted option takes its default: `null` is a value the caller passed and throws like any other bad number. A missing `counter` no longer silently means 0, and a missing `otp` (`null` / `undefined`) is invalid rather than a crash.
+
+All verification functions use `secureCompare()` internally for constant-time checks, and walk their whole window on every call — `window + 1` HMACs for `hotpVerify()`, `2 * window + 1` for `totpVerify()` — so the duration of a call reveals nothing about which step matched. `delta` is the **nearest** matching step (the past wins a tie), not the first one scanned.
+
+Algorithm names are matched case-insensitively (`"sha-256"` works); anything else throws a `RangeError` naming the four supported digests, before Web Crypto is reached.
 
 ## generateOTPSecret()
 
@@ -12,6 +16,7 @@ Generates a cryptographically random OTP secret, returned as a base32-encoded st
 import { generateOTPSecret } from "unsecure";
 
 const secret = generateOTPSecret(); // 20 bytes, base32 string (ideal for SHA-1)
+// `length` is a byte count: an integer >= 1
 const secret256 = generateOTPSecret(32); // 32 bytes (ideal for SHA-256)
 const secret512 = generateOTPSecret(64); // 64 bytes (ideal for SHA-512)
 ```
@@ -23,8 +28,8 @@ HMAC-based One-Time Passwords (RFC 4226).
 **Options:**
 
 - `algorithm`: `"SHA-1"` (default), `"SHA-256"`, `"SHA-384"`, `"SHA-512"`
-- `digits`: number of digits (default `6`)
-- `window` (verify only): counter values to check ahead (default `0`)
+- `digits`: number of digits, 6 to 8 (default `6`)
+- `window` (verify only): counter values to check ahead, `>= 0` (default `0`)
 
 ```ts
 import { hotp, hotpVerify } from "unsecure";
@@ -43,10 +48,10 @@ Time-based One-Time Passwords (RFC 6238).
 **Options:**
 
 - `algorithm`: `"SHA-1"` (default), `"SHA-256"`, `"SHA-384"`, `"SHA-512"`
-- `digits`: number of digits (default `6`)
-- `period`: time step in seconds (default `30`)
-- `time`: Unix timestamp in seconds (defaults to current time; useful for testing)
-- `window` (verify only): time steps to check in each direction (default `1`)
+- `digits`: number of digits, 6 to 8 (default `6`)
+- `period`: time step in seconds, `>= 1` (default `30`)
+- `time`: Unix timestamp in seconds, any finite number (omit it for the current time; useful for testing)
+- `window` (verify only): time steps to check in each direction, `>= 0` (default `1`)
 
 ```ts
 import { totp, totpVerify } from "unsecure";
@@ -66,7 +71,7 @@ const code3 = await totp(secret, { time: 1234567890 });
 
 ## otpauthURI()
 
-Builds an `otpauth://` URI for provisioning OTP tokens via QR code.
+Builds an `otpauth://` URI for provisioning OTP tokens via QR code. Values are percent-encoded per the Key URI format (a space is `%20`, never `+`), and a string secret is canonicalized to unpadded uppercase base32 — `"jbsw y3dp"` and the equivalent bytes produce the same URI. `type` must be `"hotp"` or `"totp"` (`TypeError` otherwise); `account` — and `issuer` when given — must be a non-empty string, and `undefined` is how a caller says there is no issuer; `counter` is required for HOTP and must be an integer `>= 0`.
 
 ```ts
 import { otpauthURI } from "unsecure";
@@ -142,18 +147,34 @@ JSON.stringify({ secret }); // works perfectly
 await totp(secret); // string: auto-decoded from base32
 ```
 
+## Pitfall: Accepting a Code Twice
+
+RFC 6238 §5.2: a code is single-use. The library holds no state, so the memory of what was accepted travels with the user record: pass the `step` of the last success back as `lastAccepted`, and `totpVerify()` refuses every candidate at or before it — the code just used, and any older captured code — while still computing the whole window.
+
+```ts
+// ❌ A code an attacker captures stays valid for the rest of its window
+const { valid } = await totpVerify(secret, userCode);
+
+// ✅ The refusal happens inside verify; you only store one integer
+const result = await totpVerify(secret, userCode, { lastAccepted: user.lastOtpStep });
+if (result.valid) {
+  await store.setLastOtpStep(user.id, result.step);
+} // else: wrong code, or a step already accepted — indistinguishable on purpose
+```
+
+`user.lastOtpStep` starts out `undefined` for a user who has never verified, which is also what "nothing to refuse" means.
+
 ## Pitfall: HOTP Without Counter Tracking
 
-HOTP requires tracking the counter server-side. If you don't increment after successful verification, the same code works forever.
+HOTP requires tracking the counter server-side. `counter` is that state: candidates before it are never checked, and if you don't advance it after a success the same code works forever.
 
 ```ts
 // ❌ Never updating the counter
-const { valid } = await hotpVerify(secret, code, storedCounter, { window: 5 });
+const { valid } = await hotpVerify(secret, code, user.counter, { window: 5 });
 
-// ✅ Update counter on success
-const { valid, delta } = await hotpVerify(secret, code, storedCounter, { window: 5 });
-if (valid) {
-  storedCounter += delta + 1; // advance past the matched counter
-  // persist storedCounter to database
+// ✅ Advance past the counter that matched
+const result = await hotpVerify(secret, code, user.counter, { window: 5 });
+if (result.valid) {
+  await store.setCounter(user.id, result.counter + 1);
 }
 ```

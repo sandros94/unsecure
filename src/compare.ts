@@ -1,4 +1,7 @@
-import { textEncoder } from "./utils/index.ts";
+import { type BytesSource, toBytes } from "./_internal/bytes.ts";
+
+/** Stand-in for a `received` value that carries no bytes to compare. */
+const EMPTY = /* @__PURE__ */ new Uint8Array(0);
 
 export interface SecureCompareOptions {
   /**
@@ -16,21 +19,26 @@ export interface SecureCompareOptions {
 }
 
 /**
- * Compares two inputs (Uint8Array or string) in a way that is safe against timing attacks.
+ * Compares two inputs (text or bytes) in a way that is safe against timing attacks.
  * It takes a constant amount of time to execute, regardless of whether the values match,
- * where the first difference occurs, or if the `received` value is `undefined`.
+ * where the first difference occurs, or whether `received` carries any bytes at all.
  *
  * **Important:** The `expected` parameter determines the loop length. Always pass the
  * trusted, server-side value as `expected` and the untrusted, user-provided value as
  * `received`. Swapping them could leak length information about the attacker's input.
  *
  * @param expected The known, trusted value (e.g. a computed HMAC or stored token).
- *                 If empty or `undefined`, the function returns `false` by default,
- *                 or throws when `options.strict` is set.
+ *                 A string or any `BytesSource`. If empty or `undefined`, the function
+ *                 returns `false` by default, or throws when `options.strict` is set.
+ *                 Anything else is a caller bug and throws a {@link TypeError}.
  * @param received The untrusted, user-provided value to verify against `expected`.
- *                 `undefined` yields `false` in timing-safe fashion.
+ *                 A string or any `BytesSource` is compared; anything else — `null`,
+ *                 `undefined`, a number, a plain array, an object — is a mismatch and
+ *                 yields `false` in timing-safe fashion, never a throw.
  * @param options Behavior options. See {@link SecureCompareOptions.strict}.
  * @returns `true` if the values match, `false` otherwise.
+ *
+ * @throws {TypeError} If `expected` is neither text, bytes nor `undefined`.
  *
  * @example
  * // Comparing two strings
@@ -52,40 +60,40 @@ export interface SecureCompareOptions {
  * secureCompare('my_secure_token', tokenBytes); // true
  *
  * @example
- * // Undefined received value
- * secureCompare('some_expected_value', undefined); // false
+ * // A missing header is a mismatch, not a crash
+ * secureCompare(computedSignature, request.headers.get('x-signature')); // false when absent
  *
  * @example
  * // Opt-in strict mode throws on empty / undefined `expected`
  * secureCompare(undefined, 'x', { strict: true }); // throws
  */
 export function secureCompare(
-  expected: Uint8Array | string | undefined,
-  received: Uint8Array | string | undefined,
+  expected: string | BytesSource | undefined,
+  received: string | BytesSource | null | undefined,
   options?: SecureCompareOptions,
 ): boolean {
-  if (!expected || expected.length === 0) {
+  const a =
+    expected === undefined || expected === null ? EMPTY : toBytes(expected, "secureCompare");
+
+  if (a.length === 0) {
     if (options?.strict) {
       throw new Error("Cannot verify. Expected value is empty or undefined.");
     }
     return false;
   }
 
-  const a = _toUint8Array(expected);
-
-  // To prevent timing attacks, the execution path must be consistent
-  // regardless of whether `received` is defined or not.
+  // `received` comes from the wire: a missing header, a JSON number or a
+  // parsed array is a wrong value, not a caller bug, so it compares as no
+  // bytes at all rather than throwing. The execution path stays the same
+  // whichever it is — only `expected` decides how long the loop runs.
   let b: Uint8Array;
-  let isReceivedUndefined = 0;
-
-  if (received === undefined) {
-    b = new Uint8Array(0);
-    isReceivedUndefined = 1;
-  } else {
-    b = _toUint8Array(received);
+  try {
+    b = received === undefined || received === null ? EMPTY : toBytes(received, "secureCompare");
+  } catch {
+    b = EMPTY;
   }
 
-  let mismatch = isReceivedUndefined | (a.length ^ b.length);
+  let mismatch = a.length ^ b.length;
 
   // This ensures a constant number of loop iterations based on the expected length.
   for (const [i, element] of a.entries()) {
@@ -97,11 +105,4 @@ export function secureCompare(
   }
 
   return mismatch === 0;
-}
-
-function _toUint8Array(input: Uint8Array | string): Uint8Array {
-  if (typeof input === "string") {
-    return textEncoder.encode(input);
-  }
-  return input;
 }

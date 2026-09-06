@@ -213,11 +213,15 @@ describe.concurrent("secureGenerate", () => {
 
   // Test case 6: Edge case - invalid length
   it("should throw an error if length is 0", () => {
-    expect(() => secureGenerate({ length: 0 })).toThrow("Password length must be at least 1.");
+    expect(() => secureGenerate({ length: 0 })).toThrow(
+      "secureGenerate: length must be an integer >= 1, got 0.",
+    );
   });
 
   it("should throw an error if length is negative", () => {
-    expect(() => secureGenerate({ length: -1 })).toThrow("Password length must be at least 1.");
+    expect(() => secureGenerate({ length: -1 })).toThrow(
+      "secureGenerate: length must be an integer >= 1, got -1.",
+    );
   });
 
   // Test case 7: Error case - no character types selected
@@ -229,7 +233,7 @@ describe.concurrent("secureGenerate", () => {
         numbers: false,
         specials: false,
       }),
-    ).toThrow("Cannot generate string. No character types selected.");
+    ).toThrow("secureGenerate: no character types selected.");
   });
 
   // Test case 8: Length equal to number of enabled character types (no random fill)
@@ -317,7 +321,7 @@ describe.concurrent("secureGenerate", () => {
 
   it("should throw an error if length is not sufficient for timestamp", () => {
     expect(() => secureGenerate({ length: 5, timestamp: true })).toThrowError(
-      /Password length must be greater than timestamp length/,
+      /secureGenerate: length must be greater than the timestamp prefix/,
     );
   });
 });
@@ -345,3 +349,87 @@ function containsOnlyCharsFromSet(token: string, allowedSet: string): boolean {
   }
   return true;
 }
+
+describe.concurrent("secureGenerate input contract", () => {
+  it("rejects a length that is not an integer >= 1", () => {
+    expect(() => secureGenerate({ length: Number.NaN })).toThrow(
+      "secureGenerate: length must be an integer >= 1, got NaN.",
+    );
+    expect(() => secureGenerate({ length: Number.POSITIVE_INFINITY })).toThrow(
+      "secureGenerate: length must be an integer >= 1, got Infinity.",
+    );
+    expect(() => secureGenerate({ length: 5.5 })).toThrow(
+      "secureGenerate: length must be an integer >= 1, got 5.5.",
+    );
+    expect(() => secureGenerate({ length: "16" as any })).toThrow(RangeError);
+  });
+
+  it("rejects an invalid Date instead of prefixing the literal NaN", () => {
+    expect(() => secureGenerate({ length: 20, timestamp: new Date("nope") })).toThrow(
+      "secureGenerate: timestamp must be a valid Date, got Invalid Date.",
+    );
+    expect(() => secureGenerate({ length: 20, timestamp: 123 as any })).toThrow(
+      "secureGenerate: timestamp must be a Date, got 123.",
+    );
+  });
+
+  it("counts and emits whole code points, never a lone surrogate", () => {
+    const token = secureGenerate({
+      length: 6,
+      uppercase: "😀🎉🚀",
+      lowercase: false,
+      numbers: false,
+      specials: false,
+    });
+    expect(Array.from(token)).toHaveLength(6);
+    expect(token).not.toMatch(
+      /(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])/,
+    );
+    expect(Array.from(token).every((char) => "😀🎉🚀".includes(char))).toBe(true);
+  });
+
+  it("mixes code-point sets with ASCII ones without splitting them", () => {
+    const token = secureGenerate({
+      length: 10,
+      uppercase: "🙂",
+      lowercase: "ab",
+      numbers: false,
+      specials: false,
+    });
+    expect(Array.from(token)).toHaveLength(10);
+    expect(token).toContain("🙂");
+  });
+
+  it("rejects a character repeated inside one set", () => {
+    expect(() =>
+      secureGenerate({
+        length: 8,
+        uppercase: "AAB",
+        lowercase: false,
+        numbers: false,
+        specials: false,
+      }),
+    ).toThrow(
+      'secureGenerate: character sets must not repeat a character; "A" appears more than once.',
+    );
+  });
+
+  it("rejects a character shared between two sets", () => {
+    expect(() =>
+      secureGenerate({
+        length: 8,
+        uppercase: "AB",
+        lowercase: "bA",
+        numbers: false,
+        specials: false,
+      }),
+    ).toThrow(RangeError);
+    expect(() => secureGenerate({ length: 8, numbers: "0123456789", specials: "0!" })).toThrow(
+      RangeError,
+    );
+  });
+
+  it("keeps the default sets usable together", () => {
+    expect(() => secureGenerate({ length: 16 })).not.toThrow();
+  });
+});

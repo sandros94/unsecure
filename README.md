@@ -57,6 +57,12 @@ import {
   secureShuffle,
   randomJitter,
   // Codecs (also available via `unsecure/utils`)
+  hexStringify,
+  hexParse,
+  base64Stringify,
+  base64Parse,
+  base32Stringify,
+  base32Parse,
   Hex,
   Base64,
   Base32,
@@ -83,8 +89,8 @@ Hashes input data using a specified cryptographic algorithm. It uses the Web Cry
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`)
-- **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default `hex`)
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws a `RangeError`
+- **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default mirrors the input type: a string returns hex, a `BytesSource` returns bytes)
 
 > [!WARNING]
 > `hash()` operates on complete data. The Web Crypto API does not support incremental/streaming digests, so for hashing large streams (e.g. file uploads) you'll need a platform-specific API like Node.js's `crypto.createHash()` or Deno's `crypto.subtle.digestStream()`.
@@ -98,11 +104,11 @@ const hashHex = await hash("hello world");
 
 // Hash an input using the default SHA-256 and return as a base64 string
 const hashBase64 = await hash("hello world", { returnAs: "base64" });
-// 'UhywQV8aBkKEVtnvTpSMAnCoBkQjJSU8t6imt+Q9qcc='
+// 'uU0nuZNNPgilLlLX2n2r+sSE7+N6U4DukIj3rOLvzek='
 
 // Hash an input using the default SHA-256 and return as a base64 URL string
 const hashBase64URL = await hash("hello world", { returnAs: "base64url" });
-// 'UhywQV8aBkKEVtnvTpSMAnCoBkQjJSU8t6imt-Q9qcc'
+// 'uU0nuZNNPgilLlLX2n2r-sSE7-N6U4DukIj3rOLvzek'
 
 // Hash and get raw bytes (Uint8Array)
 const hashBytes = await hash("hello world", { returnAs: "bytes" });
@@ -115,12 +121,14 @@ const hash512 = await hash("hello world", { algorithm: "SHA-512" });
 
 ### hmac
 
-Computes an HMAC signature using the Web Crypto API. Supports the same algorithms and output formats as `hash()`. When `returnAs` is not specified, the output type mirrors the input: string data returns a hex string, BufferSource data returns a Uint8Array.
+Computes an HMAC signature using the Web Crypto API. Supports the same algorithms and output formats as `hash()`. When `returnAs` is not specified, the output type mirrors the input: string data returns a hex string, BytesSource data returns a Uint8Array.
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`)
-- **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default mirrors input type)
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws a `RangeError`
+- **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default mirrors input type). On `hmacVerify()` it names the format of a **string** `signature`, which is decoded strictly before the byte comparison; a `BytesSource` signature is compared as-is.
+
+The `secret` must not be empty — both functions throw a `RangeError` before reaching Web Crypto, because an unset secret is a deployment bug rather than a wrong signature. Untrusted signatures never throw: `null`, `undefined`, malformed text or a value that is not text or bytes all verify as `false`.
 
 ```ts
 import { hmac, hmacVerify } from "unsecure";
@@ -136,9 +144,9 @@ const sig64 = await hmac("my-secret", payload, {
 });
 
 // Verify a webhook signature in constant time
-const expected = request.headers["x-hub-signature-256"].replace("sha256=", "");
+const expected = request.headers.get("x-hub-signature-256")?.replace("sha256=", "");
 const valid = await hmacVerify(webhookSecret, requestBody, expected);
-// true or false
+// true or false — a missing header verifies as false, it does not throw
 
 // Verify a base64-encoded signature
 const valid = await hmacVerify(secret, body, expectedBase64Sig, {
@@ -152,11 +160,11 @@ HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`. Extract-and-expan
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`)
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws a `RangeError`
 - **length**: output length in bytes (default `32`, max `255 * HashLen`)
-- **salt**: non-secret but strongly recommended (string or `BufferSource`, default empty)
-- **info**: context label for domain separation (string or `BufferSource`, default empty)
-- **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default `uint8array`)
+- **salt**: non-secret but strongly recommended (string or `BytesSource`, default empty)
+- **info**: context label for domain separation (string or `BytesSource`, default empty)
+- **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default mirrors the `ikm` input type: a string returns hex, a `BytesSource` returns bytes)
 
 ```ts
 import { hkdf } from "unsecure";
@@ -184,7 +192,7 @@ const macKey = await hkdf(ikm, { salt, info: "authenticate" });
 
 RFC 4226 (HOTP) and RFC 6238 (TOTP) one-time password generation and verification, built on top of `hmac()`.
 
-Secrets can be passed as raw `Uint8Array` bytes or as a base32-encoded `string`.
+Secrets can be passed as raw bytes (`Uint8Array`, `ArrayBuffer`, `DataView`, …) or as a base32-encoded `string`, and must decode to at least one byte.
 
 > [!NOTE]
 > The RFCs recommend the secret to be at least as long as the hash output (20 bytes for SHA-1, 32 for SHA-256, 48 for SHA-384, 64 for SHA-512). The default `generateOTPSecret()` produces 20 bytes, which works with any algorithm but is ideal for SHA-1. Use `generateOTPSecret(32)` or `generateOTPSecret(64)` when targeting SHA-256 or SHA-512.
@@ -195,9 +203,11 @@ Generate and verify HMAC-based One-Time Passwords (RFC 4226).
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`)
-- **digits**: number of digits in the OTP code (default `6`)
-- **window**: (verify only) number of counter values to check ahead (default `0`)
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`) — matched case-insensitively; any other name throws a `RangeError`
+- **digits**: number of digits in the OTP code, an integer from `6` to `8` (default `6`)
+- **window**: (verify only) number of counter values to check ahead, an integer `>= 0` (default `0`)
+
+`counter` must be an integer `>= 0` — and `counter + window` must still be a safe integer — and the secret must decode to at least one byte; anything else throws a `RangeError` naming the value found and the function it was passed to. A `null` or `undefined` `otp` is simply invalid.
 
 ```ts
 import { hotp, hotpVerify } from "unsecure";
@@ -209,10 +219,15 @@ const code = await hotp(secretBytes, 0);
 // Generate an 8-digit OTP
 const code8 = await hotp(secretBytes, 0, { digits: 8 });
 
-// Verify an OTP
-const { valid, delta } = await hotpVerify(secret, "287082", 0, { window: 5 });
-// valid: true, delta: 1 (matched at counter 0 + 1)
+// Verify an OTP against the stored counter
+const result = await hotpVerify(secret, "287082", user.counter, { window: 5 });
+// { valid: true, delta: 1, counter: 1 } — the absolute counter that matched
+
+// Codes are single-use: the stored counter advances past the one that matched
+if (result.valid) await store.setCounter(user.id, result.counter + 1);
 ```
+
+Verification always computes every candidate in the window — `window + 1` HMACs for HOTP, `2 * window + 1` for TOTP — so the time a call takes says nothing about which step matched. `delta` reports the nearest matching step.
 
 #### totp / totpVerify
 
@@ -220,11 +235,12 @@ Generate and verify Time-based One-Time Passwords (RFC 6238).
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`)
-- **digits**: number of digits in the OTP code (default `6`)
-- **period**: time step duration in seconds (default `30`)
-- **time**: Unix timestamp in seconds (defaults to current time)
-- **window**: (verify only) number of time steps to check in each direction (default `1`)
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`) — matched case-insensitively; any other name throws a `RangeError`
+- **digits**: number of digits in the OTP code, an integer from `6` to `8` (default `6`)
+- **period**: time step duration in seconds, an integer `>= 1` (default `30`)
+- **time**: Unix timestamp in seconds, any finite number, floored (omit it — or pass `undefined` — for the current time; `null` is a value, not an omission, and throws)
+- **window**: (verify only) number of time steps to check in each direction, an integer `>= 0` (default `1`). `time` must leave every step of the window a safe integer
+- **lastAccepted**: (verify only) the `step` of the last code this secret was accepted for, an integer `>= 0`. Every candidate at or before it is refused
 
 ```ts
 import { totp, totpVerify } from "unsecure";
@@ -233,13 +249,20 @@ import { totp, totpVerify } from "unsecure";
 const code = await totp(base32Secret);
 
 // Verify a user-provided code (checks current, previous, and next time steps)
-const { valid, delta } = await totpVerify(secret, userCode);
-// delta: 0 = current step, -1 = previous, +1 = next
+const result = await totpVerify(secret, userCode, { lastAccepted: user.lastOtpStep });
+// { valid: true, delta: 0, step: 56666666 } — delta: 0 = current step, -1 = previous, +1 = next
+// { valid: false, delta: 0 } — wrong code, or a step already accepted
+
+// Codes are single-use: remember the step, and the same code is refused next time
+if (result.valid) await store.setLastOtpStep(user.id, result.step);
 ```
+
+> [!IMPORTANT]
+> RFC 6238 §5.2 requires a code to be accepted only once. The library holds no state, so that memory travels with the user record: persist `step` from every successful verification and pass it back as `lastAccepted`. Without it a code an attacker captures stays usable for the rest of its window.
 
 #### generateOTPSecret
 
-Generates a cryptographically random OTP secret, returned as a base32-encoded string (without padding).
+Generates a cryptographically random OTP secret, returned as a base32-encoded string (without padding). `length` is a number of bytes: an integer `>= 1`.
 
 ```ts
 import { generateOTPSecret } from "unsecure";
@@ -253,7 +276,7 @@ const secret256 = generateOTPSecret(32);
 
 #### otpauthURI
 
-Builds an `otpauth://` URI for provisioning OTP tokens via QR code.
+Builds an `otpauth://` URI for provisioning OTP tokens via QR code. Every value is percent-encoded (a space is `%20`, never `+`) and the secret is re-encoded as canonical unpadded base32 whatever shape it arrives in, so a grouped lowercase string scans the same as raw bytes. `type` must be `"hotp"` or `"totp"`, `account` (and `issuer`, when given) must be a non-empty string — omit `issuer` entirely when there is none — and `counter` is required — and an integer `>= 0` — for HOTP.
 
 ```ts
 import { otpauthURI } from "unsecure";
@@ -278,6 +301,10 @@ const hotpUri = otpauthURI({
 ### secureGenerate
 
 Generates a cryptographically secure string. You can customize its length and character set (all enabled by default). If a string is passed it will be used as a set of allowed characters.
+
+Every enabled character set contributes at least one character, provided `length` — less any timestamp prefix — is at least the number of enabled sets; below that the result is cut to `length` after the shuffle, so which sets appear is a draw.
+
+`length` is a count of code points and must be an integer `>= 1`; a `Date` timestamp must be a valid one. Character sets are read by code point, so an emoji counts as one character and is never split, and no character may appear twice — within a set or across two of them — because a repeat would be drawn more often than its neighbours.
 
 Internally it uses a buffer, which is constantly updated, to minimize Web Crypto API calls and greatly improve performance. This becomes useful when generating 128-512 characters long tokens.
 
@@ -319,7 +346,9 @@ const datestamp = secureGenerate({ length: 20, timestamp: date });
 
 ### secureCompare
 
-Compares two values (string or Uint8Array) in a timing-attack-safe manner. The first argument (`expected`) is always the trusted, server-side value, which determines the loop length. The second argument (`received`) is the untrusted, user-provided value.
+Compares two values (a string or any byte container — `Uint8Array`, `ArrayBuffer`, `DataView`, …) in a timing-attack-safe manner. The first argument (`expected`) is always the trusted, server-side value, which determines the loop length. The second argument (`received`) is the untrusted, user-provided value.
+
+Because `received` comes from the wire, anything that is not text or bytes — `null` from a missing header, a number or an array out of a JSON body — counts as a mismatch and returns `false`. Only a wrong `expected` type throws, because that is a bug in your own code.
 
 ```ts
 import { secureCompare } from "unsecure";
@@ -341,6 +370,8 @@ secureCompare(expected, mac2); // false
 
 // Handles undefined / empty `expected` gracefully — returns false by default
 secureCompare(expected, undefined); // false
+secureCompare(expected, request.headers.get("x-signature")); // false when the header is absent
+secureCompare(expected, [1, 2, 3]); // false — not text or bytes
 secureCompare("", received); // false
 secureCompare(undefined, undefined); // false — never "empty matches empty"
 
@@ -378,7 +409,9 @@ const fake = entropy("abcdefghijklmnop");
 fake.bitsPerSymbol; // 4 (maximum for 16 unique chars)
 fake.longestRun; // 16
 fake.monotonicDirection; // "ascending"
-fake.bigramBitsPerSymbol; // ~2.46 — noticeably low
+// Every adjacent pair here is distinct, so bigram entropy sits at its ceiling
+// for a 16-symbol sample — longestRun is the field that catches this input.
+fake.bigramBitsPerSymbol; // ~3.66
 
 // Random bytes — near-max across the board
 const bytes = new Uint8Array(256);
@@ -415,12 +448,12 @@ const n2 = generator.next(50, 150); // 50 to 149
 const n3 = generator.next(10, [3, 5, 7]); // 0-9, excluding 3, 5, 7
 const n4 = generator.next(50, 100, new Set([55, 60, 65])); // 50-99, excluding 55, 60, 65
 
-// Get a secure random number (more memory-efficient for single use)
+// Get a secure random number (draws from a shared buffered generator)
 const num = secureRandomNumber(100); // 0 to 99
 const num2 = secureRandomNumber(50, 150); // 50 to 149
 const num3 = secureRandomNumber(10, [2, 4, 6]); // 0-9, excluding 2, 4, 6
 
-// Generate random bytes
+// Generate random bytes (length is an integer in [0, 2**31 - 1])
 const key = secureRandomBytes(32); // 256-bit key material (Uint8Array)
 
 // Securely shuffle an array in-place
@@ -439,7 +472,10 @@ secureShuffle(list2, gen);
 await randomJitter(); // 0-99ms
 await randomJitter(50); // 0-49ms
 await randomJitter(50, 100); // 50-99ms
+await randomJitter(undefined, 50); // 0-49ms — same as randomJitter(50)
 ```
+
+`secureRandomNumber` and `randomJitter` share one buffered generator, so they cost a `crypto.getRandomValues` call per 256 draws; `createSecureRandomGenerator()` hands back a private one. `randomJitter` bounds must be non-negative integers — `setTimeout` truncates, so a fractional bound never described the delay — and `secureRandomBytes` refuses a length above `2**31 - 1` rather than allocating gigabytes and filling them for hours.
 
 ### UUID (v4 / v7)
 
@@ -491,7 +527,7 @@ Stateful generator with a **dual-clock** design: the internal counter and its re
 ```ts
 const gen = createUUIDv7Generator();
 
-gen.next(); // Counter monotonic per process
+gen.next(); // Strictly monotonic per process
 gen.next(new Date("2020-01-01")); // Embeds that date; counter still advances
 gen.next(1_577_836_800_000); // Numeric ms
 ```
@@ -504,34 +540,31 @@ Key properties:
 - A throwing `.next(invalidTs)` does **not** mutate internal state (validation runs before the counter advances).
 
 > [!NOTE]
-> Mixing `next()` and `next(pastTs)` calls gives UUIDs that sort by embedded timestamp, not call order — usually what you want for DB PKs. If you need "latest inserted sorts last," omit the argument or feed monotonic timestamps. For true backfills of past events, call the stateless `uuidv7(date)` instead.
+> Argument-free `next()` calls are strictly monotonic — each UUID sorts after the last. Once you pass timestamps, UUIDs sort by the embedded timestamp rather than by call order (usually what you want for DB PKs), and two calls carrying the _same_ timestamp are ordered by the counter only while both land in one wall-clock millisecond of this process; across a millisecond boundary the counter reseeds and the pair sorts either way. Uniqueness holds regardless. If you need "latest inserted sorts last," omit the argument or feed ascending timestamps. For true backfills of past events, call the stateless `uuidv7(date)` instead.
 
 ### Utilities (`unsecure/utils`)
 
-JSON-style codecs — `Hex`, `Base64`, `Base32` — each with `stringify` (bytes → text) and `parse` (text → bytes), plus shared `textEncoder` / `textDecoder`. Available from the main barrel and `unsecure/utils` (use the subpath for CDN delivery).
+Six codec functions — `hexStringify` / `hexParse`, `base64Stringify` / `base64Parse`, `base32Stringify` / `base32Parse` — plus the `Hex`, `Base64` and `Base32` objects that group them JSON-style (`Hex.stringify` _is_ `hexStringify`), and the shared `textEncoder` / `textDecoder`. Available from the main barrel and `unsecure/utils` (use the subpath for CDN delivery). Import the flat functions to ship only the codec you use.
 
-- **`stringify(data, options?)`** accepts `string | Uint8Array` (any backing, incl. `SharedArrayBuffer`-backed views); strings are UTF-8 encoded. Returns a `string`. `null` / `undefined` throws `TypeError`.
-- **`parse(input, options?)`** is **strict by default** — malformed input throws `SyntaxError`; pass `{ loose: true }` to tolerate it. Output mirrors the input type (`string` → UTF-8 `string`, `Uint8Array` → bytes); override with `{ returnAs }`. Byte output is always a fresh `ArrayBuffer`-backed `Uint8Array`, never a view into Node's `Buffer` pool.
+- **`stringify(data, options?)`** accepts a `string` (UTF-8 encoded first) or any `BytesSource` — an `ArrayBuffer` (shared or not), a `DataView`, or any typed array. Returns a `string`. `null` / `undefined` throws `TypeError`.
+- **`parse(input, options?)`** is **strict by default** — it accepts exactly the canonical encoding of some byte string (alphabet characters only, no whitespace, padding absent or exactly right, no set bits past the final byte) and throws `SyntaxError` otherwise. Pass `{ loose: true }` to drop whatever it cannot use instead. Unpadded output round-trips: anything `stringify` emits, `parse` accepts. Output mirrors the input type (`string` → UTF-8 `string`, `Uint8Array` → bytes); override with `{ returnAs }`. `Uint8Array` input is the _encoded text's_ bytes, one character per byte, so a byte ≥ 0x80 is simply an invalid character. Byte output always owns an `ArrayBuffer` exactly its own length, never a view into Node's `Buffer` pool. String output keeps a decoded U+FEFF as payload, and strict decode throws `SyntaxError` if the bytes are not valid UTF-8 — ask for `{ returnAs: "bytes" }` when the payload is not text.
 
 ```ts
-import { Hex, Base64, Base32 } from "unsecure/utils";
+import { hexStringify, hexParse, base64Parse, base32Parse, Base32 } from "unsecure/utils";
 
-Hex.stringify("hello"); // "68656c6c6f"
-Hex.parse("68656c6c6f"); // "hello" (string → string by default)
-Hex.parse("68656c6c6f", { returnAs: "uint8array" }); // Uint8Array
+hexStringify("hello"); // "68656c6c6f"
+hexParse("68656c6c6f"); // "hello" (string → string by default)
+hexParse("68656c6c6f", { returnAs: "uint8array" }); // Uint8Array
 
 // Base64: standard, or URL-safe via { alphabet: "base64url" } (unpadded by default)
-Base64.stringify(bytes, { alphabet: "base64url" });
-Base64.parse(token, { alphabet: "base64url", returnAs: "bytes" });
+base64Stringify(bytes, { alphabet: "base64url" });
+base64Parse(token, { alphabet: "base64url", returnAs: "bytes" });
 
-// Base32 (RFC 4648) + base32hex / crockford / custom alphabets
+// Base32 (RFC 4648) + base32hex / crockford / custom 32-char alphabets
 Base32.stringify("foobar"); // "MZXW6YTBOI======"
-Base32.stringify(secret, { padding: false }); // unpadded (e.g. OTP secrets)
-Base32.parse(userSecret, { loose: true, returnAs: "uint8array" }); // tolerate spaces/case
+base32Stringify(secret, { padding: false }); // unpadded (e.g. OTP secrets)
+base32Parse(userSecret, { loose: true, returnAs: "uint8array" }); // tolerate spaces/case
 ```
-
-> [!NOTE]
-> The pre-0.3 flat functions (`hexEncode`, `base64Decode`, `base32Encode`, …) remain as **deprecated** `loose` wrappers — migrate to the codecs. Decoding is now strict by default, so add `{ loose: true }` to reproduce the old lenient behavior.
 
 ### Sanitization (`sanitizeObject` / `sanitizeObjectCopy` / `safeJsonParse`)
 
@@ -543,12 +576,12 @@ Three complementary tools for stripping prototype-pollution vectors (`__proto__`
 | Already have a parsed object you own | `sanitizeObject` (fastest) |
 | Must preserve the caller's object    | `sanitizeObjectCopy`       |
 
-`safeJsonParse` is cheapest — a reviver drops dangerous keys during parsing so they never materialize on the result. `sanitizeObject` is the fastest post-parse variant: single-pass traversal, mutates in place, no intermediate allocations. `sanitizeObjectCopy` is the non-mutating alternative, cycle-safe via `WeakMap` (cycles in the input become cycles in the output pointing at the copied node, never at the original).
+`safeJsonParse` is `JSON.parse` followed by `sanitizeObject` on the result, so nothing holding a dangerous key survives the call. `sanitizeObject` is the fastest post-parse variant: single-pass traversal, mutates in place, no intermediate allocations. `sanitizeObjectCopy` is the non-mutating alternative, cycle-safe via `WeakMap` (cycles in the input become cycles in the output pointing at the copied node, never at the original). All three traverse with an explicit stack, so nesting depth is bounded by memory rather than by the call stack.
 
 ```ts
 import { safeJsonParse, sanitizeObject, sanitizeObjectCopy } from "unsecure";
 
-// 1. Parse + sanitize in one step — dangerous keys never exist on the result
+// 1. Parse + sanitize in one step — the result holds no dangerous key
 const payload = safeJsonParse<{ user: { name: string } }>(untrustedInput);
 
 // 2. Post-parse, mutate in place (cheapest on hot paths)
@@ -573,10 +606,14 @@ Object.hasOwn(data.user.profile[0]!, "constructor"); // false
 
 Notes:
 
-- Only own properties named exactly `__proto__`, `prototype`, and `constructor` are removed.
+- Only own properties named exactly `__proto__`, `prototype`, and `constructor` are removed. `sanitizeObject` finds them whether or not they are enumerable — `Object.defineProperty` can hide a `__proto__` from `Object.keys` and it is still a live vector.
+- Neither function invokes a getter: every value — object properties and array elements alike — is read from its property descriptor. `sanitizeObject` leaves an accessor in place (unless its name is one of the three, in which case it is removed unread); `sanitizeObjectCopy` copies own enumerable **data** properties only, so an accessor is absent from the copy, and an accessor at an array index leaves a hole there rather than shifting the elements after it.
+- A `Proxy` is the exception, and cannot be otherwise: its traps run for every property operation, `getOwnPropertyDescriptor` included, so a proxied object is traversed through its own traps. Sanitize the target, not the proxy, when the traps must not run.
+- `sanitizeObject` throws a `TypeError` if a dangerous key sits on a frozen or sealed object — reporting a sanitized object that still carries the key would be worse. Use `sanitizeObjectCopy` there.
 - `sanitizeObject` mutates in place for performance; use `sanitizeObjectCopy` if the caller may still hold a reference.
-- `sanitizeObjectCopy` rebuilds onto plain `Object.prototype` — even null-prototype input comes back rooted normally.
-- Values like `Date`, `Map`, `Set`, functions, and primitives are returned unchanged (but still traversed through if found as nested values on a plain object/array).
+- Object identity survives both. `sanitizeObject` strips dangerous own keys wherever it finds them and never replaces an object. `sanitizeObjectCopy` rebuilds only arrays and plain objects — one rooted on `Object.prototype` or on `null` — and carries `Date`, `Map`, `Set`, typed arrays, `RegExp`, class instances and functions into the copy by reference.
+- Neither function reads what a non-plain object _holds_: the entries of a `Map`, the members of a `Set`, the properties of a class instance are never traversed and never sanitized. `sanitizeObject` strips dangerous own keys from every object it walks into; `sanitizeObjectCopy` descends only into arrays and plain objects. Carried by reference means unchanged **and** unsanitized — feed such a container through `safeJsonParse(JSON.stringify(x))`, or sanitize its values yourself, if its contents are untrusted.
+- `sanitizeObjectCopy` rebuilds every plain object onto `Object.prototype` — even null-prototype input comes back rooted normally. A root that is not an array or plain object is returned unchanged.
 
 ## Development
 
@@ -588,7 +625,7 @@ Notes:
 - Install latest LTS version of [Node.js](https://nodejs.org/en/)
 - Enable [Corepack](https://github.com/nodejs/corepack) using `corepack enable`
 - Install dependencies using `pnpm install`
-- Run interactive tests using `pnpm dev`
+- Run the test suite using `pnpm test`
 
 </details>
 

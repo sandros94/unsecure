@@ -4,7 +4,7 @@ description: "Expert knowledge for working with unsecure — a zero-dependency, 
 metadata:
   version: 0.1.0
   library: unsecure
-  library-version: 0.2.2
+  library-version: 0.2.3
   org: sandros94
   documentation: https://github.com/sandros94/unsecure
 ---
@@ -31,7 +31,7 @@ Every public module is also its own subpath so CDN / browser consumers only ship
 - `unsecure/random` — `createSecureRandomGenerator`, `secureRandomNumber`, `secureRandomBytes`, `secureShuffle`, `randomJitter`
 - `unsecure/sanitize` — `sanitizeObject`, `sanitizeObjectCopy`, `safeJsonParse`
 - `unsecure/uuid` — `uuidv4`, `uuidv7`, `secureUUID`, `createUUIDv7Generator`, `uuidv7Timestamp`, `isUUIDv4`, `isUUIDv7`
-- `unsecure/utils` — `Hex`, `Base64`, `Base32` codecs (`stringify`/`parse`; strict decode by default), `textEncoder`, `textDecoder`. Legacy flat functions (`hexEncode`/`base64Decode`/…) remain as deprecated wrappers.
+- `unsecure/utils` — `hexStringify`/`hexParse`, `base64Stringify`/`base64Parse`, `base32Stringify`/`base32Parse` (strict decode by default), the `Hex`/`Base64`/`Base32` objects grouping them, `textEncoder`, `textDecoder`.
 
 **CDN usage** (browsers, Deno, Bun) — prefer per-module subpaths so only the imported module is downloaded:
 
@@ -90,7 +90,7 @@ UUID generation (RFC 9562). Load when working with `uuidv4()`, `uuidv7()`, `secu
 
 ### [utils.md](./references/utils.md)
 
-Encoding/decoding utilities. Load when working with the `Hex` / `Base64` / `Base32` codecs (or the legacy `hexEncode`/`base64Decode`/… wrappers), `textEncoder`/`textDecoder`, or the `unsecure/utils` entry point.
+Encoding/decoding utilities. Load when working with the hex, base64 or base32 codecs — the flat `hexParse`/`base64Stringify`/… functions or the `Hex` / `Base64` / `Base32` objects — `textEncoder`/`textDecoder`, or the `unsecure/utils` entry point.
 
 ---
 
@@ -99,5 +99,6 @@ Encoding/decoding utilities. Load when working with the `Hex` / `Base64` / `Base
 - **Zero dependencies** — everything is built on Web Crypto API (`crypto.subtle`, `crypto.getRandomValues`)
 - Internal buffer utilities detect Node.js `Buffer` for fastest-path encoding, with fallbacks to TC39 `Uint8Array` methods or manual implementations
 - Random generator uses a 256-element `Uint32Array` buffer with rejection sampling to avoid modulo bias
-- `secureRandomBytes()` handles the 65536-byte `crypto.getRandomValues` limit via chunking
+- `secureRandomBytes()` handles the 65536-byte `crypto.getRandomValues` limit via chunking, and refuses a length above `2**31 - 1`
+- `secureRandomNumber()` and `randomJitter()` draw from one module-level instance of that generator
 - All verification functions (`hmacVerify`, `hotpVerify`, `totpVerify`) use `secureCompare()` internally
