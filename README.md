@@ -47,18 +47,18 @@ import { base64Parse } from "https://esm.sh/unsecure/utils";
 
 ## What's inside
 
-| Module                                                      | Functions                                                                                                                    | Docs                                                          |
-| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `unsecure/hash`, `unsecure/hmac`                            | `hash`, `hmac`, `hmacVerify`, `importHmacKey`                                                                                | [Hashing & MAC](https://unsecure.s94.dev/hashing)             |
-| `unsecure/hkdf`                                             | `hkdf`, `importHkdfKey`                                                                                                      | [Key derivation](https://unsecure.s94.dev/key-derivation)     |
-| `unsecure/argon2`                                           | `argon2`, `argon2Hash`, `argon2Verify`, `argon2NeedsRehash`                                                                  | [Password hashing](https://unsecure.s94.dev/password-hashing) |
-| `unsecure/otp`                                              | `hotp`, `hotpVerify`, `totp`, `totpVerify`, `generateOTPSecret`, `otpauthURI`                                                | [One-time passwords](https://unsecure.s94.dev/otp)            |
-| `unsecure/uuid`                                             | `uuidv4`, `uuidv7`, `createUUIDv7Generator`, `uuidv7Timestamp`, `isUUIDv4`, `isUUIDv7`                                       | [UUID](https://unsecure.s94.dev/uuid)                         |
-| `unsecure/generate`, `unsecure/compare`, `unsecure/entropy` | `secureGenerate`, `secureCompare`, `entropy`                                                                                 | [Secrets](https://unsecure.s94.dev/secrets)                   |
-| `unsecure/sanitize`                                         | `sanitizeObject`, `sanitizeObjectCopy`, `safeJsonParse`                                                                      | [Sanitize](https://unsecure.s94.dev/sanitize)                 |
-| `unsecure/random`                                           | `createSecureRandomGenerator`, `secureRandomNumber`, `secureRandomBytes`, `secureShuffle`, `randomJitter`                    | [Random](https://unsecure.s94.dev/random)                     |
-| `unsecure/utils`                                            | `hexStringify` / `hexParse`, `base64Stringify` / `base64Parse`, `base32Stringify` / `base32Parse`, `Hex`, `Base64`, `Base32` | [Codecs](https://unsecure.s94.dev/codecs)                     |
-| `unsecure/errors`                                           | `UnsecureError`                                                                                                              | [Errors](https://unsecure.s94.dev/errors)                     |
+| Module                                                      | Functions                                                                                                                    | Docs                                                                 |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `unsecure/hash`, `unsecure/hmac`                            | `hash`, `hmac`, `hmacVerify`, `importHmacKey`                                                                                | [Hashing & MAC](https://unsecure.s94.dev/crypto/hashing)             |
+| `unsecure/hkdf`                                             | `hkdf`, `importHkdfKey`                                                                                                      | [Key derivation](https://unsecure.s94.dev/crypto/key-derivation)     |
+| `unsecure/argon2`                                           | `argon2`, `argon2Hash`, `argon2Verify`, `argon2NeedsRehash`                                                                  | [Password hashing](https://unsecure.s94.dev/crypto/password-hashing) |
+| `unsecure/otp`                                              | `hotp`, `hotpVerify`, `totp`, `totpVerify`, `generateOTPSecret`, `otpauthURI`                                                | [One-time passwords](https://unsecure.s94.dev/crypto/otp)            |
+| `unsecure/uuid`                                             | `uuidv4`, `uuidv7`, `createUUIDv7Generator`, `uuidv7Timestamp`, `isUUIDv4`, `isUUIDv7`                                       | [UUID](https://unsecure.s94.dev/generate/uuid)                       |
+| `unsecure/generate`, `unsecure/compare`, `unsecure/entropy` | `secureGenerate`, `secureCompare`, `entropy`                                                                                 | [Secrets](https://unsecure.s94.dev/generate/secrets)                 |
+| `unsecure/sanitize`                                         | `sanitizeObject`, `sanitizeObjectCopy`, `safeJsonParse`                                                                      | [Sanitize](https://unsecure.s94.dev/safety/sanitize)                 |
+| `unsecure/random`                                           | `createSecureRandomGenerator`, `secureRandomNumber`, `secureRandomBytes`, `secureShuffle`, `randomJitter`                    | [Random](https://unsecure.s94.dev/generate/random)                   |
+| `unsecure/utils`                                            | `hexStringify` / `hexParse`, `base64Stringify` / `base64Parse`, `base32Stringify` / `base32Parse`, `Hex`, `Base64`, `Base32` | [Codecs](https://unsecure.s94.dev/safety/codecs)                     |
+| `unsecure/errors`                                           | `UnsecureError`                                                                                                              | [Errors](https://unsecure.s94.dev/safety/errors)                     |
 
 ## The contract
 
@@ -66,7 +66,7 @@ import { base64Parse } from "https://esm.sh/unsecure/utils";
 - Verification functions (`secureCompare`, `hmacVerify`, `hotpVerify`, `totpVerify`, `argon2Verify`) never throw on untrusted input. They return `false`; a throw means your own configuration is wrong.
 - Decoding is strict and canonical by default, inputs are range-checked at the boundary, and behavior is identical on every runtime and backend.
 
-Upgrading from an earlier release? The docs keep the [migration guides](https://unsecure.s94.dev/getting-started/migration).
+Upgrading from an earlier release? The docs keep the [migration guides](https://unsecure.s94.dev/getting-started/migration/to-0.3).
 
 ## Development
 

@@ -10,6 +10,16 @@ themeColor: amber
 github: sandros94/unsecure
 
 redirects:
+  /hashing: /crypto/hashing
+  /key-derivation: /crypto/key-derivation
+  /password-hashing: /crypto/password-hashing
+  /otp: /crypto/otp
+  /secrets: /generate/secrets
+  /random: /generate/random
+  /uuid: /generate/uuid
+  /sanitize: /safety/sanitize
+  /codecs: /safety/codecs
+  /errors: /safety/errors
   /guide: /getting-started
   /blog: /
 
