@@ -6,7 +6,7 @@ description: Hashing, HMAC, HKDF, Argon2, one-time passwords, UUIDs, CSPRNG help
 
 lang: en
 automd: true
-themeColor: amber
+themeColor: mono
 github: sandros94/unsecure
 
 redirects:

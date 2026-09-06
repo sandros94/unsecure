@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/sandros94/unsecure/main/.github/assets/logo-dark.svg">
+  <img alt="unsecure" src="https://raw.githubusercontent.com/sandros94/unsecure/main/.github/assets/logo-light.svg" width="96" height="96">
+</picture>
+
 # unsecure
 
 [![npm version](https://npmx.dev/api/registry/badge/version/unsecure?name=true)](https://npmx.dev/package/unsecure)
@@ -65,6 +70,8 @@ import { base64Parse } from "https://esm.sh/unsecure/utils";
 - Everything the library throws is an `UnsecureError` with a machine-readable `code`; branch on the code, not the message.
 - Verification functions (`secureCompare`, `hmacVerify`, `hotpVerify`, `totpVerify`, `argon2Verify`) never throw on untrusted input. They return `false`; a throw means your own configuration is wrong.
 - Decoding is strict and canonical by default, inputs are range-checked at the boundary, and behavior is identical on every runtime and backend.
+
+Looking for JWT, JWS, JWE or JWK? That is intentionally not here. [unjwt](https://unjwt.s94.dev) covers the whole JOSE toolset with the same runtime-agnostic, Web Crypto approach.
 
 Upgrading from an earlier release? The docs keep the [migration guides](https://unsecure.s94.dev/getting-started/migration/to-0.3).
 
