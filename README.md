@@ -33,6 +33,7 @@ import {
   argon2Hash,
   argon2Verify,
   argon2NeedsRehash,
+  importHkdfKey,
   // OTP
   hotp,
   hotpVerify,
@@ -206,6 +207,18 @@ const keyB64 = await hkdf(ikm, {
 // Domain separation — same IKM, different `info` → independent keys
 const encKey = await hkdf(ikm, { salt, info: "encrypt" });
 const macKey = await hkdf(ikm, { salt, info: "authenticate" });
+```
+
+`ikm` may also be a `CryptoKey` from `importHkdfKey()`, imported once and reused across derivations — the usual shape, since one IKM feeds many `info` values. Unlike an HMAC key it carries no hash, so `algorithm` is still chosen per call. A key that is not an HKDF `deriveBits` key throws `OUT_OF_RANGE`.
+
+```ts
+import { hkdf, importHkdfKey } from "unsecure";
+
+// One importKey for the process
+const key = await importHkdfKey(sharedSecret);
+
+const encKey = await hkdf(key, { salt, info: "myapp/enc/v1" });
+const macKey = await hkdf(key, { salt, info: "myapp/mac/v1" });
 ```
 
 > [!TIP]

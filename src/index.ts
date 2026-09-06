@@ -20,7 +20,7 @@ export { type SecureGenerateOptions, secureGenerate } from "./generate.ts";
 
 export { type DigestAlgorithm, type DigestOptions, type DigestReturnAs, hash } from "./hash.ts";
 
-export { type HKDFOptions, hkdf } from "./hkdf.ts";
+export { type HKDFOptions, hkdf, importHkdfKey } from "./hkdf.ts";
 
 export { type HMACOptions, hmac, hmacVerify, importHmacKey } from "./hmac.ts";
 
