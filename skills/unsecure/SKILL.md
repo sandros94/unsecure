@@ -4,7 +4,7 @@ description: "Expert knowledge for working with unsecure — a zero-dependency, 
 metadata:
   version: 0.1.0
   library: unsecure
-  library-version: 0.2.3
+  library-version: 0.3.0
   org: sandros94
   documentation: https://github.com/sandros94/unsecure
 ---
