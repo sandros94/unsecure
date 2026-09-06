@@ -4,9 +4,9 @@ import {
   type DecodeOptions,
   type DecodeReturnAs,
   _assertData,
+  _badOption,
   _decodeSymbols,
   _looseCount,
-  _malformed,
   _parseFinalize,
   _parsePrep,
   _strictBody,
@@ -60,20 +60,20 @@ function _resolveChars(alphabet: Base32Alphabet, label: string): string {
   const named = _NAMED_ALPHABETS.get(alphabet);
   if (named !== undefined) return named;
   if (alphabet.length !== 32) {
-    throw _malformed(label, `alphabet must be exactly 32 characters (got ${alphabet.length}).`);
+    throw _badOption(label, `alphabet must be exactly 32 characters (got ${alphabet.length}).`);
   }
   const seen = new Set<string>();
   for (let i = 0; i < 32; i++) {
     const char = alphabet[i]!;
     const code = alphabet.charCodeAt(i);
     if (code > 127) {
-      throw _malformed(label, `alphabet character ${JSON.stringify(char)} is not ASCII.`);
+      throw _badOption(label, `alphabet character ${JSON.stringify(char)} is not ASCII.`);
     }
-    if (code === 61) throw _malformed(label, `alphabet must not contain the padding "=".`);
+    if (code === 61) throw _badOption(label, `alphabet must not contain the padding "=".`);
     if (code === 32 || (code >= 9 && code <= 13)) {
-      throw _malformed(label, `alphabet must not contain whitespace (at index ${i}).`);
+      throw _badOption(label, `alphabet must not contain whitespace (at index ${i}).`);
     }
-    if (seen.has(char)) throw _malformed(label, `alphabet repeats ${JSON.stringify(char)}.`);
+    if (seen.has(char)) throw _badOption(label, `alphabet repeats ${JSON.stringify(char)}.`);
     seen.add(char);
   }
   return alphabet;
@@ -169,8 +169,8 @@ export interface Base32Codec {
  * @param data - raw bytes (any `BytesSource`), or a `string` (UTF-8 encoded first)
  * @param options - see {@link Base32StringifyOptions}
  * @returns the base32 string
- * @throws {TypeError} if `data` is not a string, `ArrayBuffer` or view over one
- * @throws {SyntaxError} if `alphabet` is not a usable 32-character alphabet
+ * @throws {UnsecureError} `INVALID_TYPE` if `data` is not a string, `ArrayBuffer` or view over one
+ * @throws {UnsecureError} `OUT_OF_RANGE` if `alphabet` is not a usable 32-character alphabet
  * @example
  * base32Stringify(secret, { padding: false }); // unpadded (e.g. OTP secrets)
  */
@@ -195,8 +195,9 @@ export function base32Stringify(
  * @param input - base32 text, or its ASCII bytes
  * @param options - see {@link Base32ParseOptions}
  * @returns decoded bytes, or a UTF-8 `string` when `returnAs` is `"string"`
- * @throws {SyntaxError} on an unusable `alphabet`, or on anything but a canonical encoding unless `loose`
- * @throws {TypeError} if `input` is nullish
+ * @throws {UnsecureError} `OUT_OF_RANGE` on an unusable `alphabet`
+ * @throws {UnsecureError} `MALFORMED` on anything but a canonical encoding, unless `loose`
+ * @throws {UnsecureError} `INVALID_TYPE` if `input` is nullish
  * @example
  * base32Parse(secret, { loose: true, returnAs: "bytes" });
  */

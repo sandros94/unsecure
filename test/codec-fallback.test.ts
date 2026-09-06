@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import type { Base32Alphabet, Base64Alphabet } from "../src/utils/index.ts";
+import { UnsecureError } from "../src/errors.ts";
 
 // The codecs pick a bulk decoder from what the runtime offers: Node's
 // `Buffer`, the TC39 `Uint8Array` methods, or a hand-rolled loop. Which one
@@ -10,7 +11,7 @@ import type { Base32Alphabet, Base64Alphabet } from "../src/utils/index.ts";
 
 type Codec = "hex" | "base64" | "base32";
 
-/** Bytes on success; the whole `SyntaxError` message on failure. */
+/** Bytes on success; the whole `MALFORMED` message on failure. */
 type Outcome = readonly number[] | { readonly syntaxError: string };
 
 /** A strict decode that must fail with exactly this message, on any backend. */
@@ -257,12 +258,22 @@ function decode(codecs: Codecs, vector: Vector, loose: boolean): Uint8Array {
   }
 }
 
-/** Compare success and failure in one shape, so neither needs a branch in a test. */
-function outcome(run: () => Uint8Array): Outcome | { readonly unexpected: string } {
+/**
+ * Compare success and failure in one shape, so neither needs a branch in a
+ * test. The error class comes from the caller: each backend runs against a
+ * module registry of its own, so the class the codecs threw is not the one a
+ * static import of this file holds.
+ */
+function outcome(
+  run: () => Uint8Array,
+  errorClass: typeof UnsecureError,
+): Outcome | { readonly unexpected: string } {
   try {
     return [...run()];
   } catch (error) {
-    if (error instanceof SyntaxError) return { syntaxError: error.message };
+    if (error instanceof errorClass && error.code === "MALFORMED") {
+      return { syntaxError: error.message };
+    }
     return { unexpected: String(error) };
   }
 }
@@ -270,11 +281,13 @@ function outcome(run: () => Uint8Array): Outcome | { readonly unexpected: string
 for (const withBuffer of [true, false]) {
   describe(`codec backends — Buffer ${withBuffer ? "present" : "absent"}`, () => {
     let codecs: Codecs;
+    let errorClass: typeof UnsecureError;
 
     beforeAll(async () => {
       if (!withBuffer) vi.stubGlobal("Buffer", undefined);
       vi.resetModules();
       codecs = await import("../src/utils/index.ts");
+      ({ UnsecureError: errorClass } = await import("../src/errors.ts"));
     });
 
     afterAll(() => {
@@ -286,8 +299,8 @@ for (const withBuffer of [true, false]) {
       const name = `${vector.codec} ${vector.alphabet ?? "default"} ${JSON.stringify(vector.text)}`;
       // oxlint-disable-next-line vitest/valid-title
       it(name, () => {
-        expect(outcome(() => decode(codecs, vector, false))).toEqual(vector.strict);
-        expect(outcome(() => decode(codecs, vector, true))).toEqual(vector.loose);
+        expect(outcome(() => decode(codecs, vector, false), errorClass)).toEqual(vector.strict);
+        expect(outcome(() => decode(codecs, vector, true), errorClass)).toEqual(vector.loose);
       });
     }
 

@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { hmac, hmacVerify } from "../src/hmac.ts";
+import { expectUnsecureError } from "./_helpers.ts";
 
 describe("hmac", () => {
   const secret = "my-secret-key";
@@ -129,6 +130,10 @@ describe("hmac", () => {
       await expect(hmac(secret, message, { returnAs: "unsupported" as any })).rejects.toThrow(
         'Unsupported hmac "returnAs" option: unsupported',
       );
+      await expectUnsecureError(
+        hmac(secret, message, { returnAs: "unsupported" as any }),
+        "UNSUPPORTED",
+      );
     });
   });
 
@@ -218,15 +223,17 @@ describe("hmac algorithm names", () => {
     expect(lower).toBe(canonical);
   });
 
-  it("rejects an unknown algorithm with a RangeError", async () => {
+  it("rejects an unknown algorithm as UNSUPPORTED", async () => {
     await expect(hmac("k", "d", { algorithm: "md5" as any })).rejects.toThrow(
       'hmac: unsupported algorithm "md5"; expected one of SHA-1, SHA-256, SHA-384, SHA-512.',
     );
+    await expectUnsecureError(hmac("k", "d", { algorithm: "md5" as any }), "UNSUPPORTED");
   });
 
   it("rejects an unknown algorithm in hmacVerify too", async () => {
-    await expect(hmacVerify("k", "d", "00", { algorithm: "md5" as any })).rejects.toBeInstanceOf(
-      RangeError,
+    await expectUnsecureError(
+      hmacVerify("k", "d", "00", { algorithm: "md5" as any }),
+      "UNSUPPORTED",
     );
   });
 });
@@ -238,7 +245,7 @@ describe("hmac input contract", () => {
 
   it("rejects an empty secret before reaching Web Crypto", async () => {
     await expect(hmac("", message)).rejects.toThrow("hmac: secret must not be empty.");
-    await expect(hmac("", message)).rejects.toBeInstanceOf(RangeError);
+    await expectUnsecureError(hmac("", message), "OUT_OF_RANGE");
     await expect(hmac(new Uint8Array(0), message)).rejects.toThrow(
       "hmac: secret must not be empty.",
     );
@@ -330,5 +337,39 @@ describe("hmacVerify signature formats", () => {
     const sig = await hmac(secret, message, { returnAs: "uint8array" });
     expect(await hmacVerify(secret, message, sig, { returnAs: "base64" })).toBe(true);
     expect(await hmacVerify(secret, message, sig.buffer as ArrayBuffer)).toBe(true);
+  });
+});
+
+describe("hmac web crypto failures", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("reports a refused importKey as PLATFORM, carrying the platform error", async () => {
+    const refusal = new DOMException("key import refused", "NotSupportedError");
+    vi.spyOn(crypto.subtle, "importKey").mockRejectedValue(refusal);
+    const error = await expectUnsecureError(
+      hmac("k", "d"),
+      "PLATFORM",
+      "hmac: the runtime's Web Crypto refused importKey.",
+    );
+    expect(error.cause).toBe(refusal);
+  });
+
+  it("reports a refused sign as PLATFORM, carrying the platform error", async () => {
+    const refusal = new DOMException("sign refused", "OperationError");
+    vi.spyOn(crypto.subtle, "sign").mockRejectedValue(refusal);
+    const error = await expectUnsecureError(
+      hmac("k", "d"),
+      "PLATFORM",
+      "hmac: the runtime's Web Crypto refused sign.",
+    );
+    expect(error.cause).toBe(refusal);
+  });
+
+  it("surfaces the refusal through hmacVerify rather than answering false", async () => {
+    const refusal = new DOMException("sign refused", "OperationError");
+    vi.spyOn(crypto.subtle, "sign").mockRejectedValue(refusal);
+    await expectUnsecureError(hmacVerify("k", "d", "00"), "PLATFORM");
   });
 });

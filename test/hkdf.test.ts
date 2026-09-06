@@ -1,6 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { hkdf } from "../src/hkdf.ts";
 import { hexParse, hexStringify, base64Stringify } from "../src/utils/index.ts";
+import { expectUnsecureError } from "./_helpers.ts";
 
 // RFC 5869 Appendix A test vectors.
 // Each vector's IKM / salt / info / expected OKM are given as hex strings.
@@ -180,11 +181,11 @@ describe("hkdf API", () => {
   });
 
   it("throws on non-positive or non-integer length", async () => {
-    await expect(hkdf(ikm, { length: 0, salt })).rejects.toThrow(RangeError);
+    await expectUnsecureError(hkdf(ikm, { length: 0, salt }), "OUT_OF_RANGE");
     await expect(hkdf(ikm, { length: 0, salt })).rejects.toThrow(
       "hkdf: length must be an integer between 1 and 8160, got 0.",
     );
-    await expect(hkdf(ikm, { length: -1, salt })).rejects.toThrow(RangeError);
+    await expectUnsecureError(hkdf(ikm, { length: -1, salt }), "OUT_OF_RANGE");
     await expect(hkdf(ikm, { length: 2.5, salt })).rejects.toThrow(
       "hkdf: length must be an integer between 1 and 8160, got 2.5.",
     );
@@ -204,6 +205,10 @@ describe("hkdf API", () => {
   it("throws on unsupported returnAs", async () => {
     await expect(hkdf(ikm, { length: 16, returnAs: "unsupported" as any })).rejects.toThrow(
       'Unsupported hkdf "returnAs" option: unsupported',
+    );
+    await expectUnsecureError(
+      hkdf(ikm, { length: 16, returnAs: "unsupported" as any }),
+      "UNSUPPORTED",
     );
   });
 
@@ -228,9 +233,13 @@ describe("hkdf algorithm names", () => {
     );
   });
 
-  it("rejects an unknown algorithm with a RangeError", async () => {
+  it("rejects an unknown algorithm as UNSUPPORTED", async () => {
     await expect(hkdf(ikm, { algorithm: "SHA-224" as any, length: 16 })).rejects.toThrow(
       'hkdf: unsupported algorithm "SHA-224"; expected one of SHA-1, SHA-256, SHA-384, SHA-512.',
+    );
+    await expectUnsecureError(
+      hkdf(ikm, { algorithm: "SHA-224" as any, length: 16 }),
+      "UNSUPPORTED",
     );
   });
 });
@@ -264,5 +273,33 @@ describe("hkdf input contract", () => {
     await expect(hkdf([1, 2, 3] as any, { length: 16 })).rejects.toThrow(
       "hkdf: expected a string, ArrayBuffer or ArrayBuffer view, got Array.",
     );
+  });
+});
+
+describe("hkdf web crypto failures", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("reports a refused importKey as PLATFORM, carrying the platform error", async () => {
+    const refusal = new DOMException("key import refused", "NotSupportedError");
+    vi.spyOn(crypto.subtle, "importKey").mockRejectedValue(refusal);
+    const error = await expectUnsecureError(
+      hkdf("ikm", { length: 16 }),
+      "PLATFORM",
+      "hkdf: the runtime's Web Crypto refused importKey.",
+    );
+    expect(error.cause).toBe(refusal);
+  });
+
+  it("reports a refused deriveBits as PLATFORM, carrying the platform error", async () => {
+    const refusal = new DOMException("derive refused", "OperationError");
+    vi.spyOn(crypto.subtle, "deriveBits").mockRejectedValue(refusal);
+    const error = await expectUnsecureError(
+      hkdf("ikm", { length: 16 }),
+      "PLATFORM",
+      "hkdf: the runtime's Web Crypto refused deriveBits.",
+    );
+    expect(error.cause).toBe(refusal);
   });
 });

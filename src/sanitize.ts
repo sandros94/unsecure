@@ -1,3 +1,5 @@
+import { UnsecureError } from "./errors.ts";
+
 /**
  * Parse JSON and strip prototype-pollution vectors from the result.
  *
@@ -11,15 +13,26 @@
  *
  * @param json The JSON text to parse.
  * @returns The parsed value with dangerous keys stripped.
- * @throws {SyntaxError} If `json` is not valid JSON.
- * @throws {TypeError} If a dangerous key sits on a frozen or sealed object —
- *                     see {@link sanitizeObject}.
+ * @throws {UnsecureError} `MALFORMED` if `json` is not valid JSON — the engine's
+ *                         own error travels as `cause`; `FROZEN` if a dangerous key
+ *                         sits on a frozen or sealed object, see
+ *                         {@link sanitizeObject}.
  *
  * @example
  * const payload = safeJsonParse<{ user: { name: string } }>(untrustedInput);
  */
 export function safeJsonParse<T = any>(json: string): T {
-  const parsed = JSON.parse(json) as unknown;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json) as unknown;
+  } catch (error) {
+    // The engine's message says where the text stopped being JSON, which is
+    // the useful half; the prefix says which call rejected it, like every
+    // other message here.
+    throw new UnsecureError("MALFORMED", `safeJsonParse: ${(error as Error).message}`, {
+      cause: error,
+    });
+  }
   if (parsed === null || typeof parsed !== "object") return parsed as T;
   _sanitizeInPlace(parsed, new WeakSet<object>());
   return parsed as T;
@@ -45,9 +58,10 @@ export function safeJsonParse<T = any>(json: string): T {
  * Returns the same reference for convenience. Use {@link sanitizeObjectCopy}
  * if you need a deep copy with the original preserved.
  *
- * @throws {TypeError} If a dangerous key cannot be removed because the object
- *                     holding it is frozen or sealed. Leaving the key in
- *                     place would report a sanitized object that is not one.
+ * @throws {UnsecureError} `FROZEN` if a dangerous key cannot be removed because
+ *                         the object holding it is frozen or sealed. Leaving the
+ *                         key in place would report a sanitized object that is not
+ *                         one.
  */
 export function sanitizeObject<T extends Record<string, unknown> | undefined>(obj: T): T {
   if (!obj || typeof obj !== "object") return obj;
@@ -135,7 +149,8 @@ function _sanitizeInPlace(root: object, seen: WeakSet<object>): void {
       const key = keys[i]!;
       if (_isDangerousKey(key)) {
         if (!Reflect.deleteProperty(record, key)) {
-          throw new TypeError(
+          throw new UnsecureError(
+            "FROZEN",
             `sanitizeObject: cannot remove "${key}" from a frozen object; use sanitizeObjectCopy().`,
           );
         }

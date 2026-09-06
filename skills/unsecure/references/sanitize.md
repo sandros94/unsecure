@@ -5,7 +5,7 @@ Prototype-pollution sanitization utilities. Remove own properties named `__proto
 ## Signatures
 
 ```ts
-// Mutates the input in place; returns the same reference. Throws TypeError on a
+// Mutates the input in place; returns the same reference. Throws FROZEN on a
 // frozen object that holds a dangerous key.
 function sanitizeObject<T extends Record<string, unknown> | undefined>(obj: T): T;
 
@@ -33,7 +33,7 @@ function safeJsonParse<T = any>(json: string): T;
 - Only own properties named exactly `__proto__`, `prototype`, and `constructor` are removed. `sanitizeObject` enumerates own property _names_, so a non-enumerable `__proto__` planted with `Object.defineProperty` is removed too.
 - No getter is ever invoked — every value, object property or array element, comes from its property descriptor. `sanitizeObject` leaves accessors in place (a dangerous _name_ is deleted unread); `sanitizeObjectCopy` copies own enumerable data properties only, so accessors do not appear in the copy, and an accessor at an array index leaves a hole at that index instead of shifting the later elements.
 - A `Proxy` is traversed through its own traps: they run for every property operation, `getOwnPropertyDescriptor` included, so proxied code does run. Sanitize the target rather than the proxy when that matters.
-- `sanitizeObject` throws `TypeError` when a dangerous key cannot be deleted (frozen or sealed object): `sanitizeObject: cannot remove "__proto__" from a frozen object; use sanitizeObjectCopy().`
+- `sanitizeObject` throws `UnsecureError` `FROZEN` when a dangerous key cannot be deleted (frozen or sealed object): `sanitizeObject: cannot remove "__proto__" from a frozen object; use sanitizeObjectCopy().` `safeJsonParse` reports JSON that does not parse as `MALFORMED`, with the engine's own `SyntaxError` as `cause`. See [errors.md](./errors.md).
 - Object identity survives both: `sanitizeObject` strips dangerous own keys from every object it reaches and never replaces one; `sanitizeObjectCopy` rebuilds arrays and plain objects (rooted on `Object.prototype` or on `null`) and carries every other value — `Date`, `Map`, `Set`, typed arrays, `RegExp`, class instances, functions — into the copy by reference, so `copy.when === input.when` for a `Date`.
 - Neither function reads what a non-plain object holds: `Map` entries, `Set` members and a class instance's own state are never traversed, so they are never sanitized. Carried by reference means unchanged _and_ unsanitized — run such contents through `safeJsonParse(JSON.stringify(x))` or sanitize them yourself when they are untrusted.
 - `undefined` and non-object inputs are returned unchanged, as is a copy root that is not an array or plain object.

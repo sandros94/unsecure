@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { hotp, hotpVerify, totp, totpVerify, generateOTPSecret, otpauthURI } from "../src/otp.ts";
 import { base32Stringify, base32Parse, hexParse } from "../src/utils/index.ts";
+import { expectUnsecureError } from "./_helpers.ts";
 
 // RFC 4226 test secret: ASCII "12345678901234567890" (20 bytes)
 const RFC4226_SECRET = new TextEncoder().encode("12345678901234567890");
@@ -379,10 +380,10 @@ describe("OTP input validation", () => {
     await expect(hotp(RFC4226_SECRET, undefined as any)).rejects.toThrow(
       "hotp: counter must be an integer >= 0, got undefined.",
     );
-    await expect(hotp(RFC4226_SECRET, Number.POSITIVE_INFINITY)).rejects.toBeInstanceOf(RangeError);
-    await expect(hotp(RFC4226_SECRET, -1)).rejects.toBeInstanceOf(RangeError);
-    await expect(hotp(RFC4226_SECRET, 1.5)).rejects.toBeInstanceOf(RangeError);
-    await expect(hotp(RFC4226_SECRET, 2 ** 53)).rejects.toBeInstanceOf(RangeError);
+    await expectUnsecureError(hotp(RFC4226_SECRET, Number.POSITIVE_INFINITY), "OUT_OF_RANGE");
+    await expectUnsecureError(hotp(RFC4226_SECRET, -1), "OUT_OF_RANGE");
+    await expectUnsecureError(hotp(RFC4226_SECRET, 1.5), "OUT_OF_RANGE");
+    await expectUnsecureError(hotp(RFC4226_SECRET, 2 ** 53), "OUT_OF_RANGE");
   });
 
   it("rejects a missing counter in hotpVerify instead of verifying against 0", async () => {
@@ -395,39 +396,38 @@ describe("OTP input validation", () => {
     await expect(hotp(RFC4226_SECRET, 0, { digits: 1.5 })).rejects.toThrow(
       "hotp: digits must be an integer between 6 and 8, got 1.5.",
     );
-    await expect(hotp(RFC4226_SECRET, 0, { digits: -1 })).rejects.toBeInstanceOf(RangeError);
-    await expect(hotp(RFC4226_SECRET, 0, { digits: 12 })).rejects.toBeInstanceOf(RangeError);
+    await expectUnsecureError(hotp(RFC4226_SECRET, 0, { digits: -1 }), "OUT_OF_RANGE");
+    await expectUnsecureError(hotp(RFC4226_SECRET, 0, { digits: 12 }), "OUT_OF_RANGE");
     await expect(totp(RFC4226_SECRET, { digits: 5 })).rejects.toThrow(
       "totp: digits must be an integer between 6 and 8, got 5.",
     );
-    await expect(hotpVerify(RFC4226_SECRET, "755224", 0, { digits: 9 })).rejects.toBeInstanceOf(
-      RangeError,
+    await expectUnsecureError(
+      hotpVerify(RFC4226_SECRET, "755224", 0, { digits: 9 }),
+      "OUT_OF_RANGE",
     );
-    await expect(totpVerify(RFC4226_SECRET, "755224", { digits: 0 })).rejects.toBeInstanceOf(
-      RangeError,
-    );
+    await expectUnsecureError(totpVerify(RFC4226_SECRET, "755224", { digits: 0 }), "OUT_OF_RANGE");
   });
 
   it("rejects a period below 1", async () => {
     await expect(totp(RFC4226_SECRET, { period: 0 })).rejects.toThrow(
       "totp: period must be an integer >= 1, got 0.",
     );
-    await expect(totp(RFC4226_SECRET, { period: -30 })).rejects.toBeInstanceOf(RangeError);
-    await expect(totp(RFC4226_SECRET, { period: 2.5 })).rejects.toBeInstanceOf(RangeError);
-    await expect(totpVerify(RFC4226_SECRET, "000000", { period: 0 })).rejects.toBeInstanceOf(
-      RangeError,
-    );
+    await expectUnsecureError(totp(RFC4226_SECRET, { period: -30 }), "OUT_OF_RANGE");
+    await expectUnsecureError(totp(RFC4226_SECRET, { period: 2.5 }), "OUT_OF_RANGE");
+    await expectUnsecureError(totpVerify(RFC4226_SECRET, "000000", { period: 0 }), "OUT_OF_RANGE");
   });
 
   it("rejects a non-finite time", async () => {
     await expect(totp(RFC4226_SECRET, { time: Number.NaN })).rejects.toThrow(
       "totp: time must be a finite number of seconds, got NaN.",
     );
-    await expect(totp(RFC4226_SECRET, { time: Number.POSITIVE_INFINITY })).rejects.toBeInstanceOf(
-      RangeError,
+    await expectUnsecureError(
+      totp(RFC4226_SECRET, { time: Number.POSITIVE_INFINITY }),
+      "OUT_OF_RANGE",
     );
-    await expect(totpVerify(RFC4226_SECRET, "000000", { time: Number.NaN })).rejects.toBeInstanceOf(
-      RangeError,
+    await expectUnsecureError(
+      totpVerify(RFC4226_SECRET, "000000", { time: Number.NaN }),
+      "OUT_OF_RANGE",
     );
   });
 
@@ -448,7 +448,7 @@ describe("OTP input validation", () => {
 
   it("rejects an empty secret, naming the function the caller wrote", async () => {
     await expect(hotp("", 0)).rejects.toThrow("hotp: secret must not be empty.");
-    await expect(hotp(new Uint8Array(0), 0)).rejects.toBeInstanceOf(RangeError);
+    await expectUnsecureError(hotp(new Uint8Array(0), 0), "OUT_OF_RANGE");
     await expect(totp("")).rejects.toThrow("totp: secret must not be empty.");
     await expect(hotpVerify("", "755224", 0)).rejects.toThrow(
       "hotpVerify: secret must not be empty.",
@@ -508,8 +508,8 @@ describe("OTP input validation", () => {
     expect(() => generateOTPSecret(0)).toThrow(
       "generateOTPSecret: length must be an integer >= 1, got 0.",
     );
-    expect(() => generateOTPSecret(-1)).toThrow(RangeError);
-    expect(() => generateOTPSecret(1.5)).toThrow(RangeError);
+    expectUnsecureError(() => generateOTPSecret(-1), "OUT_OF_RANGE");
+    expectUnsecureError(() => generateOTPSecret(1.5), "OUT_OF_RANGE");
   });
 });
 
@@ -716,8 +716,15 @@ describe("otpauthURI() encoding", () => {
     expect(() => otpauthURI({ type: "foo" as any, secret, account: "test" })).toThrow(
       'otpauthURI: type must be "hotp" or "totp", got "foo".',
     );
-    expect(() => otpauthURI({ type: undefined as any, secret, account: "test" })).toThrow(
-      TypeError,
+    // A string outside the pair is a name the library does not support; a value
+    // that is not a string never named anything.
+    expectUnsecureError(
+      () => otpauthURI({ type: "foo" as any, secret, account: "test" }),
+      "UNSUPPORTED",
+    );
+    expectUnsecureError(
+      () => otpauthURI({ type: undefined as any, secret, account: "test" }),
+      "INVALID_TYPE",
     );
   });
 
@@ -725,8 +732,9 @@ describe("otpauthURI() encoding", () => {
     expect(() => otpauthURI({ type: "hotp", secret, account: "test", counter: -1 })).toThrow(
       "otpauthURI: counter must be an integer >= 0, got -1.",
     );
-    expect(() => otpauthURI({ type: "hotp", secret, account: "test", counter: 1.5 })).toThrow(
-      RangeError,
+    expectUnsecureError(
+      () => otpauthURI({ type: "hotp", secret, account: "test", counter: 1.5 }),
+      "OUT_OF_RANGE",
     );
   });
 
@@ -734,17 +742,20 @@ describe("otpauthURI() encoding", () => {
     expect(() => otpauthURI({ type: "totp", secret: "", account: "test" })).toThrow(
       "otpauthURI: secret must not be empty.",
     );
-    expect(() => otpauthURI({ type: "totp", secret: new Uint8Array(0), account: "test" })).toThrow(
-      RangeError,
+    expectUnsecureError(
+      () => otpauthURI({ type: "totp", secret: new Uint8Array(0), account: "test" }),
+      "OUT_OF_RANGE",
     );
   });
 
   it("rejects digits and period outside their range", () => {
-    expect(() => otpauthURI({ type: "totp", secret, account: "test", digits: 9 })).toThrow(
-      RangeError,
+    expectUnsecureError(
+      () => otpauthURI({ type: "totp", secret, account: "test", digits: 9 }),
+      "OUT_OF_RANGE",
     );
-    expect(() => otpauthURI({ type: "totp", secret, account: "test", period: 0 })).toThrow(
-      RangeError,
+    expectUnsecureError(
+      () => otpauthURI({ type: "totp", secret, account: "test", period: 0 }),
+      "OUT_OF_RANGE",
     );
   });
 });
@@ -756,8 +767,9 @@ describe("otpauthURI() label contract", () => {
     expect(() => otpauthURI({ type: "totp", secret, account: 123 as any })).toThrow(
       "otpauthURI: account must be a string, got 123.",
     );
-    expect(() => otpauthURI({ type: "totp", secret, account: undefined as any })).toThrow(
-      TypeError,
+    expectUnsecureError(
+      () => otpauthURI({ type: "totp", secret, account: undefined as any }),
+      "INVALID_TYPE",
     );
   });
 
@@ -765,7 +777,7 @@ describe("otpauthURI() label contract", () => {
     expect(() => otpauthURI({ type: "totp", secret, account: "" })).toThrow(
       "otpauthURI: account must not be empty.",
     );
-    expect(() => otpauthURI({ type: "totp", secret, account: "" })).toThrow(RangeError);
+    expectUnsecureError(() => otpauthURI({ type: "totp", secret, account: "" }), "OUT_OF_RANGE");
   });
 
   it("rejects an issuer that is not a string", () => {
@@ -778,8 +790,9 @@ describe("otpauthURI() label contract", () => {
     expect(() => otpauthURI({ type: "totp", secret, account: "test", issuer: "" })).toThrow(
       "otpauthURI: issuer must not be empty.",
     );
-    expect(() => otpauthURI({ type: "totp", secret, account: "test", issuer: "" })).toThrow(
-      RangeError,
+    expectUnsecureError(
+      () => otpauthURI({ type: "totp", secret, account: "test", issuer: "" }),
+      "OUT_OF_RANGE",
     );
   });
 

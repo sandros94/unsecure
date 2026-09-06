@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { secureGenerate } from "../src/generate.ts";
+import { expectUnsecureError } from "./_helpers.ts";
 
 describe.concurrent("secureGenerate", () => {
   // Test case 1: Default options
@@ -361,7 +362,7 @@ describe.concurrent("secureGenerate input contract", () => {
     expect(() => secureGenerate({ length: 5.5 })).toThrow(
       "secureGenerate: length must be an integer >= 1, got 5.5.",
     );
-    expect(() => secureGenerate({ length: "16" as any })).toThrow(RangeError);
+    expectUnsecureError(() => secureGenerate({ length: "16" as any }), "OUT_OF_RANGE");
   });
 
   it("rejects an invalid Date instead of prefixing the literal NaN", () => {
@@ -415,17 +416,20 @@ describe.concurrent("secureGenerate input contract", () => {
   });
 
   it("rejects a character shared between two sets", () => {
-    expect(() =>
-      secureGenerate({
-        length: 8,
-        uppercase: "AB",
-        lowercase: "bA",
-        numbers: false,
-        specials: false,
-      }),
-    ).toThrow(RangeError);
-    expect(() => secureGenerate({ length: 8, numbers: "0123456789", specials: "0!" })).toThrow(
-      RangeError,
+    expectUnsecureError(
+      () =>
+        secureGenerate({
+          length: 8,
+          uppercase: "AB",
+          lowercase: "bA",
+          numbers: false,
+          specials: false,
+        }),
+      "OUT_OF_RANGE",
+    );
+    expectUnsecureError(
+      () => secureGenerate({ length: 8, numbers: "0123456789", specials: "0!" }),
+      "OUT_OF_RANGE",
     );
   });
 

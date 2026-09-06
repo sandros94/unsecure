@@ -1,4 +1,5 @@
 import { hexStringify } from "./utils/index.ts";
+import { UnsecureError } from "./errors.ts";
 
 /**
  * Generate a UUID version 4 (RFC 9562 §5.4) backed by
@@ -34,8 +35,8 @@ export function uuidv4(): string {
  *                  and replaying historical events. Fractional numbers are
  *                  floored. Must resolve to a finite non-negative value
  *                  within the 48-bit range.
- * @throws {TypeError} If `timestamp` is neither a `Date` nor a `number`.
- * @throws {RangeError} If `timestamp` is not finite, is negative, or
+ * @throws {UnsecureError} `INVALID_TYPE` if `timestamp` is neither a `Date` nor a
+ *                         `number`; `OUT_OF_RANGE` if it is not finite, is negative, or
  *                      exceeds `2^48 - 1` ms (~year 10,895).
  */
 export function uuidv7(timestamp?: Date | number): string {
@@ -78,8 +79,8 @@ export interface UUIDv7Generator {
    *
    * @param timestamp Optional `Date` or Unix-millisecond `number` to embed
    *                  instead of `Date.now()`.
-   * @throws {TypeError} If `timestamp` is neither a `Date` nor a `number`.
-   * @throws {RangeError} If `timestamp` is not finite, is negative, or
+   * @throws {UnsecureError} `INVALID_TYPE` if `timestamp` is neither a `Date` nor a
+   *                         `number`; `OUT_OF_RANGE` if it is not finite, is negative, or
    *                      exceeds `2^48 - 1` ms.
    */
   next(timestamp?: Date | number): string;
@@ -156,11 +157,18 @@ export function createUUIDv7Generator(): UUIDv7Generator {
 /**
  * Extract the Unix-millisecond timestamp embedded in a UUIDv7's first 48 bits.
  *
- * @throws {TypeError} If `uuid` is not a canonical-format UUIDv7.
+ * @throws {UnsecureError} `MALFORMED` if `uuid` is a string that is not a
+ *                         canonical-format UUIDv7; `INVALID_TYPE` if it is not a
+ *                         string at all.
  */
 export function uuidv7Timestamp(uuid: string): number {
   if (!isUUIDv7(uuid)) {
-    throw new TypeError(`Not a valid UUIDv7: ${String(uuid)}`);
+    // A string that does not carry the shape is text claiming to be something
+    // it is not; a value that is not text never made the claim.
+    throw new UnsecureError(
+      typeof uuid === "string" ? "MALFORMED" : "INVALID_TYPE",
+      `uuidv7Timestamp: Not a valid UUIDv7: ${String(uuid)}`,
+    );
   }
   // First 12 hex chars (positions 0-7 and 9-12 around the first hyphen) are
   // the 48-bit big-endian Unix-ms. 48 bits fits safely in a JS number.
@@ -209,10 +217,11 @@ function _coerceMs(value: Date | number): number {
   } else if (typeof value === "number") {
     ms = Math.floor(value);
   } else {
-    throw new TypeError("UUIDv7 timestamp must be a Date or number.");
+    throw new UnsecureError("INVALID_TYPE", "UUIDv7 timestamp must be a Date or number.");
   }
   if (!Number.isFinite(ms) || ms < 0 || ms > _MAX_V7_MS) {
-    throw new RangeError(
+    throw new UnsecureError(
+      "OUT_OF_RANGE",
       `UUIDv7 timestamp must be a finite ms value in [0, 2^48 - 1], got ${String(value)}.`,
     );
   }

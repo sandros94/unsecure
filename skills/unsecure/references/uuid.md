@@ -14,12 +14,12 @@ interface UUIDv7Generator {
 }
 function createUUIDv7Generator(): UUIDv7Generator;
 
-function uuidv7Timestamp(uuid: string): number; // throws TypeError if not v7
+function uuidv7Timestamp(uuid: string): number; // throws MALFORMED if not v7
 function isUUIDv4(value: unknown): value is string;
 function isUUIDv7(value: unknown): value is string;
 ```
 
-Both `uuidv7()` and `gen.next()` accept an optional `Date` or Unix-ms `number` to override the default `Date.now()`. Useful for tests, backfills, and replay. Fractional ms are floored; the value must be finite, non-negative, and within `[0, 2^48 - 1]` or a `RangeError` is thrown. Non-Date / non-number inputs throw `TypeError`.
+Both `uuidv7()` and `gen.next()` accept an optional `Date` or Unix-ms `number` to override the default `Date.now()`. Useful for tests, backfills, and replay. Fractional ms are floored; the value must be finite, non-negative, and within `[0, 2^48 - 1]` or `OUT_OF_RANGE` is thrown. Non-Date / non-number inputs throw `INVALID_TYPE`. Every failure is an `UnsecureError` — see [errors.md](./errors.md).
 
 ## Which one to use
 
@@ -117,7 +117,7 @@ Key properties:
 Only valid for UUIDv7. Passing a UUIDv4 throws because the first 48 bits are random, not a timestamp. Gate the call with `isUUIDv7`.
 
 ```ts
-// ❌ Throws TypeError on any non-v7 input
+// ❌ Throws MALFORMED on any non-v7 input
 const t = uuidv7Timestamp(someUuid);
 
 // ✅ Guarded

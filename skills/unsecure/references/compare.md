@@ -14,7 +14,7 @@ function secureCompare(
 
 **Critical rule:** The `expected` parameter (first argument) determines the loop length. Always pass the **trusted, server-side value** as `expected` and the **untrusted, user-provided value** as `received`.
 
-**`received` behavior:** `received` is untrusted input. A string or any `BytesSource` is compared; anything else — `null` from a missing header, `undefined` from a missing DB column, a number or an array out of a JSON body — is a mismatch and returns `false` without throwing. A wrong `expected` type is a bug in your own code and throws a `TypeError`.
+**`received` behavior:** `received` is untrusted input. A string or any `BytesSource` is compared; anything else — `null` from a missing header, `undefined` from a missing DB column, a number or an array out of a JSON body — is a mismatch and returns `false` without throwing. A wrong `expected` type is a bug in your own code and throws an `UnsecureError` with code `INVALID_TYPE` (see [errors.md](./errors.md)).
 
 **Empty / undefined `expected` behavior:**
 

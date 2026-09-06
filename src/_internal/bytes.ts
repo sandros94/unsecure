@@ -1,3 +1,5 @@
+import { UnsecureError } from "../errors.ts";
+
 /**
  * Shared UTF-8 `TextEncoder`. Encoding holds no state between calls, so a
  * single instance serves every caller.
@@ -45,7 +47,8 @@ export function toBytes(value: string | BytesSource, label: string): Uint8Array 
   ) {
     return new Uint8Array(value);
   }
-  throw new TypeError(
+  throw new UnsecureError(
+    "INVALID_TYPE",
     `${label}: expected a string, ArrayBuffer or ArrayBuffer view, got ${describeValue(value)}.`,
   );
 }

@@ -22,7 +22,7 @@ async function hmacVerify(
 ): Promise<boolean>;
 ```
 
-Algorithm names are matched case-insensitively (`"sha-256"` works); anything else throws a `RangeError` naming the four supported digests, before Web Crypto is reached.
+Algorithm names are matched case-insensitively (`"sha-256"` works); anything else throws `UNSUPPORTED`, naming the four supported digests, before Web Crypto is reached.
 
 **Return type inference** (for `hmac()`):
 
@@ -34,7 +34,7 @@ Algorithm names are matched case-insensitively (`"sha-256"` works); anything els
 
 Untrusted input never throws: a `null` or `undefined` signature, text that is not a canonical encoding, or a value that is neither text nor bytes simply fails to verify. An empty `secret` or an unsupported `algorithm` still throws — those describe the server, not the request.
 
-`hmac()` and `hmacVerify()` both reject an empty `secret` with `RangeError: hmac: secret must not be empty.` before Web Crypto is reached; a secret that failed to load is a deployment bug, not a bad signature.
+`hmac()` and `hmacVerify()` both reject an empty `secret` with `UnsecureError` `OUT_OF_RANGE` (`hmac: secret must not be empty.`) before Web Crypto is reached; a secret that failed to load is a deployment bug, not a bad signature.
 
 ## Examples
 

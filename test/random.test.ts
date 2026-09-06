@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { expectUnsecureError } from "./_helpers.ts";
 import {
   createSecureRandomGenerator,
   secureRandomBytes,
@@ -63,25 +64,25 @@ describe.concurrent("Random-based Functions", () => {
       }
     });
 
-    it("should throw RangeError when max is 0 or negative", () => {
-      expect(() => secureRandomNumber(0)).toThrow(RangeError);
+    it("should throw OUT_OF_RANGE when max is 0 or negative", () => {
+      expectUnsecureError(() => secureRandomNumber(0), "OUT_OF_RANGE");
       expect(() => secureRandomNumber(0)).toThrow(
         "SecureRandomGenerator.next: max must be greater than min.",
       );
-      expect(() => secureRandomNumber(-5)).toThrow(RangeError);
+      expectUnsecureError(() => secureRandomNumber(-5), "OUT_OF_RANGE");
     });
 
-    it("should throw RangeError when max is not an integer", () => {
+    it("should throw OUT_OF_RANGE when max is not an integer", () => {
       const max = 3.14;
-      expect(() => secureRandomNumber(max)).toThrow(RangeError);
+      expectUnsecureError(() => secureRandomNumber(max), "OUT_OF_RANGE");
       expect(() => secureRandomNumber(max)).toThrow(
         "SecureRandomGenerator.next: min and max must be integers.",
       );
     });
 
-    it("should throw RangeError when range is greater than 2**32", () => {
+    it("should throw OUT_OF_RANGE when range is greater than 2**32", () => {
       const max = 2 ** 32 + 1;
-      expect(() => secureRandomNumber(max)).toThrow(RangeError);
+      expectUnsecureError(() => secureRandomNumber(max), "OUT_OF_RANGE");
       expect(() => secureRandomNumber(max)).toThrow(
         "SecureRandomGenerator.next: range must be less than or equal to 2^32.",
       );
@@ -133,26 +134,26 @@ describe.concurrent("Random-based Functions", () => {
       }
     });
 
-    it("should throw RangeError when max <= min", () => {
-      expect(() => secureRandomNumber(10, 10)).toThrow(RangeError);
+    it("should throw OUT_OF_RANGE when max <= min", () => {
+      expectUnsecureError(() => secureRandomNumber(10, 10), "OUT_OF_RANGE");
       expect(() => secureRandomNumber(10, 10)).toThrow(
         "SecureRandomGenerator.next: max must be greater than min.",
       );
-      expect(() => secureRandomNumber(10, 5)).toThrow(RangeError);
+      expectUnsecureError(() => secureRandomNumber(10, 5), "OUT_OF_RANGE");
     });
 
-    it("should throw RangeError when min or max are not integers", () => {
-      expect(() => secureRandomNumber(1.5, 10)).toThrow(RangeError);
-      expect(() => secureRandomNumber(1, 10.5)).toThrow(RangeError);
+    it("should throw OUT_OF_RANGE when min or max are not integers", () => {
+      expectUnsecureError(() => secureRandomNumber(1.5, 10), "OUT_OF_RANGE");
+      expectUnsecureError(() => secureRandomNumber(1, 10.5), "OUT_OF_RANGE");
       expect(() => secureRandomNumber(1.5, 10.5)).toThrow(
         "SecureRandomGenerator.next: min and max must be integers.",
       );
     });
 
-    it("should throw RangeError when range exceeds 2**32", () => {
+    it("should throw OUT_OF_RANGE when range exceeds 2**32", () => {
       const min = 0;
       const max = 2 ** 32 + 1;
-      expect(() => secureRandomNumber(min, max)).toThrow(RangeError);
+      expectUnsecureError(() => secureRandomNumber(min, max), "OUT_OF_RANGE");
       expect(() => secureRandomNumber(min, max)).toThrow(
         "SecureRandomGenerator.next: range must be less than or equal to 2^32.",
       );
@@ -196,16 +197,16 @@ describe.concurrent("Random-based Functions", () => {
       }
     });
 
-    it("should throw RangeError when ignore excludes all values in range", () => {
+    it("should throw OUT_OF_RANGE when ignore excludes all values in range", () => {
       const ignore = [0, 1, 2, 3, 4];
-      expect(() => secureRandomNumber(5, ignore)).toThrow(RangeError);
+      expectUnsecureError(() => secureRandomNumber(5, ignore), "OUT_OF_RANGE");
       expect(() => secureRandomNumber(5, ignore)).toThrow(
         "SecureRandomGenerator.next: ignore set excludes all possible values in the range.",
       );
     });
 
-    it("should throw TypeError for invalid ignore parameter", () => {
-      expect(() => secureRandomNumber(10, "invalid" as any)).toThrow(TypeError);
+    it("should throw INVALID_TYPE for invalid ignore parameter", () => {
+      expectUnsecureError(() => secureRandomNumber(10, "invalid" as any), "INVALID_TYPE");
       expect(() => secureRandomNumber(10, "invalid" as any)).toThrow(
         "SecureRandomGenerator.next: ignore must be an iterable of numbers or a Set<number>.",
       );
@@ -280,42 +281,42 @@ describe.concurrent("Random-based Functions", () => {
       }
     });
 
-    it("should throw RangeError when max <= min", () => {
+    it("should throw OUT_OF_RANGE when max <= min", () => {
       const gen = createSecureRandomGenerator();
-      expect(() => gen.next(10, 10)).toThrow(RangeError);
+      expectUnsecureError(() => gen.next(10, 10), "OUT_OF_RANGE");
       expect(() => gen.next(10, 5)).toThrow(
         "SecureRandomGenerator.next: max must be greater than min.",
       );
     });
 
-    it("should throw RangeError when ignore excludes all values", () => {
+    it("should throw OUT_OF_RANGE when ignore excludes all values", () => {
       const gen = createSecureRandomGenerator();
       const ignore = new Set([0, 1, 2, 3, 4]);
-      expect(() => gen.next(5, ignore)).toThrow(RangeError);
+      expectUnsecureError(() => gen.next(5, ignore), "OUT_OF_RANGE");
       expect(() => gen.next(5, ignore)).toThrow(
         "SecureRandomGenerator.next: ignore set excludes all possible values in the range.",
       );
     });
 
-    it("should throw RangeError when min or max are not integers", () => {
+    it("should throw OUT_OF_RANGE when min or max are not integers", () => {
       const gen = createSecureRandomGenerator();
-      expect(() => gen.next(1.5, 10)).toThrow(RangeError);
+      expectUnsecureError(() => gen.next(1.5, 10), "OUT_OF_RANGE");
       expect(() => gen.next(1.5, 10)).toThrow(
         "SecureRandomGenerator.next: min and max must be integers.",
       );
     });
 
-    it("should throw RangeError when range exceeds 2**32", () => {
+    it("should throw OUT_OF_RANGE when range exceeds 2**32", () => {
       const gen = createSecureRandomGenerator();
-      expect(() => gen.next(0, 2 ** 32 + 1)).toThrow(RangeError);
+      expectUnsecureError(() => gen.next(0, 2 ** 32 + 1), "OUT_OF_RANGE");
       expect(() => gen.next(0, 2 ** 32 + 1)).toThrow(
         "SecureRandomGenerator.next: range must be less than or equal to 2^32.",
       );
     });
 
-    it("should throw TypeError for invalid ignore parameter", () => {
+    it("should throw INVALID_TYPE for invalid ignore parameter", () => {
       const gen = createSecureRandomGenerator();
-      expect(() => gen.next(10, "invalid" as any)).toThrow(TypeError);
+      expectUnsecureError(() => gen.next(10, "invalid" as any), "INVALID_TYPE");
       expect(() => gen.next(10, "invalid" as any)).toThrow(
         "SecureRandomGenerator.next: ignore must be an iterable of numbers or a Set<number>.",
       );
@@ -375,22 +376,22 @@ describe.concurrent("Random-based Functions", () => {
       }
     });
 
-    it("should throw RangeError for negative length", () => {
-      expect(() => secureRandomBytes(-1)).toThrow(RangeError);
+    it("should throw OUT_OF_RANGE for negative length", () => {
+      expectUnsecureError(() => secureRandomBytes(-1), "OUT_OF_RANGE");
       expect(() => secureRandomBytes(-1)).toThrow(
         "secureRandomBytes: length must be an integer between 0 and 2147483647, got -1.",
       );
     });
 
-    it("should throw RangeError for non-integer length", () => {
-      expect(() => secureRandomBytes(3.14)).toThrow(RangeError);
+    it("should throw OUT_OF_RANGE for non-integer length", () => {
+      expectUnsecureError(() => secureRandomBytes(3.14), "OUT_OF_RANGE");
       expect(() => secureRandomBytes(3.14)).toThrow(
         "secureRandomBytes: length must be an integer between 0 and 2147483647, got 3.14.",
       );
     });
 
-    it("should throw RangeError above the 2**31 - 1 ceiling", () => {
-      expect(() => secureRandomBytes(2 ** 31)).toThrow(RangeError);
+    it("should throw OUT_OF_RANGE above the 2**31 - 1 ceiling", () => {
+      expectUnsecureError(() => secureRandomBytes(2 ** 31), "OUT_OF_RANGE");
       expect(() => secureRandomBytes(2 ** 31)).toThrow(
         "secureRandomBytes: length must be an integer between 0 and 2147483647, got 2147483648.",
       );
@@ -543,27 +544,27 @@ describe("randomJitter", () => {
   });
 
   describe("input validation", () => {
-    it("throws RangeError when maxMs < minMs", () => {
-      expect(() => randomJitter(100, 50)).toThrow(RangeError);
+    it("throws OUT_OF_RANGE when maxMs < minMs", () => {
+      expectUnsecureError(() => randomJitter(100, 50), "OUT_OF_RANGE");
       expect(() => randomJitter(100, 50)).toThrow(
         "randomJitter: maxMs must be an integer >= minMs (100), got 50.",
       );
     });
 
-    it("throws RangeError when minMs is negative", () => {
+    it("throws OUT_OF_RANGE when minMs is negative", () => {
       expect(() => randomJitter(-1, 10)).toThrow(
         "randomJitter: minMs must be an integer >= 0, got -1.",
       );
-      expect(() => randomJitter(-1)).toThrow(RangeError);
+      expectUnsecureError(() => randomJitter(-1), "OUT_OF_RANGE");
     });
 
-    it("throws RangeError when maxMs is negative (single-arg form)", () => {
+    it("throws OUT_OF_RANGE when maxMs is negative (single-arg form)", () => {
       expect(() => randomJitter(-5)).toThrow(
         "randomJitter: maxMs must be an integer >= 0, got -5.",
       );
     });
 
-    it("throws RangeError for a null bound instead of taking the default", () => {
+    it("throws OUT_OF_RANGE for a null bound instead of taking the default", () => {
       expect(() => randomJitter(null as any)).toThrow(
         "randomJitter: maxMs must be an integer >= 0, got null.",
       );
@@ -575,14 +576,14 @@ describe("randomJitter", () => {
       );
     });
 
-    it("throws RangeError when minMs or maxMs is non-finite", () => {
-      expect(() => randomJitter(Number.NaN)).toThrow(RangeError);
-      expect(() => randomJitter(Number.POSITIVE_INFINITY)).toThrow(RangeError);
-      expect(() => randomJitter(0, Number.NaN)).toThrow(RangeError);
-      expect(() => randomJitter(0, Number.POSITIVE_INFINITY)).toThrow(RangeError);
+    it("throws OUT_OF_RANGE when minMs or maxMs is non-finite", () => {
+      expectUnsecureError(() => randomJitter(Number.NaN), "OUT_OF_RANGE");
+      expectUnsecureError(() => randomJitter(Number.POSITIVE_INFINITY), "OUT_OF_RANGE");
+      expectUnsecureError(() => randomJitter(0, Number.NaN), "OUT_OF_RANGE");
+      expectUnsecureError(() => randomJitter(0, Number.POSITIVE_INFINITY), "OUT_OF_RANGE");
     });
 
-    it("throws RangeError on fractional milliseconds", () => {
+    it("throws OUT_OF_RANGE on fractional milliseconds", () => {
       // setTimeout truncates, so a fractional bound never described the delay.
       expect(() => randomJitter(1.5)).toThrow(
         "randomJitter: maxMs must be an integer >= 0, got 1.5.",

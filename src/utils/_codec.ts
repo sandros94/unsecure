@@ -1,4 +1,5 @@
 import { describeValue } from "../_internal/bytes.ts";
+import { UnsecureError } from "../errors.ts";
 
 export { type BytesSource, toBytes } from "../_internal/bytes.ts";
 
@@ -75,7 +76,10 @@ export interface DecodeOptions {
  */
 export function _assertData(input: unknown, label: string): asserts input is string | Uint8Array {
   if (typeof input !== "string" && !_isBytes(input)) {
-    throw new TypeError(`${label}: expected a string or Uint8Array, got ${describeValue(input)}.`);
+    throw new UnsecureError(
+      "INVALID_TYPE",
+      `${label}: expected a string or Uint8Array, got ${describeValue(input)}.`,
+    );
   }
 }
 
@@ -116,8 +120,18 @@ export function _parseFinalize(
   }
 }
 
-export function _malformed(label: string, detail: string): SyntaxError {
-  return new SyntaxError(`${label}: ${detail}`);
+/** Encoded text that is not the canonical encoding of any byte string. */
+export function _malformed(label: string, detail: string): UnsecureError {
+  return new UnsecureError("MALFORMED", `${label}: ${detail}`);
+}
+
+/**
+ * An option the codec cannot work with, as opposed to input it cannot read: a
+ * caller's `alphabet` is configuration, so however it fails it is a value
+ * outside its documented domain rather than malformed text.
+ */
+export function _badOption(label: string, detail: string): UnsecureError {
+  return new UnsecureError("OUT_OF_RANGE", `${label}: ${detail}`);
 }
 
 /**

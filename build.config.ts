@@ -8,6 +8,7 @@ export default defineBuildConfig({
         "./src/index.ts",
         "./src/compare.ts",
         "./src/entropy.ts",
+        "./src/errors.ts",
         "./src/generate.ts",
         "./src/hash.ts",
         "./src/hkdf.ts",

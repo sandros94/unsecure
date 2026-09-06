@@ -1,4 +1,5 @@
 import { assertInteger, showValue } from "./_internal/assert.ts";
+import { UnsecureError } from "./errors.ts";
 
 /**
  * Defines the interface for a secure random number generator.
@@ -11,9 +12,10 @@ export interface SecureRandomGenerator {
    *
    * @returns {number} A cryptographically secure random integer.
    *
-   * @throws {RangeError} If `max` is not a positive integer or is greater than 2^32.
-   * @throws {TypeError} If `ignore` is not an iterable of numbers or a Set<number>.
-   * @throws {RangeError} If `ignore` excludes all possible values in the range.
+   * @throws {UnsecureError} `OUT_OF_RANGE` if `max` is not a positive integer, is
+   *                         greater than 2^32, or `ignore` excludes every value in
+   *                         the range; `INVALID_TYPE` if `ignore` is not an iterable
+   *                         of numbers or a Set<number>.
    */
   next(max: number, ignore?: Iterable<number> | Set<number>): number;
 
@@ -25,9 +27,11 @@ export interface SecureRandomGenerator {
    *
    * @returns {number} A cryptographically secure random integer.
    *
-   * @throws {RangeError} If `min` or `max` are not integers, if `max` <= `min`, or if the range is greater than 2^32.
-   * @throws {TypeError} If `ignore` is not an iterable of numbers or a Set<number>.
-   * @throws {RangeError} If `ignore` excludes all possible values in the range.
+   * @throws {UnsecureError} `OUT_OF_RANGE` if `min` or `max` are not integers, if
+   *                         `max` <= `min`, if the range is greater than 2^32, or if
+   *                         `ignore` excludes every value in the range;
+   *                         `INVALID_TYPE` if `ignore` is not an iterable of numbers
+   *                         or a Set<number>.
    */
   next(min: number, max: number, ignore?: Iterable<number> | Set<number>): number;
 }
@@ -81,15 +85,18 @@ export function createSecureRandomGenerator(): SecureRandomGenerator {
     // as directly, so naming any one of those would be wrong three times out
     // of four.
     if (!Number.isInteger(min) || !Number.isInteger(max)) {
-      throw new RangeError(`${_SOURCE}: min and max must be integers.`);
+      throw new UnsecureError("OUT_OF_RANGE", `${_SOURCE}: min and max must be integers.`);
     }
     if (max <= min) {
-      throw new RangeError(`${_SOURCE}: max must be greater than min.`);
+      throw new UnsecureError("OUT_OF_RANGE", `${_SOURCE}: max must be greater than min.`);
     }
 
     const range = max - min;
     if (range > 2 ** 32) {
-      throw new RangeError(`${_SOURCE}: range must be less than or equal to 2^32.`);
+      throw new UnsecureError(
+        "OUT_OF_RANGE",
+        `${_SOURCE}: range must be less than or equal to 2^32.`,
+      );
     }
 
     // Normalize ignore to a Set for O(1) lookups if provided.
@@ -103,7 +110,10 @@ export function createSecureRandomGenerator(): SecureRandomGenerator {
       ) {
         ignoreSet = new Set(rawIgnore as Iterable<number>);
       } else {
-        throw new TypeError(`${_SOURCE}: ignore must be an iterable of numbers or a Set<number>.`);
+        throw new UnsecureError(
+          "INVALID_TYPE",
+          `${_SOURCE}: ignore must be an iterable of numbers or a Set<number>.`,
+        );
       }
 
       // Quick sanity: if ignoreSet excludes all possible values in range, it's impossible to generate a value.
@@ -113,7 +123,8 @@ export function createSecureRandomGenerator(): SecureRandomGenerator {
         if (v >= min && v < max) {
           excludedInRange++;
           if (excludedInRange >= range) {
-            throw new RangeError(
+            throw new UnsecureError(
+              "OUT_OF_RANGE",
               `${_SOURCE}: ignore set excludes all possible values in the range.`,
             );
           }
@@ -156,9 +167,10 @@ const _sharedGenerator: SecureRandomGenerator = /* @__PURE__ */ createSecureRand
  *
  * @returns {number} A cryptographically secure random integer between 0 (inclusive) and max (exclusive).
  *
- * @throws {RangeError} If `max` is not a positive integer or is greater than 2^32.
- * @throws {TypeError} If `ignore` is not an iterable of numbers or a Set<number>.
- * @throws {RangeError} If `ignore` excludes all possible values in the range.
+ * @throws {UnsecureError} `OUT_OF_RANGE` if `max` is not a positive integer, is
+ *                         greater than 2^32, or `ignore` excludes every value in
+ *                         the range; `INVALID_TYPE` if `ignore` is not an iterable
+ *                         of numbers or a Set<number>.
  *
  * @description Use `createSecureRandomGenerator()` when a caller needs a
  * generator of its own rather than the shared one.
@@ -175,9 +187,11 @@ export function secureRandomNumber(max: number, ignore?: Iterable<number> | Set<
  *
  * @returns {number} A cryptographically secure random integer between min (inclusive) and max (exclusive).
  *
- * @throws {RangeError} If `min` or `max` are not integers, if `max` <= `min`, or if the range is greater than 2^32.
- * @throws {TypeError} If `ignore` is not an iterable of numbers or a Set<number>.
- * @throws {RangeError} If `ignore` excludes all possible values in the range.
+ * @throws {UnsecureError} `OUT_OF_RANGE` if `min` or `max` are not integers, if
+ *                         `max` <= `min`, if the range is greater than 2^32, or if
+ *                         `ignore` excludes every value in the range;
+ *                         `INVALID_TYPE` if `ignore` is not an iterable of numbers
+ *                         or a Set<number>.
  *
  * @description Use `createSecureRandomGenerator()` when a caller needs a
  * generator of its own rather than the shared one.
@@ -209,7 +223,8 @@ const MAX_RANDOM_BYTES = 2 ** 31 - 1;
  * @param length Number of random bytes to generate, from 0 to `2**31 - 1`.
  * @returns A Uint8Array filled with random bytes.
  *
- * @throws {RangeError} If `length` is not an integer in `[0, 2**31 - 1]`.
+ * @throws {UnsecureError} `OUT_OF_RANGE` if `length` is not an integer in
+ *                         `[0, 2**31 - 1]`.
  *
  * @example
  * const key = secureRandomBytes(32); // 256-bit key material
@@ -263,8 +278,8 @@ export function secureShuffle<T>(array: Array<T>, generator?: SecureRandomGenera
  * fractional bound never described the delay a caller would get. Only an
  * absent bound (`undefined`) takes a default; `null` is a value and throws.
  *
- * @throws {RangeError} If `minMs` or `maxMs` is not a non-negative integer, or
- *                      if `maxMs` is less than `minMs`.
+ * @throws {UnsecureError} `OUT_OF_RANGE` if `minMs` or `maxMs` is not a
+ *                         non-negative integer, or if `maxMs` is less than `minMs`.
  */
 export function randomJitter(maxMs?: number): Promise<void>;
 export function randomJitter(minMs: number | undefined, maxMs: number): Promise<void>;
@@ -280,7 +295,8 @@ export function randomJitter(minOrMax?: number, maxMs?: number): Promise<void> {
   assertInteger("randomJitter", "minMs", min, 0);
   assertInteger("randomJitter", "maxMs", max, 0);
   if (max < min) {
-    throw new RangeError(
+    throw new UnsecureError(
+      "OUT_OF_RANGE",
       `randomJitter: maxMs must be an integer >= minMs (${min}), got ${showValue(max)}.`,
     );
   }

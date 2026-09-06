@@ -162,7 +162,7 @@ export interface Base64Codec {
  * @param data - raw bytes (any `BytesSource`), or a `string` (UTF-8 encoded first)
  * @param options - see {@link Base64StringifyOptions}
  * @returns the base64 string
- * @throws {TypeError} if `data` is not a string, `ArrayBuffer` or view over one
+ * @throws {UnsecureError} `INVALID_TYPE` if `data` is not a string, `ArrayBuffer` or view over one
  * @example
  * base64Stringify(bytes, { alphabet: "base64url" });
  */
@@ -185,8 +185,8 @@ export function base64Stringify(
  * @param input - base64 text, or its ASCII bytes
  * @param options - see {@link Base64ParseOptions}
  * @returns decoded bytes, or a UTF-8 `string` when `returnAs` is `"string"`
- * @throws {SyntaxError} on anything but a canonical encoding, unless `loose`
- * @throws {TypeError} if `input` is nullish
+ * @throws {UnsecureError} `MALFORMED` on anything but a canonical encoding, unless `loose`
+ * @throws {UnsecureError} `INVALID_TYPE` if `input` is nullish
  * @example
  * base64Parse(token, { alphabet: "base64url", returnAs: "bytes" });
  */

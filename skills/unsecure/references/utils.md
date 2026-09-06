@@ -49,11 +49,17 @@ Every codec follows the same contract:
 - **`stringify(data, options?)`** — `data` is a `string` (UTF-8 encoded first)
   or any `BytesSource`: an `ArrayBuffer` (shared or not), a `DataView`, or any
   typed array. Returns the encoded string.
-  `null` / `undefined` throws `TypeError`.
+  `null` / `undefined` throws an `UnsecureError` with code `INVALID_TYPE`.
 - **`parse(input, options?)`** — `input` is the encoded `string` (or its
   `Uint8Array` bytes). Returns bytes or a UTF-8 string; see `returnAs` below.
-  **Strict by default** — malformed input throws `SyntaxError`. Pass
+  **Strict by default** — malformed input throws an `UnsecureError` with code
+  `MALFORMED`. Pass
   `{ loose: true }` to skip/normalize malformed input instead.
+
+Every failure is an `UnsecureError` (see [errors.md](./errors.md)):
+`INVALID_TYPE` for a value that is not text or bytes, `MALFORMED` for text that
+is not the canonical encoding, `OUT_OF_RANGE` for a base32 `alphabet` the codec
+cannot use.
 
 `returnAs` mirrors the input when omitted: `string` in → `string` out (bytes
 decoded as UTF-8), `Uint8Array` in → `Uint8Array` out. Override with
@@ -71,7 +77,7 @@ skip.
 
 On the way out, a decoded U+FEFF is kept — it is part of the byte string, not
 a signature. Strict decode requires the bytes to be valid UTF-8 and throws
-`SyntaxError` otherwise; loose substitutes U+FFFD. Ask for
+`MALFORMED` otherwise; loose substitutes U+FFFD. Ask for
 `{ returnAs: "bytes" }` when the payload is not text.
 
 ## Hex
@@ -82,7 +88,7 @@ hexStringify(new Uint8Array([0xde, 0xad])); // "dead"
 hexParse("68656c6c6f"); // "hello"
 hexParse("68656c6c6f", { returnAs: "uint8array" }); // Uint8Array
 
-hexParse("zz"); // throws SyntaxError (strict)
+hexParse("zz"); // throws MALFORMED (strict)
 hexParse("de ad"); // throws: whitespace is a character like any other
 hexParse("de ad", { loose: true, returnAs: "bytes" }); // Uint8Array [0xde, 0xad]
 hexParse("abc", { loose: true, returnAs: "bytes" }); // Uint8Array [0xab] (drops the odd nibble)
@@ -108,7 +114,8 @@ base64Parse(untrusted, { loose: true }); // tolerant (accepts either alphabet)
 
 `alphabet` accepts `"base32"` (RFC 4648, default), `"base32hex"`,
 `"crockford"`, or a custom 32-character string — 32 distinct ASCII characters,
-none of them `=` or whitespace; anything else throws `SyntaxError`. Padded by
+none of them `=` or whitespace; anything else throws `OUT_OF_RANGE` — the
+alphabet is configuration, not input. Padded by
 default except Crockford; `{ padding: false }` to override.
 
 Strict decode is uppercase-only for `base32` and `base32hex`; `{ loose: true }`
@@ -149,7 +156,7 @@ decoding to the same bytes.
 alphabet is dropped (whitespace, `=`, junk, anything non-ASCII), base64 folds
 `-_` onto `+/` and accepts either alphabet, a trailing symbol that cannot
 start a byte is dropped, and bits past the final byte are ignored. Nullish
-input still throws `TypeError`.
+input still throws `INVALID_TYPE`.
 
 Use `{ loose: true }` for user-supplied values that may be formatted (e.g.
 OTP secrets pasted with spaces).

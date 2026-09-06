@@ -66,6 +66,8 @@ import {
   Hex,
   Base64,
   Base32,
+  // Errors
+  UnsecureError,
 } from "unsecure";
 ```
 
@@ -81,7 +83,7 @@ import { totp, generateOTPSecret } from "https://esm.sh/unsecure/otp";
 import { Base64, Base32 } from "https://esm.sh/unsecure/utils";
 ```
 
-Each of `compare`, `entropy`, `generate`, `hash`, `hkdf`, `hmac`, `otp`, `random`, `sanitize`, `uuid`, `utils` is an independent subpath.
+Each of `compare`, `entropy`, `errors`, `generate`, `hash`, `hkdf`, `hmac`, `otp`, `random`, `sanitize`, `uuid`, `utils` is an independent subpath.
 
 ### hash
 
@@ -89,7 +91,7 @@ Hashes input data using a specified cryptographic algorithm. It uses the Web Cry
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws a `RangeError`
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws `UNSUPPORTED`
 - **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default mirrors the input type: a string returns hex, a `BytesSource` returns bytes)
 
 > [!WARNING]
@@ -125,10 +127,10 @@ Computes an HMAC signature using the Web Crypto API. Supports the same algorithm
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws a `RangeError`
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws `UNSUPPORTED`
 - **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default mirrors input type). On `hmacVerify()` it names the format of a **string** `signature`, which is decoded strictly before the byte comparison; a `BytesSource` signature is compared as-is.
 
-The `secret` must not be empty — both functions throw a `RangeError` before reaching Web Crypto, because an unset secret is a deployment bug rather than a wrong signature. Untrusted signatures never throw: `null`, `undefined`, malformed text or a value that is not text or bytes all verify as `false`.
+The `secret` must not be empty — both functions throw `OUT_OF_RANGE` before reaching Web Crypto, because an unset secret is a deployment bug rather than a wrong signature. Untrusted signatures never throw: `null`, `undefined`, malformed text or a value that is not text or bytes all verify as `false`.
 
 ```ts
 import { hmac, hmacVerify } from "unsecure";
@@ -160,7 +162,7 @@ HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`. Extract-and-expan
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws a `RangeError`
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws `UNSUPPORTED`
 - **length**: output length in bytes (default `32`, max `255 * HashLen`)
 - **salt**: non-secret but strongly recommended (string or `BytesSource`, default empty)
 - **info**: context label for domain separation (string or `BytesSource`, default empty)
@@ -186,7 +188,7 @@ const macKey = await hkdf(ikm, { salt, info: "authenticate" });
 ```
 
 > [!TIP]
-> A different `info` per usage site (ideally versioned, e.g. `"myapp/enc/v1"`) lets you rotate key derivation without breaking old data. Requests beyond `255 * HashLen` throw a `RangeError` before reaching Web Crypto.
+> A different `info` per usage site (ideally versioned, e.g. `"myapp/enc/v1"`) lets you rotate key derivation without breaking old data. Requests beyond `255 * HashLen` throw `OUT_OF_RANGE` before reaching Web Crypto.
 
 ### OTP (HOTP / TOTP)
 
@@ -203,11 +205,11 @@ Generate and verify HMAC-based One-Time Passwords (RFC 4226).
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`) — matched case-insensitively; any other name throws a `RangeError`
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`) — matched case-insensitively; any other name throws `UNSUPPORTED`
 - **digits**: number of digits in the OTP code, an integer from `6` to `8` (default `6`)
 - **window**: (verify only) number of counter values to check ahead, an integer `>= 0` (default `0`)
 
-`counter` must be an integer `>= 0` — and `counter + window` must still be a safe integer — and the secret must decode to at least one byte; anything else throws a `RangeError` naming the value found and the function it was passed to. A `null` or `undefined` `otp` is simply invalid.
+`counter` must be an integer `>= 0` — and `counter + window` must still be a safe integer — and the secret must decode to at least one byte; anything else throws `OUT_OF_RANGE`, naming the value found and the function it was passed to. A `null` or `undefined` `otp` is simply invalid.
 
 ```ts
 import { hotp, hotpVerify } from "unsecure";
@@ -235,7 +237,7 @@ Generate and verify Time-based One-Time Passwords (RFC 6238).
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`) — matched case-insensitively; any other name throws a `RangeError`
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`) — matched case-insensitively; any other name throws `UNSUPPORTED`
 - **digits**: number of digits in the OTP code, an integer from `6` to `8` (default `6`)
 - **period**: time step duration in seconds, an integer `>= 1` (default `30`)
 - **time**: Unix timestamp in seconds, any finite number, floored (omit it — or pass `undefined` — for the current time; `null` is a value, not an omission, and throws)
@@ -546,8 +548,8 @@ Key properties:
 
 Six codec functions — `hexStringify` / `hexParse`, `base64Stringify` / `base64Parse`, `base32Stringify` / `base32Parse` — plus the `Hex`, `Base64` and `Base32` objects that group them JSON-style (`Hex.stringify` _is_ `hexStringify`), and the shared `textEncoder` / `textDecoder`. Available from the main barrel and `unsecure/utils` (use the subpath for CDN delivery). Import the flat functions to ship only the codec you use.
 
-- **`stringify(data, options?)`** accepts a `string` (UTF-8 encoded first) or any `BytesSource` — an `ArrayBuffer` (shared or not), a `DataView`, or any typed array. Returns a `string`. `null` / `undefined` throws `TypeError`.
-- **`parse(input, options?)`** is **strict by default** — it accepts exactly the canonical encoding of some byte string (alphabet characters only, no whitespace, padding absent or exactly right, no set bits past the final byte) and throws `SyntaxError` otherwise. Pass `{ loose: true }` to drop whatever it cannot use instead. Unpadded output round-trips: anything `stringify` emits, `parse` accepts. Output mirrors the input type (`string` → UTF-8 `string`, `Uint8Array` → bytes); override with `{ returnAs }`. `Uint8Array` input is the _encoded text's_ bytes, one character per byte, so a byte ≥ 0x80 is simply an invalid character. Byte output always owns an `ArrayBuffer` exactly its own length, never a view into Node's `Buffer` pool. String output keeps a decoded U+FEFF as payload, and strict decode throws `SyntaxError` if the bytes are not valid UTF-8 — ask for `{ returnAs: "bytes" }` when the payload is not text.
+- **`stringify(data, options?)`** accepts a `string` (UTF-8 encoded first) or any `BytesSource` — an `ArrayBuffer` (shared or not), a `DataView`, or any typed array. Returns a `string`. `null` / `undefined` throws an `UnsecureError` with code `INVALID_TYPE`.
+- **`parse(input, options?)`** is **strict by default** — it accepts exactly the canonical encoding of some byte string (alphabet characters only, no whitespace, padding absent or exactly right, no set bits past the final byte) and throws an `UnsecureError` with code `MALFORMED` otherwise. Pass `{ loose: true }` to drop whatever it cannot use instead. Unpadded output round-trips: anything `stringify` emits, `parse` accepts. Output mirrors the input type (`string` → UTF-8 `string`, `Uint8Array` → bytes); override with `{ returnAs }`. `Uint8Array` input is the _encoded text's_ bytes, one character per byte, so a byte ≥ 0x80 is simply an invalid character. Byte output always owns an `ArrayBuffer` exactly its own length, never a view into Node's `Buffer` pool. String output keeps a decoded U+FEFF as payload, and strict decode throws `MALFORMED` if the bytes are not valid UTF-8 — ask for `{ returnAs: "bytes" }` when the payload is not text.
 
 ```ts
 import { hexStringify, hexParse, base64Parse, base32Parse, Base32 } from "unsecure/utils";
@@ -609,11 +611,59 @@ Notes:
 - Only own properties named exactly `__proto__`, `prototype`, and `constructor` are removed. `sanitizeObject` finds them whether or not they are enumerable — `Object.defineProperty` can hide a `__proto__` from `Object.keys` and it is still a live vector.
 - Neither function invokes a getter: every value — object properties and array elements alike — is read from its property descriptor. `sanitizeObject` leaves an accessor in place (unless its name is one of the three, in which case it is removed unread); `sanitizeObjectCopy` copies own enumerable **data** properties only, so an accessor is absent from the copy, and an accessor at an array index leaves a hole there rather than shifting the elements after it.
 - A `Proxy` is the exception, and cannot be otherwise: its traps run for every property operation, `getOwnPropertyDescriptor` included, so a proxied object is traversed through its own traps. Sanitize the target, not the proxy, when the traps must not run.
-- `sanitizeObject` throws a `TypeError` if a dangerous key sits on a frozen or sealed object — reporting a sanitized object that still carries the key would be worse. Use `sanitizeObjectCopy` there.
+- `sanitizeObject` throws `FROZEN` if a dangerous key sits on a frozen or sealed object — reporting a sanitized object that still carries the key would be worse. Use `sanitizeObjectCopy` there.
 - `sanitizeObject` mutates in place for performance; use `sanitizeObjectCopy` if the caller may still hold a reference.
 - Object identity survives both. `sanitizeObject` strips dangerous own keys wherever it finds them and never replaces an object. `sanitizeObjectCopy` rebuilds only arrays and plain objects — one rooted on `Object.prototype` or on `null` — and carries `Date`, `Map`, `Set`, typed arrays, `RegExp`, class instances and functions into the copy by reference.
 - Neither function reads what a non-plain object _holds_: the entries of a `Map`, the members of a `Set`, the properties of a class instance are never traversed and never sanitized. `sanitizeObject` strips dangerous own keys from every object it walks into; `sanitizeObjectCopy` descends only into arrays and plain objects. Carried by reference means unchanged **and** unsanitized — feed such a container through `safeJsonParse(JSON.stringify(x))`, or sanitize its values yourself, if its contents are untrusted.
 - `sanitizeObjectCopy` rebuilds every plain object onto `Object.prototype` — even null-prototype input comes back rooted normally. A root that is not an array or plain object is returned unchanged.
+
+## Errors
+
+Everything this library throws is an `UnsecureError` — one class, exported from `unsecure` and from `unsecure/errors`.
+
+```ts
+class UnsecureError extends Error {
+  readonly name: "UnsecureError";
+  readonly code: UnsecureErrorCode;
+  readonly cause?: unknown; // the platform or JSON.parse failure, when there was one
+}
+```
+
+`message` names the function, the value it judged and what it expected — `"hkdf: length must be an integer between 1 and 8160, got 0."` — and `code` is the same judgement in machine-readable form. Branch on `code`, not on message text.
+
+| `code`         | Raised when                                                                                                                                                                          | By                                                                                                                                                                                                   |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INVALID_TYPE` | A value is of the wrong JavaScript type, or missing where one is required                                                                                                            | `secureCompare`, `hash`, `hmac`, `hmacVerify`, `hkdf`, the OTP functions, `secureGenerate`, `SecureRandomGenerator.next`, `uuidv7`, `uuidv7Timestamp`, every codec                                   |
+| `OUT_OF_RANGE` | The type is right but the value is outside its documented domain — a bound, an empty secret, no character set selected, a base32 `alphabet` that is not 32 distinct ASCII characters | `secureCompare` (`strict`), `hmac`, `hmacVerify`, `hkdf`, the OTP functions, `secureGenerate`, `secureRandomNumber`, `secureRandomBytes`, `randomJitter`, `uuidv7`, `base32Parse`, `base32Stringify` |
+| `MALFORMED`    | Text is not what it claims to be — a non-canonical encoding, decoded bytes that are not valid UTF-8, JSON that does not parse                                                        | `hexParse`, `base64Parse`, `base32Parse`, `safeJsonParse`, `uuidv7Timestamp`                                                                                                                         |
+| `UNSUPPORTED`  | A name is outside the set the library accepts — a digest `algorithm`, a `returnAs`, an `otpauthURI` `type`                                                                           | `hash`, `hmac`, `hmacVerify`, `hkdf`, the OTP functions                                                                                                                                              |
+| `FROZEN`       | A dangerous key cannot be removed because the object holding it is frozen or sealed                                                                                                  | `sanitizeObject`, `safeJsonParse`                                                                                                                                                                    |
+| `PLATFORM`     | The runtime's Web Crypto refused an operation the library had already validated; `cause` carries the platform error                                                                  | `hash`, `hmac`, `hmacVerify`, `hkdf`, the OTP functions                                                                                                                                              |
+
+The union is complete for this release. A later minor may add a code, so keep a `default` branch.
+
+```ts
+import { UnsecureError, hmacVerify } from "unsecure";
+
+try {
+  const valid = await hmacVerify(secret, body, request.headers.get("x-signature"));
+  return valid ? handle(body) : respond(403);
+} catch (error) {
+  if (!(error instanceof UnsecureError)) throw error;
+  switch (error.code) {
+    // An empty secret: the deployment is misconfigured, the request is fine.
+    case "OUT_OF_RANGE":
+      return respond(500);
+    // `error.cause` is the runtime's own failure.
+    case "PLATFORM":
+      return respond(503);
+    default:
+      return respond(400, { reason: error.code });
+  }
+}
+```
+
+Verification never throws for untrusted input: `secureCompare`, `hmacVerify`, `hotpVerify` and `totpVerify` answer `false` for a missing, malformed or wrong-typed value off the wire, and throw only for a caller or configuration mistake. A `catch` around a verify is about your own setup, never about the request.
 
 ## Development
 

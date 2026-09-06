@@ -3,6 +3,7 @@ import { assertReturnAs, encodeBytes } from "./_internal/encoding.ts";
 import { HASH_LENGTH, normalizeAlgorithm } from "./_internal/algorithm.ts";
 import { assertInteger } from "./_internal/assert.ts";
 import { type BytesSource, toCryptoBytes } from "./_internal/bytes.ts";
+import { viaWebCrypto } from "./_internal/platform.ts";
 
 /** RFC 5869 treats an absent salt or info as a zero-length one. */
 const EMPTY: Uint8Array<ArrayBuffer> = /* @__PURE__ */ new Uint8Array(0);
@@ -18,8 +19,8 @@ export interface HKDFOptions {
    * Desired output length in bytes.
    *
    * Per RFC 5869, the maximum is `255 * HashLen` (8160 for SHA-256).
-   * Requests above that limit throw a {@link RangeError} before reaching
-   * the Web Crypto layer.
+   * Requests above that limit throw an {@link UnsecureError} with code
+   * `OUT_OF_RANGE` before reaching the Web Crypto layer.
    *
    * @default 32
    */
@@ -71,8 +72,12 @@ export interface HKDFOptions {
  * @returns Derived bytes encoded according to `returnAs`, or mirroring the
  *          `ikm` input type when `returnAs` is omitted.
  *
- * @throws {RangeError} If `length` is not an integer from 1 to `255 * HashLen`
- *                      for the chosen algorithm (8160 for SHA-256).
+ * @throws {UnsecureError} `OUT_OF_RANGE` if `length` is not an integer from 1 to
+ *                         `255 * HashLen` for the chosen algorithm (8160 for
+ *                         SHA-256); `UNSUPPORTED` for an unknown `algorithm` or
+ *                         `returnAs`; `INVALID_TYPE` if `ikm`, `salt` or `info` is
+ *                         neither text nor bytes; `PLATFORM` if the runtime's Web
+ *                         Crypto refuses.
  *
  * @example
  * // BytesSource ikm -> Uint8Array output (default)
@@ -122,17 +127,21 @@ export async function hkdf(
   const saltBytes = salt === undefined ? EMPTY : toCryptoBytes(salt, "hkdf");
   const infoBytes = info === undefined ? EMPTY : toCryptoBytes(info, "hkdf");
 
-  const cryptoKey = await crypto.subtle.importKey("raw", ikmBytes, "HKDF", false, ["deriveBits"]);
+  const cryptoKey = await viaWebCrypto("hkdf", "importKey", () =>
+    crypto.subtle.importKey("raw", ikmBytes, "HKDF", false, ["deriveBits"]),
+  );
 
-  const derivedBits = await crypto.subtle.deriveBits(
-    {
-      name: "HKDF",
-      hash: algorithm,
-      salt: saltBytes,
-      info: infoBytes,
-    },
-    cryptoKey,
-    length * 8,
+  const derivedBits = await viaWebCrypto("hkdf", "deriveBits", () =>
+    crypto.subtle.deriveBits(
+      {
+        name: "HKDF",
+        hash: algorithm,
+        salt: saltBytes,
+        info: infoBytes,
+      },
+      cryptoKey,
+      length * 8,
+    ),
   );
 
   const bytes = new Uint8Array(derivedBits);

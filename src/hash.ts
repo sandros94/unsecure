@@ -1,6 +1,7 @@
 import { assertReturnAs, encodeBytes } from "./_internal/encoding.ts";
 import { normalizeAlgorithm } from "./_internal/algorithm.ts";
 import { type BytesSource, toCryptoBytes } from "./_internal/bytes.ts";
+import { viaWebCrypto } from "./_internal/platform.ts";
 
 export type DigestAlgorithm = "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512";
 export type DigestReturnAs =
@@ -45,6 +46,10 @@ export interface DigestOptions {
  * @param options Configuration options for the hashing operation.
  * @returns A Promise that resolves to a string (HEX, Base64, Base64URL) or Uint8Array<ArrayBuffer> containing the raw hash.
  *
+ * @throws {UnsecureError} `INVALID_TYPE` if `data` is neither text nor bytes;
+ *                         `UNSUPPORTED` for an unknown `algorithm` or `returnAs`;
+ *                         `PLATFORM` if the runtime's Web Crypto refuses the digest.
+ *
  * @example
  * // Hash a string — returns hex string by default
  * const hashHex = await hash('hello world');
@@ -84,7 +89,9 @@ export async function hash(
   const isBufferInput = typeof data !== "string";
   const dataBytes = toCryptoBytes(data, "hash");
 
-  const hashBytes = new Uint8Array(await crypto.subtle.digest(algorithm, dataBytes));
+  const hashBytes = new Uint8Array(
+    await viaWebCrypto("hash", "digest", () => crypto.subtle.digest(algorithm, dataBytes)),
+  );
 
   const effectiveReturnAs = returnAs ?? (isBufferInput ? "uint8array" : "hex");
 
