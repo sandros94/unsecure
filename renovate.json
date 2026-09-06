@@ -1,4 +1,21 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>sandros94/renovate-config"]
+  "extends": ["github>sandros94/renovate-config"],
+  "packageRules": [
+    {
+      "description": "The docs site is its own pnpm project: one PR for it, apart from the library's tooling",
+      "matchFileNames": ["docs/**"],
+      "groupName": "docs",
+      "commitMessageTopic": "docs dependencies"
+    },
+    {
+      "description": "undocs is consumed through its nightly channel while the rewrite lands; one weekly PR instead of one per nightly",
+      "matchFileNames": ["docs/**"],
+      "matchPackageNames": ["undocs-nightly"],
+      "ignoreUnstable": false,
+      "groupName": "undocs nightly",
+      "commitMessageTopic": "undocs nightly",
+      "schedule": ["before 8am on monday"]
+    }
+  ]
 }
