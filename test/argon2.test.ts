@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { hash as nodeRsHash, verify as nodeRsVerify } from "@node-rs/argon2";
-import { argon2, argon2Hash, argon2Verify } from "../src/argon2.ts";
+import { argon2, argon2Hash, argon2NeedsRehash, argon2Verify } from "../src/argon2.ts";
 import type { Argon2Variant } from "../src/argon2.ts";
 import { base64Stringify, hexStringify } from "../src/utils/index.ts";
 import { UnsecureError } from "../src/errors.ts";
@@ -346,6 +346,93 @@ describe.concurrent("argon2Hash / argon2Verify", () => {
       argon2Verify(phc, password),
       "UNSUPPORTED",
       "argon2Verify: unsupported argon2 version 16 (no v= field); only 19 (0x13) is supported.",
+    );
+  });
+});
+
+describe.concurrent("argon2NeedsRehash", () => {
+  const password = "correct horse battery staple";
+
+  it("says no when the stored string is already at the parameters asked for", async () => {
+    expect(argon2NeedsRehash(await argon2Hash(password, CHEAP), CHEAP)).toBe(false);
+  });
+
+  it("compares against the same defaults argon2Hash uses when none are given", async () => {
+    expect(argon2NeedsRehash(await argon2Hash(password))).toBe(false);
+    expect(argon2NeedsRehash(await argon2Hash(password, { m: 64, t: 1 }))).toBe(true);
+  });
+
+  it("says yes when the variant differs", async () => {
+    const phc = await argon2Hash(password, { ...CHEAP, variant: "argon2i" });
+    expect(argon2NeedsRehash(phc, CHEAP)).toBe(true);
+    expect(argon2NeedsRehash(phc, { ...CHEAP, variant: "argon2i" })).toBe(false);
+  });
+
+  it("says yes when any single cost parameter differs", async () => {
+    const phc = await argon2Hash(password, CHEAP);
+    expect(argon2NeedsRehash(phc, { ...CHEAP, m: 128 })).toBe(true);
+    expect(argon2NeedsRehash(phc, { ...CHEAP, t: 3 })).toBe(true);
+    expect(argon2NeedsRehash(phc, { ...CHEAP, p: 2 })).toBe(true);
+  });
+
+  it("says yes when the tag length differs", async () => {
+    const phc = await argon2Hash(password, { ...CHEAP, length: 64 });
+    expect(argon2NeedsRehash(phc, CHEAP)).toBe(true);
+    expect(argon2NeedsRehash(phc, { ...CHEAP, length: 64 })).toBe(false);
+  });
+
+  it("says yes for a version this module no longer writes", async () => {
+    const phc = (await argon2Hash(password, CHEAP)).replace("$v=19$", "$v=16$");
+    expect(argon2NeedsRehash(phc, CHEAP)).toBe(true);
+    expect(argon2NeedsRehash((await argon2Hash(password, CHEAP)).replace("$v=19$", "$"))).toBe(
+      true,
+    );
+  });
+
+  it("ignores secret and data, which the string never carried", async () => {
+    const phc = await argon2Hash(password, { ...CHEAP, secret: "pepper", data: "ctx" });
+    expect(argon2NeedsRehash(phc, { ...CHEAP, secret: "other", data: "else" })).toBe(false);
+  });
+
+  it("refuses a phc that is not a string before reading it as one", () => {
+    expectUnsecureError(
+      () => argon2NeedsRehash(123 as any),
+      "INVALID_TYPE",
+      "argon2NeedsRehash: expected a PHC string, got number.",
+    );
+    expectUnsecureError(
+      () => argon2NeedsRehash(null as any),
+      "INVALID_TYPE",
+      "argon2NeedsRehash: expected a PHC string, got null.",
+    );
+    expectUnsecureError(
+      () => argon2NeedsRehash(undefined as any),
+      "INVALID_TYPE",
+      "argon2NeedsRehash: expected a PHC string, got undefined.",
+    );
+    expectUnsecureError(
+      () => argon2NeedsRehash({} as any),
+      "INVALID_TYPE",
+      "argon2NeedsRehash: expected a PHC string, got Object.",
+    );
+  });
+
+  it("refuses a string it cannot read, the way argon2Verify does", async () => {
+    const valid = await argon2Hash(password, CHEAP);
+    expectUnsecureError(
+      () => argon2NeedsRehash("not-a-phc-string"),
+      "MALFORMED",
+      "argon2NeedsRehash: malformed PHC string.",
+    );
+    expectUnsecureError(
+      () => argon2NeedsRehash(valid.slice(0, -2)),
+      "MALFORMED",
+      "argon2NeedsRehash: malformed PHC string.",
+    );
+    expectUnsecureError(
+      () => argon2NeedsRehash(valid.replace("$argon2id$", "$argon2z$")),
+      "UNSUPPORTED",
+      'argon2NeedsRehash: unsupported argon2 variant "argon2z".',
     );
   });
 });

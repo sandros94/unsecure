@@ -61,6 +61,7 @@ describe("every public function throws UnsecureError", () => {
     ["secureUUID", () => api.secureUUID(-1)],
     ["createUUIDv7Generator().next", () => api.createUUIDv7Generator().next(-1)],
     ["uuidv7Timestamp", () => api.uuidv7Timestamp("not-a-uuid")],
+    ["argon2NeedsRehash", () => api.argon2NeedsRehash("not-a-phc-string")],
     ["hexStringify", () => api.hexStringify(null as any)],
     ["hexParse", () => api.hexParse("zz")],
     ["base64Stringify", () => api.base64Stringify(null as any)],

@@ -31,6 +31,7 @@ import {
   argon2,
   argon2Hash,
   argon2Verify,
+  argon2NeedsRehash,
   // OTP
   hotp,
   hotpVerify,
@@ -199,7 +200,7 @@ const macKey = await hkdf(ikm, { salt, info: "authenticate" });
 
 Argon2 (RFC 9106) — the password hashing function, `argon2id` by default. Plain JavaScript: no WebAssembly, no native binding, no Node built-ins, so it also runs where WebAssembly cannot be compiled from bytes at request time — the way most Wasm Argon2 packages load, and something edge runtimes commonly forbid even while accepting a statically imported `.wasm` module. Check the platform's CPU budget before relying on that: a hash costs over a hundred milliseconds, and a per-request quota of a few milliseconds cuts it off. Measured at parity with `@noble/hashes` and roughly 12x a native binding — see `pnpm bench`.
 
-`argon2Hash()` and `argon2Verify()` are the pair you want for stored passwords; `argon2()` is the raw KDF underneath.
+`argon2Hash()` and `argon2Verify()` are the pair you want for stored passwords; `argon2NeedsRehash()` tells you when a stored string is behind the parameters you hash at today; `argon2()` is the raw KDF underneath.
 
 options:
 
@@ -228,9 +229,16 @@ const ok = await argon2Verify(stored, submitted);
 const peppered = await argon2Hash(password, { secret: process.env.PEPPER });
 await argon2Verify(peppered, submitted, { secret: process.env.PEPPER });
 
+// Rewrite lazily when the defaults move on — verify first, the plaintext is only here now
+if (await argon2Verify(user.passwordHash, submitted)) {
+  if (argon2NeedsRehash(user.passwordHash)) user.passwordHash = await argon2Hash(submitted);
+}
+
 // Raw derivation, e.g. to turn a passphrase into key material
 const key = await argon2(passphrase, salt, { m: 65536, t: 3, length: 64, returnAs: "bytes" });
 ```
+
+`argon2NeedsRehash(phc, parameters?)` is synchronous and hashes nothing: it reads the variant, cost, tag length and version out of the stored string and compares them with `parameters` resolved through the same defaults `argon2Hash()` uses — so calling it with no parameters asks "is this hash at today's defaults?". A version other than `0x13` answers `true`; `secret` and `data` never travel in the string and are ignored. A string it cannot read is refused exactly as `argon2Verify()` refuses it.
 
 > [!IMPORTANT]
 > The `async` signature is for symmetry with `hash()` and `hmac()`: the derivation itself runs synchronously on the calling thread, so `await argon2Hash()` does not yield the event loop — at the defaults it holds the thread for roughly 140 ms per call. Where logins share a thread with other traffic (a Node, Bun, or Deno server), run the call in a worker thread. A CLI, a build step, or a runtime that gives each request its own isolate can call it inline.
@@ -686,7 +694,7 @@ class UnsecureError extends Error {
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `INVALID_TYPE` | A value is of the wrong JavaScript type, or missing where one is required                                                                                                            | `secureCompare`, `hash`, `hmac`, `hmacVerify`, `hkdf`, the argon2 functions, the OTP functions, `secureGenerate`, `SecureRandomGenerator.next`, `uuidv7`, `uuidv7Timestamp`, every codec                                   |
 | `OUT_OF_RANGE` | The type is right but the value is outside its documented domain — a bound, an empty secret, no character set selected, a base32 `alphabet` that is not 32 distinct ASCII characters | `secureCompare` (`strict`), `hmac`, `hmacVerify`, `hkdf`, the argon2 functions, the OTP functions, `secureGenerate`, `secureRandomNumber`, `secureRandomBytes`, `randomJitter`, `uuidv7`, `base32Parse`, `base32Stringify` |
-| `MALFORMED`    | Text is not what it claims to be — a non-canonical encoding, decoded bytes that are not valid UTF-8, JSON that does not parse                                                        | `argon2Verify`, `hexParse`, `base64Parse`, `base32Parse`, `safeJsonParse`, `uuidv7Timestamp`                                                                                                                               |
+| `MALFORMED`    | Text is not what it claims to be — a non-canonical encoding, decoded bytes that are not valid UTF-8, JSON that does not parse                                                        | `argon2Verify`, `argon2NeedsRehash`, `hexParse`, `base64Parse`, `base32Parse`, `safeJsonParse`, `uuidv7Timestamp`                                                                                                          |
 | `UNSUPPORTED`  | A name is outside the set the library accepts — a digest `algorithm`, a `returnAs`, an `otpauthURI` `type`                                                                           | the argon2 functions, `hash`, `hmac`, `hmacVerify`, `hkdf`, the OTP functions                                                                                                                                              |
 | `FROZEN`       | A dangerous key cannot be removed because the object holding it is frozen or sealed                                                                                                  | `sanitizeObject`, `safeJsonParse`                                                                                                                                                                                          |
 | `PLATFORM`     | The runtime's Web Crypto refused an operation the library had already validated; `cause` carries the platform error                                                                  | `hash`, `hmac`, `hmacVerify`, `hkdf`, the OTP functions                                                                                                                                                                    |

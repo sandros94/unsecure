@@ -19,6 +19,9 @@ async function argon2Verify(
   options?: { secret?: string | BytesSource; data?: string | BytesSource },
 ): Promise<boolean>;
 
+// Is a stored string behind the parameters you hash at today? Synchronous; hashes nothing.
+function argon2NeedsRehash(phc: string, parameters?: Argon2Parameters): boolean;
+
 // The raw KDF underneath.
 async function argon2(
   password: string | BytesSource,
@@ -80,14 +83,25 @@ Rotating the pepper invalidates every hash, so treat it as a value you re-derive
 
 ## Use Case: Raising the Cost Later
 
-`argon2Verify` reads the parameters out of the stored string, never from the current defaults. An old hash keeps verifying at the cost it was made with, which is what lets you raise the cost and rewrite lazily.
+`argon2Verify` reads the parameters out of the stored string, never from the current defaults. An old hash keeps verifying at the cost it was made with, which is what lets you raise the cost and rewrite lazily — and `argon2NeedsRehash` is what tells you to.
 
 ```ts
 const ok = await argon2Verify(user.passwordHash, submitted);
-if (ok && !user.passwordHash.includes("m=19456,t=2,p=1")) {
+if (ok && argon2NeedsRehash(user.passwordHash)) {
   user.passwordHash = await argon2Hash(submitted); // rehash at today's parameters
 }
 ```
+
+With no second argument it compares against the same defaults `argon2Hash()` applies, so raising a default is the whole migration. Pass the parameters explicitly when you hash with your own:
+
+```ts
+const PARAMETERS = { m: 65_536, t: 3 };
+if (ok && argon2NeedsRehash(user.passwordHash, PARAMETERS)) {
+  user.passwordHash = await argon2Hash(submitted, PARAMETERS);
+}
+```
+
+It compares the variant, `m`, `t`, `p` and the tag length, and answers `true` for any version other than `0x13`. It hashes nothing, so it is synchronous and free. `secret` and `data` never travel in the string and are ignored. A string it cannot read is refused exactly as `argon2Verify` refuses it — `MALFORMED`, `INVALID_TYPE` or `UNSUPPORTED`, with the message naming `argon2NeedsRehash`.
 
 ## Pitfall: Expecting `false` for a Malformed Hash
 

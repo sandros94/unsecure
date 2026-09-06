@@ -21,7 +21,7 @@ metadata:
 Every public module is also its own subpath so CDN / browser consumers only ship the bytes they import. The main barrel (`unsecure`) re-exports everything for bundler workflows (Vite, webpack, etc.) where `sideEffects: false` tree-shakes unused symbols.
 
 - `unsecure` — barrel re-exporting every module below
-- `unsecure/argon2` — `argon2`, `argon2Hash`, `argon2Verify`
+- `unsecure/argon2` — `argon2`, `argon2Hash`, `argon2Verify`, `argon2NeedsRehash`
 - `unsecure/compare` — `secureCompare`
 - `unsecure/entropy` — `entropy`
 - `unsecure/errors` — `UnsecureError`, `UnsecureErrorCode`
@@ -61,7 +61,7 @@ HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`. Load when working
 
 ### [argon2.md](./references/argon2.md)
 
-Argon2 password hashing (RFC 9106), plain JavaScript. Load when working with `argon2Hash()`, `argon2Verify()`, `argon2()`, storing or checking passwords, PHC strings, peppers, cost tuning, or password hashing on a runtime that cannot compile WebAssembly at request time.
+Argon2 password hashing (RFC 9106), plain JavaScript. Load when working with `argon2Hash()`, `argon2Verify()`, `argon2NeedsRehash()`, `argon2()`, storing or checking passwords, PHC strings, peppers, cost tuning, lazy rehashing, or password hashing on a runtime that cannot compile WebAssembly at request time.
 
 ### [hmac.md](./references/hmac.md)
 

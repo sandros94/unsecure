@@ -6,6 +6,7 @@ export {
   type Argon2VerifyOptions,
   argon2,
   argon2Hash,
+  argon2NeedsRehash,
   argon2Verify,
 } from "./argon2.ts";
 

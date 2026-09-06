@@ -674,17 +674,69 @@ export async function argon2Hash(
  * the strict codec calls it what it is. Padding is absent in this format and the strict decode
  * is padding-agnostic, so the fields are accepted as written.
  */
-function _decodeField(field: string): Uint8Array<ArrayBuffer> {
+function _decodeField(field: string, source: string): Uint8Array<ArrayBuffer> {
   try {
     return base64Parse(field, { returnAs: "bytes" });
   } catch (error) {
     if (error instanceof UnsecureError && error.code === "MALFORMED") {
-      throw new UnsecureError("MALFORMED", "argon2Verify: malformed PHC string.", {
-        cause: error,
-      });
+      throw new UnsecureError("MALFORMED", `${source}: malformed PHC string.`, { cause: error });
     }
     throw error;
   }
+}
+
+/** What a PHC string says, once it is known to be one this module can read. */
+interface _Stored {
+  variant: Argon2Variant;
+  /** `0x10` when the string carries no `v=` field, which is what its absence means. */
+  version: number;
+  /** The `v=` field as written, or `undefined` — the two are reported differently. */
+  versionField: string | undefined;
+  m: number;
+  t: number;
+  p: number;
+  salt: Uint8Array<ArrayBuffer>;
+  tag: Uint8Array<ArrayBuffer>;
+}
+
+/**
+ * Read a stored PHC string, or refuse it by name.
+ *
+ * Shared by {@link argon2Verify} and {@link argon2NeedsRehash} so both agree on exactly which
+ * strings are readable; `source` is the function the caller wrote, which is what its message
+ * has to say. The version is returned rather than judged: whether an old one is an error or an
+ * answer depends on which of the two is asking.
+ */
+function _parsePhc(phc: string, source: string): _Stored {
+  // A value that is not a string never claimed to be a PHC string, so it is a caller mistake
+  // rather than a stored value in a shape nobody migrated.
+  if (typeof phc !== "string") {
+    throw new UnsecureError(
+      "INVALID_TYPE",
+      `${source}: expected a PHC string, got ${describeValue(phc)}.`,
+    );
+  }
+
+  const parsed = _PHC.exec(phc);
+  if (parsed === null) {
+    throw new UnsecureError("MALFORMED", `${source}: malformed PHC string.`);
+  }
+
+  const [, variant, , m, t, p, salt, tag] = parsed;
+  // An unmatched optional group is `undefined` at runtime whatever the array type says.
+  const versionField: string | undefined = parsed[2];
+  if (!_isVariant(variant)) throw _unsupportedVariant(source, variant);
+
+  return {
+    variant,
+    version: versionField === undefined ? 0x10 : Number(versionField),
+    versionField,
+    m: Number(m),
+    t: Number(t),
+    p: Number(p),
+    salt: _decodeField(salt, source),
+    tag: _decodeField(tag, source),
+  };
 }
 
 /**
@@ -719,51 +771,82 @@ export async function argon2Verify(
   password: string | BytesSource,
   options: Argon2VerifyOptions = {},
 ): Promise<boolean> {
-  // A value that is not a string never claimed to be a PHC string, so it is a caller mistake
-  // rather than a stored value in a shape nobody migrated.
-  if (typeof phc !== "string") {
-    throw new UnsecureError(
-      "INVALID_TYPE",
-      `argon2Verify: expected a PHC string, got ${describeValue(phc)}.`,
-    );
-  }
-
-  const parsed = _PHC.exec(phc);
-  if (parsed === null) {
-    throw new UnsecureError("MALFORMED", "argon2Verify: malformed PHC string.");
-  }
-
-  const [, variant, , m, t, p, salt, tag] = parsed;
-  // An unmatched optional group is `undefined` at runtime whatever the array type says.
-  const version: string | undefined = parsed[2];
-  if (!_isVariant(variant)) throw _unsupportedVariant("argon2Verify", variant);
-  // A string with no `v=` field predates version 0x13 and decodes as 0x10, so it is refused by
-  // version rather than by shape.
-  const versionNumber = version === undefined ? 0x10 : Number(version);
-  if (versionNumber !== _VERSION) {
-    const found = version === undefined ? `${versionNumber} (no v= field)` : version;
+  const { variant, version, versionField, m, t, p, salt, tag } = _parsePhc(phc, "argon2Verify");
+  // A string with no `v=` field predates version 0x13, so it is refused by version rather than
+  // by shape. Reproducing a tag under a version this module does not implement is not possible;
+  // `argon2NeedsRehash` is where such a string gets an answer instead of a throw.
+  if (version !== _VERSION) {
+    const found = versionField === undefined ? `${version} (no v= field)` : versionField;
     throw new UnsecureError(
       "UNSUPPORTED",
       `argon2Verify: unsupported argon2 version ${found}; only 19 (0x13) is supported.`,
     );
   }
 
-  const saltBytes = _decodeField(salt);
-  const stored = _decodeField(tag);
-
   const actual = _derive(
     toBytes(password, "argon2"),
-    saltBytes,
+    salt,
     _resolve({
       variant,
-      m: Number(m),
-      t: Number(t),
-      p: Number(p),
-      length: stored.length,
+      m,
+      t,
+      p,
+      length: tag.length,
       secret: options.secret,
       data: options.data,
     }),
   );
 
-  return secureCompare(stored, actual);
+  return secureCompare(tag, actual);
+}
+
+/**
+ * Whether a stored PHC string was produced with parameters other than the ones asked for.
+ *
+ * Call it after a successful {@link argon2Verify}, while the plaintext is still in hand, to
+ * rewrite old hashes as their owners log in. With no `parameters` it answers "is this hash at
+ * today's defaults?", resolving them exactly as {@link argon2Hash} would, so raising a default
+ * is enough to start the migration.
+ *
+ * A version other than `0x13` is `true` rather than a throw: an old hash still verifies at the
+ * cost it was made with, and needing to be replaced is the answer, not an error. A string this
+ * module cannot read at all is refused the way {@link argon2Verify} refuses it.
+ *
+ * `secret` and `data` never travel in the string, so they are ignored here.
+ *
+ * @param phc The stored PHC string.
+ * @param parameters The parameters a new hash would be written with.
+ * @returns Whether the variant, cost, tag length or version differ from `parameters`.
+ *
+ * @throws {UnsecureError} `MALFORMED` if `phc` is a string that is not a well-formed PHC
+ * string; `INVALID_TYPE` if it is not a string at all; `UNSUPPORTED` if it names a variant
+ * this module does not implement; `OUT_OF_RANGE` if `parameters` carries a cost or tag length
+ * outside its range.
+ *
+ * @example
+ * if (await argon2Verify(user.passwordHash, submitted)) {
+ *   if (argon2NeedsRehash(user.passwordHash)) {
+ *     user.passwordHash = await argon2Hash(submitted);
+ *   }
+ * }
+ */
+export function argon2NeedsRehash(phc: string, parameters: Argon2Parameters = {}): boolean {
+  const stored = _parsePhc(phc, "argon2NeedsRehash");
+  if (stored.version !== _VERSION) return true;
+
+  const wanted = _resolve({
+    variant: parameters.variant,
+    m: parameters.m,
+    t: parameters.t,
+    p: parameters.p,
+    length: parameters.length,
+  });
+
+  return (
+    stored.variant !== wanted.variant ||
+    stored.m !== wanted.m ||
+    stored.t !== wanted.t ||
+    stored.p !== wanted.p ||
+    stored.tag.length !== wanted.length
+  );
 }
