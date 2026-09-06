@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { expectUnsecureError } from "./_helpers.ts";
 import {
   createUUIDv7Generator,
   isUUIDv4,
@@ -117,21 +118,21 @@ describe.concurrent("uuidv7", () => {
     expect(uuidv7Timestamp(uuidv7(0))).toBe(0);
   });
 
-  it("throws RangeError on negative, NaN, Infinity, or out-of-range ms", () => {
-    expect(() => uuidv7(-1)).toThrow(RangeError);
-    expect(() => uuidv7(Number.NaN)).toThrow(RangeError);
-    expect(() => uuidv7(Number.POSITIVE_INFINITY)).toThrow(RangeError);
-    expect(() => uuidv7(0xffffffffffff + 1)).toThrow(RangeError);
+  it("throws OUT_OF_RANGE on negative, NaN, Infinity, or out-of-range ms", () => {
+    expectUnsecureError(() => uuidv7(-1), "OUT_OF_RANGE");
+    expectUnsecureError(() => uuidv7(Number.NaN), "OUT_OF_RANGE");
+    expectUnsecureError(() => uuidv7(Number.POSITIVE_INFINITY), "OUT_OF_RANGE");
+    expectUnsecureError(() => uuidv7(0xffffffffffff + 1), "OUT_OF_RANGE");
   });
 
-  it("throws RangeError on an Invalid Date", () => {
-    expect(() => uuidv7(new Date("totally invalid"))).toThrow(RangeError);
+  it("throws OUT_OF_RANGE on an Invalid Date", () => {
+    expectUnsecureError(() => uuidv7(new Date("totally invalid")), "OUT_OF_RANGE");
   });
 
-  it("throws TypeError on non-Date / non-number arguments", () => {
-    expect(() => uuidv7("2020-01-01" as any)).toThrow(TypeError);
-    expect(() => uuidv7({} as any)).toThrow(TypeError);
-    expect(() => uuidv7(null as any)).toThrow(TypeError);
+  it("throws INVALID_TYPE on non-Date / non-number arguments", () => {
+    expectUnsecureError(() => uuidv7("2020-01-01" as any), "INVALID_TYPE");
+    expectUnsecureError(() => uuidv7({} as any), "INVALID_TYPE");
+    expectUnsecureError(() => uuidv7(null as any), "INVALID_TYPE");
   });
 });
 
@@ -239,10 +240,10 @@ describe("createUUIDv7Generator", () => {
 
   it("validates the timestamp argument like uuidv7()", () => {
     const gen = createUUIDv7Generator();
-    expect(() => gen.next(-1)).toThrow(RangeError);
-    expect(() => gen.next(Number.NaN)).toThrow(RangeError);
-    expect(() => gen.next(new Date("invalid"))).toThrow(RangeError);
-    expect(() => gen.next("now" as any)).toThrow(TypeError);
+    expectUnsecureError(() => gen.next(-1), "OUT_OF_RANGE");
+    expectUnsecureError(() => gen.next(Number.NaN), "OUT_OF_RANGE");
+    expectUnsecureError(() => gen.next(new Date("invalid")), "OUT_OF_RANGE");
+    expectUnsecureError(() => gen.next("now" as any), "INVALID_TYPE");
   });
 
   it("does not consume counter state when .next() throws on invalid input", () => {
@@ -251,9 +252,9 @@ describe("createUUIDv7Generator", () => {
     const before = gen.next();
     const beforeCounter = Number.parseInt(before.slice(15, 18), 16);
 
-    expect(() => gen.next(-1)).toThrow(RangeError);
-    expect(() => gen.next(Number.NaN)).toThrow(RangeError);
-    expect(() => gen.next("oops" as any)).toThrow(TypeError);
+    expectUnsecureError(() => gen.next(-1), "OUT_OF_RANGE");
+    expectUnsecureError(() => gen.next(Number.NaN), "OUT_OF_RANGE");
+    expectUnsecureError(() => gen.next("oops" as any), "INVALID_TYPE");
 
     const after = gen.next();
     const afterCounter = Number.parseInt(after.slice(15, 18), 16);
@@ -293,14 +294,27 @@ describe.concurrent("uuidv7Timestamp", () => {
     expect(uuidv7Timestamp(uuid)).toBe(0xffff);
   });
 
-  it("throws TypeError for non-v7 UUIDs", () => {
-    expect(() => uuidv7Timestamp(uuidv4())).toThrow(TypeError);
+  it("reports a v4 UUID as MALFORMED", () => {
+    const uuid = uuidv4();
+    expectUnsecureError(
+      () => uuidv7Timestamp(uuid),
+      "MALFORMED",
+      `uuidv7Timestamp: Not a valid UUIDv7: ${uuid}`,
+    );
   });
 
-  it("throws TypeError for malformed input", () => {
-    expect(() => uuidv7Timestamp("not-a-uuid")).toThrow(TypeError);
-    expect(() => uuidv7Timestamp("")).toThrow(TypeError);
-    expect(() => uuidv7Timestamp(undefined as any)).toThrow(TypeError);
+  it("reports text that is not a UUIDv7 as MALFORMED, a non-string as INVALID_TYPE", () => {
+    expectUnsecureError(
+      () => uuidv7Timestamp("not-a-uuid"),
+      "MALFORMED",
+      "uuidv7Timestamp: Not a valid UUIDv7: not-a-uuid",
+    );
+    expectUnsecureError(() => uuidv7Timestamp(""), "MALFORMED");
+    expectUnsecureError(
+      () => uuidv7Timestamp(undefined as any),
+      "INVALID_TYPE",
+      "uuidv7Timestamp: Not a valid UUIDv7: undefined",
+    );
   });
 });
 

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { safeJsonParse, sanitizeObject, sanitizeObjectCopy } from "../src/sanitize.ts";
+import { expectUnsecureError } from "./_helpers.ts";
 
 function withDangerousKeys() {
   const o: Record<string, unknown> = {};
@@ -200,8 +201,10 @@ describe("safeJsonParse", () => {
     expect(result).toEqual({ a: 1, b: [1, 2, { c: 3 }] });
   });
 
-  it("propagates SyntaxError for invalid JSON", () => {
-    expect(() => safeJsonParse("not json")).toThrow(SyntaxError);
+  it("reports invalid JSON as MALFORMED, keeping the engine's own error as cause", () => {
+    const error = expectUnsecureError(() => safeJsonParse("not json"), "MALFORMED");
+    expect(error.message.startsWith("safeJsonParse: ")).toBe(true);
+    expect(error.cause).toBeInstanceOf(SyntaxError);
   });
 });
 
@@ -380,7 +383,7 @@ describe("property handling", () => {
 
   it("refuses a frozen object holding a dangerous key", () => {
     const obj = Object.freeze(JSON.parse('{"__proto__": {"x": 1}, "safe": 1}'));
-    expect(() => sanitizeObject(obj)).toThrow(TypeError);
+    expectUnsecureError(() => sanitizeObject(obj), "FROZEN");
     expect(() => sanitizeObject(obj)).toThrow(
       'sanitizeObject: cannot remove "__proto__" from a frozen object; use sanitizeObjectCopy().',
     );

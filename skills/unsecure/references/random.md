@@ -21,8 +21,10 @@ rng.next(50, 100, new Set([75])); // [50, 100) excluding 75
 
 **Throws:**
 
-- `RangeError` if `max <= min`, range > 2³², or ignore set excludes all values
-- `TypeError` if ignore is not an iterable or Set
+- `OUT_OF_RANGE` if `max <= min`, range > 2³², or the ignore set excludes all values
+- `INVALID_TYPE` if ignore is not an iterable or Set
+
+Every failure is an `UnsecureError` — see [errors.md](./errors.md).
 
 Both name their source as `SecureRandomGenerator.next`, whether the draw was asked for through the generator, `secureRandomNumber()`, `secureShuffle()` or `randomJitter()`.
 
@@ -40,7 +42,7 @@ secureRandomNumber(10, [2, 4, 6]); // [0, 10) excluding evens
 
 ## secureRandomBytes()
 
-Generate a `Uint8Array` of cryptographically secure random bytes. Handles the 65536-byte `crypto.getRandomValues` limit internally via chunking. `length` must be an integer in `[0, 2**31 - 1]`; anything larger throws `RangeError` instead of allocating gigabytes and filling them for hours.
+Generate a `Uint8Array` of cryptographically secure random bytes. Handles the 65536-byte `crypto.getRandomValues` limit internally via chunking. `length` must be an integer in `[0, 2**31 - 1]`; anything larger throws `OUT_OF_RANGE` instead of allocating gigabytes and filling them for hours.
 
 ```ts
 import { secureRandomBytes } from "unsecure";
@@ -82,7 +84,7 @@ await randomJitter(50, 200); // 50–199ms
 await randomJitter(undefined, 50); // 0–49ms — an absent lower bound is 0
 ```
 
-Bounds must be non-negative integers (`setTimeout` truncates, so a fractional bound never described the delay), and `maxMs === minMs` resolves after exactly that many milliseconds without drawing randomness. Otherwise `RangeError` — `null` included: only an absent bound (`undefined`) takes a default.
+Bounds must be non-negative integers (`setTimeout` truncates, so a fractional bound never described the delay), and `maxMs === minMs` resolves after exactly that many milliseconds without drawing randomness. Otherwise `OUT_OF_RANGE` — `null` included: only an absent bound (`undefined`) takes a default.
 
 ## Use Case: Secure Lottery / Drawing
 
