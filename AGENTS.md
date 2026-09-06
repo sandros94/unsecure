@@ -1,5 +1,7 @@
 <!-- NOTE: Keep this file updated as the project evolves. When making architectural changes, adding new patterns, or discovering important conventions, update the relevant sections. -->
 
+<!-- DOCS: user-facing documentation lives in `docs/` (published at https://unsecure.s94.dev) and in `skills/unsecure/references/`. When source behavior, options, defaults or error codes change, update the matching `docs/` page and skill reference — not the README, which is deliberately a short pointer to the docs. -->
+
 ## Project Overview
 
 `unsecure` is a zero-dependency, runtime-agnostic library of cryptographically-secure utilities, built on the Web Crypto API wherever it reaches (`argon2` is the exception — Web Crypto has no Argon2 or BLAKE2b, so that module is plain JavaScript). It targets Node.js ^22.12 or >=24, and works in any runtime supporting Web Crypto (browsers, Bun, Deno).

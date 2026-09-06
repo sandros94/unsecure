@@ -33,6 +33,7 @@
     "webcrypto",
     "zero-dependency"
   ],
+  "homepage": "https://unsecure.s94.dev",
   "license": "MIT",
   "author": {
     "name": "Sandro Circi",

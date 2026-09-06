@@ -6,7 +6,8 @@ metadata:
   library: unsecure
   library-version: 0.3.0
   org: sandros94
-  documentation: https://github.com/sandros94/unsecure
+  documentation: https://unsecure.s94.dev
+  repository: https://github.com/sandros94/unsecure
 ---
 
 # unsecure Skill
