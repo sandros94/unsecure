@@ -42,12 +42,20 @@ describe.concurrent("UnsecureError", () => {
  * — the module suites cover those — but that nothing in the library can go
  * back to throwing a native class without a test noticing.
  */
+// An HMAC key is a valid secret for `hmac`, `hkdf` and the OTP functions, and
+// a wrong type everywhere a secret has to be rendered back out.
+const hmacKey = await api.importHmacKey("errors-test-secret", { algorithm: "SHA-1" });
+
 describe("every public function throws UnsecureError", () => {
   const syncCases: Array<[string, () => unknown]> = [
     ["secureCompare", () => api.secureCompare(42 as any, "x")],
     ["secureGenerate", () => api.secureGenerate({ length: 0 })],
     ["generateOTPSecret", () => api.generateOTPSecret(0)],
     ["otpauthURI", () => api.otpauthURI({ type: "nope" as any, secret: "JBSWY3DP", account: "a" })],
+    [
+      "otpauthURI (CryptoKey secret)",
+      () => api.otpauthURI({ type: "totp", secret: hmacKey as any, account: "a" }),
+    ],
     ["secureRandomNumber", () => api.secureRandomNumber(0)],
     ["secureRandomBytes", () => api.secureRandomBytes(-1)],
     ["createSecureRandomGenerator().next", () => api.createSecureRandomGenerator().next(0)],
@@ -81,7 +89,10 @@ describe("every public function throws UnsecureError", () => {
     ["hmac", () => api.hmac("", "d")],
     ["hmacVerify", () => api.hmacVerify("", "d", "00")],
     ["hkdf", () => api.hkdf("i", { length: 0 })],
+    ["hmac (wrong key)", () => api.hmac(hmacKey, "d", { algorithm: "SHA-256" })],
+    ["hkdf (wrong key)", () => api.hkdf(hmacKey)],
     ["hotp", () => api.hotp("", 0)],
+    ["hotp (wrong key)", () => api.hotp(hmacKey, 0, { algorithm: "SHA-256" })],
     ["hotpVerify", () => api.hotpVerify("", "755224", 0)],
     ["totp", () => api.totp("")],
     ["totpVerify", () => api.totpVerify("", "755224")],

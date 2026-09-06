@@ -316,7 +316,21 @@ const result = await hotpVerify(secret, "287082", user.counter, { window: 5 });
 if (result.valid) await store.setCounter(user.id, result.counter + 1);
 ```
 
-Verification always computes every candidate in the window — `window + 1` HMACs for HOTP, `2 * window + 1` for TOTP — so the time a call takes says nothing about which step matched. `delta` reports the nearest matching step.
+Verification always computes every candidate in the window — `window + 1` HMACs for HOTP, `2 * window + 1` for TOTP — so the time a call takes says nothing about which step matched. `delta` reports the nearest matching step. The secret is imported once per call and every candidate is signed with that one key, so a `window: 5` verify costs one `importKey`, not six.
+
+All four functions also accept an HMAC `CryptoKey` from `importHmacKey()`, which removes even that import:
+
+```ts
+import { importHmacKey, totpVerify } from "unsecure";
+
+// Once — the key's hash must be the algorithm the OTP call uses (default SHA-1)
+const key = await importHmacKey(secretBytes, { algorithm: "SHA-1" });
+
+// Per attempt — no importKey at all
+const { valid, delta } = await totpVerify(key, userCode);
+```
+
+A key whose hash is not the `algorithm` asked for throws `OUT_OF_RANGE`. `otpauthURI()` keeps taking bytes or a base32 string: a `CryptoKey` cannot be rendered into a URI, and passing one is `INVALID_TYPE`.
 
 #### totp / totpVerify
 

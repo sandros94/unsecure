@@ -1,7 +1,8 @@
 import type { DigestAlgorithm } from "./hash.ts";
-import { hmac } from "./hmac.ts";
+import { hmac, importHmacKey } from "./hmac.ts";
 import { normalizeAlgorithm } from "./_internal/algorithm.ts";
 import { type BytesSource, toCryptoBytes } from "./_internal/bytes.ts";
+import { assertHmacKey, isCryptoKey } from "./_internal/key.ts";
 import { assertInteger, showValue } from "./_internal/assert.ts";
 import { base32Parse, base32Stringify } from "./utils/index.ts";
 import { secureRandomBytes } from "./random.ts";
@@ -166,17 +167,31 @@ function _resolveSecret(source: string, secret: string | BytesSource): Uint8Arra
   return bytes;
 }
 
-/** The counter → code core, run only once every input is known good. */
-async function _code(
-  secret: Uint8Array<ArrayBuffer>,
-  counter: number,
+/**
+ * Resolve a secret to the one signing key a call uses for every candidate.
+ *
+ * A verify walks its whole window, and importing the same secret once per
+ * step is the cost of a shape, not of the work: one import serves all of
+ * them. A caller who imported the key themselves passes it straight through —
+ * checked against the algorithm the call was asked for, since a key carries
+ * its own hash and the two disagreeing would produce codes for a digest the
+ * caller did not choose.
+ */
+async function _resolveKey(
+  source: string,
+  secret: string | BytesSource | CryptoKey,
   algorithm: DigestAlgorithm,
-  digits: number,
-): Promise<string> {
-  const mac = await hmac(secret, _counterToBytes(counter), {
-    algorithm,
-    returnAs: "uint8array",
-  });
+): Promise<CryptoKey> {
+  if (isCryptoKey(secret)) {
+    assertHmacKey(secret, algorithm, source);
+    return secret;
+  }
+  return importHmacKey(_resolveSecret(source, secret), { algorithm });
+}
+
+/** The counter → code core, run only once every input is known good. */
+async function _code(key: CryptoKey, counter: number, digits: number): Promise<string> {
+  const mac = await hmac(key, _counterToBytes(counter), { returnAs: "uint8array" });
   return _dynamicTruncate(mac, digits);
 }
 
@@ -227,48 +242,55 @@ const _URI_ALGORITHM_MAP: Record<DigestAlgorithm, string> = {
 /**
  * Generate an HMAC-based One-Time Password (RFC 4226).
  *
- * @param secret The shared secret key (raw bytes or a base32-encoded string).
+ * @param secret The shared secret key: raw bytes, a base32-encoded string, or an
+ *               HMAC `CryptoKey` from `importHmacKey` whose hash is `algorithm`.
  * @param counter The moving factor (counter value), an integer >= 0.
  * @param options Algorithm and digit options.
  * @returns The OTP code as a zero-padded string.
  *
- * @throws {UnsecureError} `OUT_OF_RANGE` if the secret is empty or `counter` or
- *                         `digits` is outside its documented range; `UNSUPPORTED`
- *                         for an unknown `algorithm`.
+ * @throws {UnsecureError} `OUT_OF_RANGE` if the secret is empty, is a key that
+ *                         cannot sign HMAC or whose hash is not `algorithm`, or if
+ *                         `counter` or `digits` is outside its documented range;
+ *                         `UNSUPPORTED` for an unknown `algorithm`.
  *
  * @example
  * const code = await hotp(secretBytes, 0);
  * // "755224"
  */
 export async function hotp(
-  secret: string | BytesSource,
+  secret: string | BytesSource | CryptoKey,
   counter: number,
   options: HOTPOptions = {},
 ): Promise<string> {
   const { algorithm, digits } = _baseOptions("hotp", options);
   assertInteger("hotp", "counter", counter, 0);
-  return _code(_resolveSecret("hotp", secret), counter, algorithm, digits);
+  return _code(await _resolveKey("hotp", secret, algorithm), counter, digits);
 }
 
 /**
  * Verify an HOTP code, optionally checking a window of counter values ahead.
  *
- * All `window + 1` HMACs are computed on every call, so how long a call takes
- * says nothing about which counter matched. `delta` is the nearest matching
- * step. Codes are single-use: `counter` is the server's own state, so
- * candidates before it are never checked, and the result's `counter` is the
- * one to advance past — persist `counter + 1`, or the same code keeps working.
+ * All `window + 1` HMACs are computed on every call, from one imported key, so
+ * how long a call takes says nothing about which counter matched. `delta` is the
+ * nearest matching step. Codes are single-use: `counter` is the server's own
+ * state, so candidates before it are never checked, and the result's `counter`
+ * is the one to advance past — persist `counter + 1`, or the same code keeps
+ * working.
  *
- * @param secret The shared secret key.
+ * @param secret The shared secret key: raw bytes, a base32-encoded string, or an
+ *               HMAC `CryptoKey` from `importHmacKey` whose hash is `algorithm`.
+ *               It is imported once, and every candidate in the window is signed
+ *               with that one key.
  * @param otp The OTP code to verify. A missing code (`null` / `undefined`) is invalid.
  * @param counter The expected counter value, an integer >= 0.
  * @param options Algorithm, digit, and window options.
  * @returns `valid`, `delta` (offset from `counter` that matched) and, on
  *          success, the absolute `counter` that matched.
  *
- * @throws {UnsecureError} `OUT_OF_RANGE` if the secret is empty or `counter`,
- *                         `digits` or `window` is outside its documented range;
- *                         `UNSUPPORTED` for an unknown `algorithm`.
+ * @throws {UnsecureError} `OUT_OF_RANGE` if the secret is empty, is a key that
+ *                         cannot sign HMAC or whose hash is not `algorithm`, or if
+ *                         `counter`, `digits` or `window` is outside its documented
+ *                         range; `UNSUPPORTED` for an unknown `algorithm`.
  *
  * @example
  * const result = await hotpVerify(secret, "287082", user.counter, { window: 5 });
@@ -276,7 +298,7 @@ export async function hotp(
  * if (result.valid) await store.setCounter(user.id, result.counter + 1);
  */
 export async function hotpVerify(
-  secret: string | BytesSource,
+  secret: string | BytesSource | CryptoKey,
   otp: string | null | undefined,
   counter: number,
   options: HOTPVerifyOptions = {},
@@ -289,7 +311,7 @@ export async function hotpVerify(
   // repeat one another.
   assertInteger("hotpVerify", "counter", counter, 0, Number.MAX_SAFE_INTEGER - window);
 
-  const secretBytes = _resolveSecret("hotpVerify", secret);
+  const key = await _resolveKey("hotpVerify", secret, algorithm);
 
   // Every candidate is computed and compared on every call. Returning at the
   // first match would make the number of HMACs — and so how long the call
@@ -298,7 +320,7 @@ export async function hotpVerify(
   let valid = false;
   let delta = 0;
   for (let step = 0; step <= window; step++) {
-    const matched = secureCompare(await _code(secretBytes, counter + step, algorithm, digits), otp);
+    const matched = secureCompare(await _code(key, counter + step, digits), otp);
     if (matched && !valid) {
       valid = true;
       delta = step;
@@ -312,49 +334,55 @@ export async function hotpVerify(
 /**
  * Generate a Time-based One-Time Password (RFC 6238).
  *
- * @param secret The shared secret key (raw bytes or a base32-encoded string).
+ * @param secret The shared secret key: raw bytes, a base32-encoded string, or an
+ *               HMAC `CryptoKey` from `importHmacKey` whose hash is `algorithm`.
  * @param options Algorithm, digit, period, and time options.
  * @returns The OTP code as a zero-padded string.
  *
- * @throws {UnsecureError} `OUT_OF_RANGE` if the secret is empty or `digits`,
- *                         `period` or `time` is outside its documented range;
- *                         `UNSUPPORTED` for an unknown `algorithm`.
+ * @throws {UnsecureError} `OUT_OF_RANGE` if the secret is empty, is a key that
+ *                         cannot sign HMAC or whose hash is not `algorithm`, or if
+ *                         `digits`, `period` or `time` is outside its documented
+ *                         range; `UNSUPPORTED` for an unknown `algorithm`.
  *
  * @example
  * const code = await totp(base32Secret);
  */
 export async function totp(
-  secret: string | BytesSource,
+  secret: string | BytesSource | CryptoKey,
   options: TOTPOptions = {},
 ): Promise<string> {
   const { period = DEFAULT_PERIOD, time } = options;
   const { algorithm, digits } = _baseOptions("totp", options);
   const counter = _timeStep("totp", time, period);
-  return _code(_resolveSecret("totp", secret), counter, algorithm, digits);
+  return _code(await _resolveKey("totp", secret, algorithm), counter, digits);
 }
 
 /**
  * Verify a TOTP code, checking a window of time steps in both directions.
  *
- * All `2 * window + 1` HMACs are computed on every call, so how long a call
- * takes says nothing about which step matched. `delta` is the nearest matching
- * step (the past wins a tie). Codes are single-use per RFC 6238 §5.2: pass the
- * `step` of the last success back as `lastAccepted` and every candidate at or
- * before it is refused, so a captured code cannot be replayed for the rest of
- * its window. Without `lastAccepted` nothing is refused — the library holds no
- * state, so that part has to travel with the user record.
+ * All `2 * window + 1` HMACs are computed on every call, from one imported key,
+ * so how long a call takes says nothing about which step matched. `delta` is the
+ * nearest matching step (the past wins a tie). Codes are single-use per RFC 6238
+ * §5.2: pass the `step` of the last success back as `lastAccepted` and every
+ * candidate at or before it is refused, so a captured code cannot be replayed for
+ * the rest of its window. Without `lastAccepted` nothing is refused — the library
+ * holds no state, so that part has to travel with the user record.
  *
- * @param secret The shared secret key.
+ * @param secret The shared secret key: raw bytes, a base32-encoded string, or an
+ *               HMAC `CryptoKey` from `importHmacKey` whose hash is `algorithm`.
+ *               It is imported once, and every candidate in the window is signed
+ *               with that one key.
  * @param otp The OTP code to verify. A missing code (`null` / `undefined`) is invalid.
  * @param options Algorithm, digit, period, time, window and `lastAccepted` options.
  * @returns `valid`, `delta` (time step offset that matched) and, on success,
  *          the absolute `step` that matched.
  *
- * @throws {UnsecureError} `OUT_OF_RANGE` if the secret is empty or `digits`,
- *                         `period`, `time`, `window` or `lastAccepted` is outside
- *                         its documented range — `time` included when the window
- *                         would run past the safe integer range; `UNSUPPORTED` for
- *                         an unknown `algorithm`.
+ * @throws {UnsecureError} `OUT_OF_RANGE` if the secret is empty, is a key that
+ *                         cannot sign HMAC or whose hash is not `algorithm`, or if
+ *                         `digits`, `period`, `time`, `window` or `lastAccepted` is
+ *                         outside its documented range — `time` included when the
+ *                         window would run past the safe integer range;
+ *                         `UNSUPPORTED` for an unknown `algorithm`.
  *
  * @example
  * const result = await totpVerify(secret, userCode, { lastAccepted: user.lastOtpStep });
@@ -362,7 +390,7 @@ export async function totp(
  * if (result.valid) await store.setLastOtpStep(user.id, result.step);
  */
 export async function totpVerify(
-  secret: string | BytesSource,
+  secret: string | BytesSource | CryptoKey,
   otp: string | null | undefined,
   options: TOTPVerifyOptions = {},
 ): Promise<TOTPVerifyResult> {
@@ -381,7 +409,7 @@ export async function totpVerify(
     );
   }
 
-  const secretBytes = _resolveSecret("totpVerify", secret);
+  const key = await _resolveKey("totpVerify", secret, algorithm);
 
   // Nearest step first, the past ahead of the future at equal distance, so a
   // code that matches more than one step reports the closest one. As in
@@ -393,7 +421,7 @@ export async function totpVerify(
   let delta = 0;
   for (const step of steps) {
     const candidate = counter + step;
-    const matched = secureCompare(await _code(secretBytes, candidate, algorithm, digits), otp);
+    const matched = secureCompare(await _code(key, candidate, digits), otp);
     // A step at or before the last accepted one is spent. Its code is still
     // computed and compared so the call costs the same; it just cannot count.
     const fresh = lastAccepted === undefined || candidate > lastAccepted;
