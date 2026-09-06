@@ -11,6 +11,9 @@ redirects:
   /guide: /getting-started
   /blog: /
 
+socials:
+  bluesky: "https://bsky.app/profile/sandros94.com"
+
 landing:
   heroLinks:
     primary:
