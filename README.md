@@ -209,7 +209,7 @@ options:
 - **digits**: number of digits in the OTP code, an integer from `6` to `8` (default `6`)
 - **window**: (verify only) number of counter values to check ahead, an integer `>= 0` (default `0`)
 
-`counter` must be an integer `>= 0` — and `counter + window` must still be a safe integer — and the secret must decode to at least one byte; anything else throws a `RangeError` naming the value found and the function it was passed to. A `null` or `undefined` `otp` is simply invalid.
+`counter` must be an integer `>= 0` — and `counter + window` must still be a safe integer — and the secret must decode to at least one byte; anything else throws `OUT_OF_RANGE`, naming the value found and the function it was passed to. A `null` or `undefined` `otp` is simply invalid.
 
 ```ts
 import { hotp, hotpVerify } from "unsecure";

@@ -6,6 +6,7 @@ import { assertInteger, showValue } from "./_internal/assert.ts";
 import { base32Parse, base32Stringify } from "./utils/index.ts";
 import { secureRandomBytes } from "./random.ts";
 import { secureCompare } from "./compare.ts";
+import { UnsecureError } from "./errors.ts";
 
 // #region Types
 
@@ -160,7 +161,7 @@ function _resolveSecret(source: string, secret: string | BytesSource): Uint8Arra
       ? base32Parse(secret, { loose: true, returnAs: "bytes" })
       : toCryptoBytes(secret, source);
   if (bytes.length === 0) {
-    throw new RangeError(`${source}: secret must not be empty.`);
+    throw new UnsecureError("OUT_OF_RANGE", `${source}: secret must not be empty.`);
   }
   return bytes;
 }
@@ -191,7 +192,8 @@ function _timeStep(source: string, time: number | undefined, period: number): nu
   // and defaulting on it would silently generate a code for another instant.
   const seconds = time === undefined ? Math.floor(Date.now() / 1000) : time;
   if (!Number.isFinite(seconds)) {
-    throw new RangeError(
+    throw new UnsecureError(
+      "OUT_OF_RANGE",
       `${source}: time must be a finite number of seconds, got ${showValue(seconds)}.`,
     );
   }
@@ -205,7 +207,10 @@ function _timeStep(source: string, time: number | undefined, period: number): nu
  */
 function _assertLabelText(name: string, value: unknown): asserts value is string {
   if (typeof value !== "string") {
-    throw new TypeError(`otpauthURI: ${name} must be a string, got ${showValue(value)}.`);
+    throw new UnsecureError(
+      "INVALID_TYPE",
+      `otpauthURI: ${name} must be a string, got ${showValue(value)}.`,
+    );
   }
 }
 
@@ -227,8 +232,9 @@ const _URI_ALGORITHM_MAP: Record<DigestAlgorithm, string> = {
  * @param options Algorithm and digit options.
  * @returns The OTP code as a zero-padded string.
  *
- * @throws {RangeError} If the secret is empty, or `counter`, `digits` or
- *                      `algorithm` is outside its documented range.
+ * @throws {UnsecureError} `OUT_OF_RANGE` if the secret is empty or `counter` or
+ *                         `digits` is outside its documented range; `UNSUPPORTED`
+ *                         for an unknown `algorithm`.
  *
  * @example
  * const code = await hotp(secretBytes, 0);
@@ -260,8 +266,9 @@ export async function hotp(
  * @returns `valid`, `delta` (offset from `counter` that matched) and, on
  *          success, the absolute `counter` that matched.
  *
- * @throws {RangeError} If the secret is empty, or `counter`, `digits`, `window`
- *                      or `algorithm` is outside its documented range.
+ * @throws {UnsecureError} `OUT_OF_RANGE` if the secret is empty or `counter`,
+ *                         `digits` or `window` is outside its documented range;
+ *                         `UNSUPPORTED` for an unknown `algorithm`.
  *
  * @example
  * const result = await hotpVerify(secret, "287082", user.counter, { window: 5 });
@@ -309,8 +316,9 @@ export async function hotpVerify(
  * @param options Algorithm, digit, period, and time options.
  * @returns The OTP code as a zero-padded string.
  *
- * @throws {RangeError} If the secret is empty, or `digits`, `period`, `time`
- *                      or `algorithm` is outside its documented range.
+ * @throws {UnsecureError} `OUT_OF_RANGE` if the secret is empty or `digits`,
+ *                         `period` or `time` is outside its documented range;
+ *                         `UNSUPPORTED` for an unknown `algorithm`.
  *
  * @example
  * const code = await totp(base32Secret);
@@ -342,10 +350,11 @@ export async function totp(
  * @returns `valid`, `delta` (time step offset that matched) and, on success,
  *          the absolute `step` that matched.
  *
- * @throws {RangeError} If the secret is empty, or `digits`, `period`, `time`,
- *                      `window`, `lastAccepted` or `algorithm` is outside its
- *                      documented range — `time` included when the window would
- *                      run past the safe integer range.
+ * @throws {UnsecureError} `OUT_OF_RANGE` if the secret is empty or `digits`,
+ *                         `period`, `time`, `window` or `lastAccepted` is outside
+ *                         its documented range — `time` included when the window
+ *                         would run past the safe integer range; `UNSUPPORTED` for
+ *                         an unknown `algorithm`.
  *
  * @example
  * const result = await totpVerify(secret, userCode, { lastAccepted: user.lastOtpStep });
@@ -366,7 +375,8 @@ export async function totpVerify(
   // have to stay safe integers — past that, candidates lose precision and
   // silently repeat one another.
   if (Math.abs(counter) + window > Number.MAX_SAFE_INTEGER) {
-    throw new RangeError(
+    throw new UnsecureError(
+      "OUT_OF_RANGE",
       `totpVerify: time must leave every step of the window a safe integer, got ${showValue(time)}.`,
     );
   }
@@ -405,7 +415,7 @@ export async function totpVerify(
  *               @default 20 (160 bits, recommended for SHA-1)
  * @returns A base32-encoded secret string.
  *
- * @throws {RangeError} If `length` is not an integer >= 1.
+ * @throws {UnsecureError} `OUT_OF_RANGE` if `length` is not an integer >= 1.
  *
  * @example
  * const secret = generateOTPSecret();
@@ -422,6 +432,12 @@ export function generateOTPSecret(length: number = 20): string {
  * @param options URI configuration.
  * @returns The otpauth URI string.
  *
+ * @throws {UnsecureError} `UNSUPPORTED` if `type` is a string other than `"hotp"`
+ *                         or `"totp"`; `INVALID_TYPE` if `type`, `account` or
+ *                         `issuer` is not a string; `OUT_OF_RANGE` if the secret,
+ *                         `account` or `issuer` is empty, if a HOTP `counter` is
+ *                         missing, or if a numeric option is out of range.
+ *
  * @example
  * const uri = otpauthURI({
  *   type: "totp",
@@ -433,11 +449,16 @@ export function generateOTPSecret(length: number = 20): string {
 export function otpauthURI(options: OTPAuthURIOptions): string {
   const { type, secret, account, issuer, counter, period = DEFAULT_PERIOD } = options;
   if (type !== "hotp" && type !== "totp") {
-    throw new TypeError(`otpauthURI: type must be "hotp" or "totp", got ${showValue(type)}.`);
+    // A string the library does not know is a name outside the supported set;
+    // anything else never was a name at all.
+    throw new UnsecureError(
+      typeof type === "string" ? "UNSUPPORTED" : "INVALID_TYPE",
+      `otpauthURI: type must be "hotp" or "totp", got ${showValue(type)}.`,
+    );
   }
   _assertLabelText("account", account);
   if (account.length === 0) {
-    throw new RangeError("otpauthURI: account must not be empty.");
+    throw new UnsecureError("OUT_OF_RANGE", "otpauthURI: account must not be empty.");
   }
   if (issuer !== undefined) {
     _assertLabelText("issuer", issuer);
@@ -445,7 +466,7 @@ export function otpauthURI(options: OTPAuthURIOptions): string {
     // query, provisioning a token under a name the caller never chose.
     // `undefined` is how a caller says there is none.
     if (issuer.length === 0) {
-      throw new RangeError("otpauthURI: issuer must not be empty.");
+      throw new UnsecureError("OUT_OF_RANGE", "otpauthURI: issuer must not be empty.");
     }
   }
   const { algorithm, digits } = _baseOptions("otpauthURI", options);
@@ -469,7 +490,7 @@ export function otpauthURI(options: OTPAuthURIOptions): string {
 
   if (type === "hotp") {
     if (counter === undefined) {
-      throw new RangeError("otpauthURI: counter is required for HOTP URIs.");
+      throw new UnsecureError("OUT_OF_RANGE", "otpauthURI: counter is required for HOTP URIs.");
     }
     assertInteger("otpauthURI", "counter", counter, 0);
     params.push(`counter=${counter}`);

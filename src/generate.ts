@@ -1,5 +1,6 @@
 import { createSecureRandomGenerator, secureShuffle } from "./random.ts";
 import { assertInteger, showValue } from "./_internal/assert.ts";
+import { UnsecureError } from "./errors.ts";
 
 export interface SecureGenerateOptions {
   /**
@@ -67,12 +68,12 @@ const DEFAULT_LENGTH = 16;
  * @param options The configuration for string generation.
  * @returns The generated string.
  *
- * @throws {RangeError} If `length` is not an integer >= 1, if `timestamp` is an
- *                      invalid `Date`, or if a character appears in more than one
- *                      place across the selected sets.
- * @throws {TypeError} If `timestamp` is neither `true` nor a `Date`.
- * @throws {Error} If no character types are selected, or `length` leaves no room
- *                 after the timestamp prefix.
+ * @throws {UnsecureError} `OUT_OF_RANGE` if `length` is not an integer >= 1, if
+ *                         `timestamp` is an invalid `Date`, if a character appears
+ *                         in more than one place across the selected sets, if no
+ *                         character types are selected, or if `length` leaves no
+ *                         room after the timestamp prefix; `INVALID_TYPE` if
+ *                         `timestamp` is neither `true` nor a `Date`.
  */
 export function secureGenerate(options?: SecureGenerateOptions): string {
   const {
@@ -88,7 +89,8 @@ export function secureGenerate(options?: SecureGenerateOptions): string {
 
   const timestampStr = _timestampPrefix(timestamp);
   if (timestampStr && length <= timestampStr.length) {
-    throw new Error(
+    throw new UnsecureError(
+      "OUT_OF_RANGE",
       `secureGenerate: length must be greater than the timestamp prefix (${timestampStr.length} characters), got ${length}.`,
     );
   }
@@ -102,7 +104,8 @@ export function secureGenerate(options?: SecureGenerateOptions): string {
   if (_shouldIncludeSet(specials)) sets.push(_codePoints(specials, DEFAULT_SPECIALS));
 
   if (sets.length === 0) {
-    throw new Error(
+    throw new UnsecureError(
+      "OUT_OF_RANGE",
       "secureGenerate: no character types selected. Enable uppercase, lowercase, numbers or specials.",
     );
   }
@@ -151,7 +154,8 @@ function _assertDistinct(charset: Array<string>): void {
   const seen = new Set<string>();
   for (const char of charset) {
     if (seen.has(char)) {
-      throw new RangeError(
+      throw new UnsecureError(
+        "OUT_OF_RANGE",
         `secureGenerate: character sets must not repeat a character; ${showValue(char)} appears more than once.`,
       );
     }
@@ -164,11 +168,17 @@ function _timestampPrefix(timestamp: true | Date | undefined): string {
   if (!timestamp) return "";
   const date = timestamp === true ? new Date() : timestamp;
   if (!(date instanceof Date)) {
-    throw new TypeError(`secureGenerate: timestamp must be a Date, got ${showValue(date)}.`);
+    throw new UnsecureError(
+      "INVALID_TYPE",
+      `secureGenerate: timestamp must be a Date, got ${showValue(date)}.`,
+    );
   }
   const time = date.getTime();
   if (Number.isNaN(time)) {
-    throw new RangeError(`secureGenerate: timestamp must be a valid Date, got ${date.toString()}.`);
+    throw new UnsecureError(
+      "OUT_OF_RANGE",
+      `secureGenerate: timestamp must be a valid Date, got ${date.toString()}.`,
+    );
   }
   return time.toString(36);
 }

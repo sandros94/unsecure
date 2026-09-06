@@ -1,12 +1,12 @@
 # OTP (HOTP / TOTP)
 
-RFC 4226 (HOTP) and RFC 6238 (TOTP) one-time password generation and verification, built on top of [`hmac()`](./hmac.md). Secrets can be raw bytes (any `BytesSource`) or base32-encoded strings, and must decode to at least one byte — an empty secret throws `RangeError`, prefixed with the function the caller wrote (`hotp: secret must not be empty.`)
+RFC 4226 (HOTP) and RFC 6238 (TOTP) one-time password generation and verification, built on top of [`hmac()`](./hmac.md). Secrets can be raw bytes (any `BytesSource`) or base32-encoded strings, and must decode to at least one byte — an empty secret throws `OUT_OF_RANGE`, prefixed with the function the caller wrote (`hotp: secret must not be empty.`)
 
-Every numeric option is checked at the boundary against its documented range, with a `RangeError` naming the value found: `counter` an integer `>= 0` (and `counter + window` must stay a safe integer), `digits` an integer from 6 to 8, `period` an integer `>= 1`, `window` an integer `>= 0`, `time` any finite number of seconds (floored) that leaves every step of the window a safe integer. Only an omitted option takes its default: `null` is a value the caller passed and throws like any other bad number. A missing `counter` no longer silently means 0, and a missing `otp` (`null` / `undefined`) is invalid rather than a crash.
+Every numeric option is checked at the boundary against its documented range, with `OUT_OF_RANGE` naming the value found: `counter` an integer `>= 0` (and `counter + window` must stay a safe integer), `digits` an integer from 6 to 8, `period` an integer `>= 1`, `window` an integer `>= 0`, `time` any finite number of seconds (floored) that leaves every step of the window a safe integer. Only an omitted option takes its default: `null` is a value the caller passed and throws like any other bad number. A missing `counter` no longer silently means 0, and a missing `otp` (`null` / `undefined`) is invalid rather than a crash.
 
 All verification functions use `secureCompare()` internally for constant-time checks, and walk their whole window on every call — `window + 1` HMACs for `hotpVerify()`, `2 * window + 1` for `totpVerify()` — so the duration of a call reveals nothing about which step matched. `delta` is the **nearest** matching step (the past wins a tie), not the first one scanned.
 
-Algorithm names are matched case-insensitively (`"sha-256"` works); anything else throws a `RangeError` naming the four supported digests, before Web Crypto is reached.
+Algorithm names are matched case-insensitively (`"sha-256"` works); anything else throws `UNSUPPORTED`, naming the four supported digests, before Web Crypto is reached. Every code belongs to `UnsecureError` — see [errors.md](./errors.md).
 
 ## generateOTPSecret()
 
@@ -71,7 +71,7 @@ const code3 = await totp(secret, { time: 1234567890 });
 
 ## otpauthURI()
 
-Builds an `otpauth://` URI for provisioning OTP tokens via QR code. Values are percent-encoded per the Key URI format (a space is `%20`, never `+`), and a string secret is canonicalized to unpadded uppercase base32 — `"jbsw y3dp"` and the equivalent bytes produce the same URI. `type` must be `"hotp"` or `"totp"` (`TypeError` otherwise); `account` — and `issuer` when given — must be a non-empty string, and `undefined` is how a caller says there is no issuer; `counter` is required for HOTP and must be an integer `>= 0`.
+Builds an `otpauth://` URI for provisioning OTP tokens via QR code. Values are percent-encoded per the Key URI format (a space is `%20`, never `+`), and a string secret is canonicalized to unpadded uppercase base32 — `"jbsw y3dp"` and the equivalent bytes produce the same URI. `type` must be `"hotp"` or `"totp"` (`UNSUPPORTED` for any other string, `INVALID_TYPE` for a value that is not one); `account` — and `issuer` when given — must be a non-empty string, and `undefined` is how a caller says there is no issuer; `counter` is required for HOTP and must be an integer `>= 0`.
 
 ```ts
 import { otpauthURI } from "unsecure";

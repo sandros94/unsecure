@@ -416,17 +416,20 @@ describe.concurrent("secureGenerate input contract", () => {
   });
 
   it("rejects a character shared between two sets", () => {
-    expect(() =>
-      secureGenerate({
-        length: 8,
-        uppercase: "AB",
-        lowercase: "bA",
-        numbers: false,
-        specials: false,
-      }),
-    ).toThrow(RangeError);
-    expect(() => secureGenerate({ length: 8, numbers: "0123456789", specials: "0!" })).toThrow(
-      RangeError,
+    expectUnsecureError(
+      () =>
+        secureGenerate({
+          length: 8,
+          uppercase: "AB",
+          lowercase: "bA",
+          numbers: false,
+          specials: false,
+        }),
+      "OUT_OF_RANGE",
+    );
+    expectUnsecureError(
+      () => secureGenerate({ length: 8, numbers: "0123456789", specials: "0!" }),
+      "OUT_OF_RANGE",
     );
   });
 
