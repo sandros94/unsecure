@@ -34,6 +34,7 @@ export type HMACOptions = DigestOptions;
  * // ...once per request, with no import of its own:
  * const valid = await hmacVerify(key, body, signature);
  */
+/* @__NO_SIDE_EFFECTS__ */
 export async function importHmacKey(
   secret: string | BytesSource,
   options: { algorithm?: DigestAlgorithm } = {},
@@ -109,6 +110,7 @@ export async function hmac(
   data: string | BytesSource,
   options?: Omit<HMACOptions, "returnAs">,
 ): Promise<Uint8Array<ArrayBuffer> | string>;
+/* @__NO_SIDE_EFFECTS__ */
 export async function hmac(
   secret: string | BytesSource | CryptoKey,
   data: string | BytesSource,
@@ -172,6 +174,7 @@ export async function hmac(
  * // Verify a base64-encoded signature
  * const valid = await hmacVerify(secret, body, expectedBase64Sig, { returnAs: 'base64' });
  */
+/* @__NO_SIDE_EFFECTS__ */
 export async function hmacVerify(
   secret: string | BytesSource | CryptoKey,
   data: string | BytesSource,

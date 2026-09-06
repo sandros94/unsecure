@@ -75,6 +75,7 @@ const DEFAULT_LENGTH = 16;
  *                         room after the timestamp prefix; `INVALID_TYPE` if
  *                         `timestamp` is neither `true` nor a `Date`.
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function secureGenerate(options?: SecureGenerateOptions): string {
   const {
     length = DEFAULT_LENGTH,
@@ -136,11 +137,13 @@ export function secureGenerate(options?: SecureGenerateOptions): string {
  * INTERNAL FUNCTIONS
  */
 
+/* @__NO_SIDE_EFFECTS__ */
 function _shouldIncludeSet<T extends boolean | string>(set: T): set is Exclude<T, false> {
   return set !== false && (set === true || (typeof set === "string" && set.length > 0));
 }
 
 /** Split a set into whole code points, so an astral character stays one draw. */
+/* @__NO_SIDE_EFFECTS__ */
 function _codePoints(set: string | true, defaultSet: string): Array<string> {
   return Array.from(typeof set === "string" ? set : defaultSet);
 }
@@ -164,6 +167,7 @@ function _assertDistinct(charset: Array<string>): void {
 }
 
 /** The base36 timestamp prefix, or an empty string when none was asked for. */
+/* @__NO_SIDE_EFFECTS__ */
 function _timestampPrefix(timestamp: true | Date | undefined): string {
   if (!timestamp) return "";
   const date = timestamp === true ? new Date() : timestamp;

@@ -116,6 +116,7 @@ const DEFAULT_DIGITS = 6;
 const DEFAULT_PERIOD = 30;
 
 /** Convert a counter to an 8-byte big-endian buffer. */
+/* @__NO_SIDE_EFFECTS__ */
 function _counterToBytes(counter: number): Uint8Array<ArrayBuffer> {
   const buf = new Uint8Array(8);
   const view = new DataView(buf.buffer);
@@ -125,6 +126,7 @@ function _counterToBytes(counter: number): Uint8Array<ArrayBuffer> {
 }
 
 /** Dynamic truncation per RFC 4226 §5.3. */
+/* @__NO_SIDE_EFFECTS__ */
 function _dynamicTruncate(hmacResult: Uint8Array, digits: number): string {
   const offset = hmacResult[hmacResult.length - 1]! & 0x0f;
   const code =
@@ -140,6 +142,7 @@ function _dynamicTruncate(hmacResult: Uint8Array, digits: number): string {
  * ranges before anything is computed. Each function passes its own name so the
  * error names the call the caller wrote, not the internal that failed.
  */
+/* @__NO_SIDE_EFFECTS__ */
 function _baseOptions(
   source: string,
   options: HOTPOptions,
@@ -156,6 +159,7 @@ function _baseOptions(
  * every code with nothing — so it throws rather than producing codes. Each
  * caller passes its own name, so the error names the call the caller wrote.
  */
+/* @__NO_SIDE_EFFECTS__ */
 function _resolveSecret(source: string, secret: string | BytesSource): Uint8Array<ArrayBuffer> {
   const bytes =
     typeof secret === "string"
@@ -177,6 +181,7 @@ function _resolveSecret(source: string, secret: string | BytesSource): Uint8Arra
  * its own hash and the two disagreeing would produce codes for a digest the
  * caller did not choose.
  */
+/* @__NO_SIDE_EFFECTS__ */
 async function _resolveKey(
   source: string,
   secret: string | BytesSource | CryptoKey,
@@ -190,6 +195,7 @@ async function _resolveKey(
 }
 
 /** The counter → code core, run only once every input is known good. */
+/* @__NO_SIDE_EFFECTS__ */
 async function _code(key: CryptoKey, counter: number, digits: number): Promise<string> {
   const mac = await hmac(key, _counterToBytes(counter), { returnAs: "uint8array" });
   return _dynamicTruncate(mac, digits);
@@ -201,6 +207,7 @@ async function _code(key: CryptoKey, counter: number, digits: number): Promise<s
  * a pre-epoch `time` yields a negative step, encoded the same way on both the
  * generate and the verify side.
  */
+/* @__NO_SIDE_EFFECTS__ */
 function _timeStep(source: string, time: number | undefined, period: number): number {
   assertInteger(source, "period", period, 1);
   // Only an absent `time` means "now": `null` is a value the caller passed,
@@ -257,6 +264,7 @@ const _URI_ALGORITHM_MAP: Record<DigestAlgorithm, string> = {
  * const code = await hotp(secretBytes, 0);
  * // "755224"
  */
+/* @__NO_SIDE_EFFECTS__ */
 export async function hotp(
   secret: string | BytesSource | CryptoKey,
   counter: number,
@@ -297,6 +305,7 @@ export async function hotp(
  * // { valid: true, delta: 1, counter: 1 }
  * if (result.valid) await store.setCounter(user.id, result.counter + 1);
  */
+/* @__NO_SIDE_EFFECTS__ */
 export async function hotpVerify(
   secret: string | BytesSource | CryptoKey,
   otp: string | null | undefined,
@@ -347,6 +356,7 @@ export async function hotpVerify(
  * @example
  * const code = await totp(base32Secret);
  */
+/* @__NO_SIDE_EFFECTS__ */
 export async function totp(
   secret: string | BytesSource | CryptoKey,
   options: TOTPOptions = {},
@@ -389,6 +399,7 @@ export async function totp(
  * // { valid: true, delta: 0, step: 56666666 } — or { valid: false, delta: 0 } for a replay
  * if (result.valid) await store.setLastOtpStep(user.id, result.step);
  */
+/* @__NO_SIDE_EFFECTS__ */
 export async function totpVerify(
   secret: string | BytesSource | CryptoKey,
   otp: string | null | undefined,
@@ -449,6 +460,7 @@ export async function totpVerify(
  * const secret = generateOTPSecret();
  * // "JBSWY3DPEHPK3PXP..."
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function generateOTPSecret(length: number = 20): string {
   assertInteger("generateOTPSecret", "length", length, 1);
   return base32Stringify(secureRandomBytes(length), { padding: false });
@@ -474,6 +486,7 @@ export function generateOTPSecret(length: number = 20): string {
  *   issuer: "MyApp",
  * });
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function otpauthURI(options: OTPAuthURIOptions): string {
   const { type, secret, account, issuer, counter, period = DEFAULT_PERIOD } = options;
   if (type !== "hotp" && type !== "totp") {

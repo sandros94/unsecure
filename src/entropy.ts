@@ -114,6 +114,7 @@ export interface EntropyResult {
  * const bytes = secureRandomBytes(256);
  * entropy(bytes).bitsPerSymbol; // ~7.9+ (close to max of 8 for 256 byte values)
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function entropy(data: string | Uint8Array | null | undefined): EntropyResult {
   if (!data || data.length === 0) {
     return {

@@ -32,6 +32,7 @@ const EMPTY: Uint8Array<ArrayBuffer> = /* @__PURE__ */ new Uint8Array(0);
  * const encKey = await hkdf(key, { salt, info: "myapp/enc/v1" });
  * const macKey = await hkdf(key, { salt, info: "myapp/mac/v1" });
  */
+/* @__NO_SIDE_EFFECTS__ */
 export async function importHkdfKey(ikm: string | BytesSource): Promise<CryptoKey> {
   const ikmBytes = toCryptoBytes(ikm, "hkdf");
   return viaWebCrypto("hkdf", "importKey", () =>
@@ -148,6 +149,7 @@ export async function hkdf(
   ikm: string | BytesSource | CryptoKey,
   options?: Omit<HKDFOptions, "returnAs">,
 ): Promise<Uint8Array<ArrayBuffer> | string>;
+/* @__NO_SIDE_EFFECTS__ */
 export async function hkdf(
   ikm: string | BytesSource | CryptoKey,
   options: HKDFOptions = {},

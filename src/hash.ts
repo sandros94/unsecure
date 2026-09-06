@@ -78,6 +78,7 @@ export async function hash(
   data: string | BytesSource,
   options?: Omit<DigestOptions, "returnAs">,
 ): Promise<Uint8Array<ArrayBuffer> | string>;
+/* @__NO_SIDE_EFFECTS__ */
 export async function hash(
   data: string | BytesSource,
   options: DigestOptions = {},

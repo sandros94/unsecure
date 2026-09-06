@@ -70,6 +70,7 @@ export interface SecureCompareOptions {
  * // Opt-in strict mode throws on empty / undefined `expected`
  * secureCompare(undefined, 'x', { strict: true }); // throws
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function secureCompare(
   expected: string | BytesSource | undefined,
   received: string | BytesSource | null | undefined,

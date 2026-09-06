@@ -88,11 +88,13 @@ export function _assertData(input: unknown, label: string): asserts input is str
  * created on that prototype carries none of the internal slots the typed-array
  * methods read, and would surface the engine's message instead of ours.
  */
+/* @__NO_SIDE_EFFECTS__ */
 function _isBytes(input: unknown): input is Uint8Array {
   return ArrayBuffer.isView(input) && input instanceof Uint8Array;
 }
 
 /** `Uint8Array` input is treated as the ASCII bytes of the encoded text. */
+/* @__NO_SIDE_EFFECTS__ */
 export function _parsePrep(
   input: string | Uint8Array,
   options: DecodeOptions | undefined,
@@ -105,6 +107,7 @@ export function _parsePrep(
   };
 }
 
+/* @__NO_SIDE_EFFECTS__ */
 export function _parseFinalize(
   bytes: Uint8Array,
   wantString: boolean,
@@ -121,6 +124,7 @@ export function _parseFinalize(
 }
 
 /** Encoded text that is not the canonical encoding of any byte string. */
+/* @__NO_SIDE_EFFECTS__ */
 export function _malformed(label: string, detail: string): UnsecureError {
   return new UnsecureError("MALFORMED", `${label}: ${detail}`);
 }
@@ -164,6 +168,7 @@ export function _tailBits(rem: number, bits: number): number {
  * in the count the body length calls for — or absent, since padding tells a
  * decoder nothing the length does not — and no set bits past the last byte.
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function _strictBody(
   text: string,
   table: Int16Array,
