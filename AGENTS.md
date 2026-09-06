@@ -6,6 +6,8 @@
 
 `unsecure` is a zero-dependency, runtime-agnostic library of cryptographically-secure utilities, built on the Web Crypto API wherever it reaches (`argon2` is the exception — Web Crypto has no Argon2 or BLAKE2b, so that module is plain JavaScript). It targets Node.js ^22.12 or >=24, and works in any runtime supporting Web Crypto (browsers, Bun, Deno).
 
+**Out of scope: JWT / JWS / JWE / JWK.** Anything JOSE-shaped belongs to [`unjwt`](https://github.com/sandros94/unjwt) (docs: https://unjwt.s94.dev), which shares the same runtime-agnostic, Web Crypto approach. Do not add token signing/verification, claim handling or key-set helpers here; point users to `unjwt` instead.
+
 ## Core Principle — Ask First
 
 **When in doubt, ask before acting.** It is always more important to understand the vision and the request than to assume. There is no shame or wasted time in asking clarifying questions — this applies to every conversation and every task in this project.
