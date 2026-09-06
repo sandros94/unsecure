@@ -6,6 +6,24 @@ Every numeric option is checked at the boundary against its documented range, wi
 
 All verification functions use `secureCompare()` internally for constant-time checks, and walk their whole window on every call — `window + 1` HMACs for `hotpVerify()`, `2 * window + 1` for `totpVerify()` — so the duration of a call reveals nothing about which step matched. `delta` is the **nearest** matching step (the past wins a tie), not the first one scanned.
 
+The secret is imported **once per call**, and every candidate in the window is signed with that one key: a `window: 5` verify does 1 `importKey` and 6 (HOTP) or 11 (TOTP) `sign` calls.
+
+## Importing the secret once
+
+`hotp()`, `hotpVerify()`, `totp()` and `totpVerify()` also take an HMAC `CryptoKey` from [`importHmacKey()`](./hmac.md) in place of the secret, which removes the per-call import too — worth it for a service verifying the same token repeatedly.
+
+```ts
+import { importHmacKey } from "unsecure/hmac";
+import { totpVerify } from "unsecure/otp";
+
+// The key's hash must be the algorithm the OTP call uses (default "SHA-1")
+const key = await importHmacKey(secretBytes, { algorithm: "SHA-1" });
+
+const { valid, delta } = await totpVerify(key, userCode, { window: 1 });
+```
+
+A key whose hash is not the `algorithm` asked for is `OUT_OF_RANGE`, as is one that is not an HMAC key with the `sign` usage. `otpauthURI()` still takes only bytes or a base32 string — a `CryptoKey` cannot be rendered into a URI, and passing one is `INVALID_TYPE`.
+
 Algorithm names are matched case-insensitively (`"sha-256"` works); anything else throws `UNSUPPORTED`, naming the four supported digests, before Web Crypto is reached. Every code belongs to `UnsecureError` — see [errors.md](./errors.md).
 
 ## generateOTPSecret()

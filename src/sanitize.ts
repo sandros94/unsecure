@@ -21,6 +21,7 @@ import { UnsecureError } from "./errors.ts";
  * @example
  * const payload = safeJsonParse<{ user: { name: string } }>(untrustedInput);
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function safeJsonParse<T = any>(json: string): T {
   let parsed: unknown;
   try {
@@ -93,6 +94,7 @@ export function sanitizeObject<T extends Record<string, unknown> | undefined>(ob
  * Non-object / undefined inputs — and objects that are not arrays or plain
  * objects — are returned unchanged.
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function sanitizeObjectCopy<T extends Record<string, unknown> | undefined>(obj: T): T {
   if (!_isCopyable(obj)) return obj;
   return _sanitizeCopy(obj, new WeakMap<object, unknown>()) as T;
@@ -100,6 +102,7 @@ export function sanitizeObjectCopy<T extends Record<string, unknown> | undefined
 
 // #region Internal
 
+/* @__NO_SIDE_EFFECTS__ */
 function _isDangerousKey(key: string): boolean {
   return key === "__proto__" || key === "prototype" || key === "constructor";
 }
@@ -173,12 +176,14 @@ function _sanitizeInPlace(root: object, seen: WeakSet<object>): void {
  * typed array's buffer, a class instance's identity — is invisible to a
  * property walk, so rebuilding it would silently drop what it is.
  */
+/* @__NO_SIDE_EFFECTS__ */
 function _isPlainObject(value: object): boolean {
   const proto = Object.getPrototypeOf(value);
   return proto === Object.prototype || proto === null;
 }
 
 /** Values the copy descends into; everything else is carried by reference. */
+/* @__NO_SIDE_EFFECTS__ */
 function _isCopyable(value: unknown): value is object {
   return (
     value !== null &&

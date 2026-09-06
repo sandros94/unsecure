@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { hotp, hotpVerify, totp, totpVerify, generateOTPSecret, otpauthURI } from "../src/otp.ts";
 import { base32Stringify, base32Parse, hexParse } from "../src/utils/index.ts";
+import { importHmacKey } from "../src/hmac.ts";
 import { expectUnsecureError } from "./_helpers.ts";
 
 // RFC 4226 test secret: ASCII "12345678901234567890" (20 bytes)
@@ -800,5 +801,125 @@ describe("otpauthURI() label contract", () => {
     const uri = otpauthURI({ type: "totp", secret, account: "test", issuer: undefined });
     expect(uri).not.toContain("issuer=");
     expect(uri.startsWith("otpauth://totp/test?")).toBe(true);
+  });
+});
+
+describe("OTP CryptoKey secrets", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("produces the RFC 4226 vectors from a key", async () => {
+    const key = await importHmacKey(RFC4226_SECRET, { algorithm: "SHA-1" });
+    const expected = ["755224", "287082", "359152", "969429", "338314"];
+    for (const [counter, code] of expected.entries()) {
+      expect(await hotp(key, counter)).toBe(code);
+    }
+  });
+
+  it("produces the RFC 6238 vectors from a key, for every algorithm", async () => {
+    const cases = [
+      { secret: RFC6238_SHA1_SECRET, algorithm: "SHA-1", code: "94287082" },
+      { secret: RFC6238_SHA256_SECRET, algorithm: "SHA-256", code: "46119246" },
+      { secret: RFC6238_SHA512_SECRET, algorithm: "SHA-512", code: "90693936" },
+    ] as const;
+    for (const { secret, algorithm, code } of cases) {
+      const key = await importHmacKey(secret, { algorithm });
+      expect(await totp(key, { time: 59, digits: 8, algorithm })).toBe(code);
+    }
+  });
+
+  it("verifies with a key", async () => {
+    const key = await importHmacKey(RFC4226_SECRET, { algorithm: "SHA-1" });
+    expect(await hotpVerify(key, "287082", 0, { window: 5 })).toEqual({
+      valid: true,
+      delta: 1,
+      counter: 1,
+    });
+    expect(await totpVerify(key, "94287082", { time: 59, digits: 8 })).toEqual({
+      valid: true,
+      delta: 0,
+      step: 1,
+    });
+  });
+
+  it("refuses a key whose hash is not the algorithm asked for", async () => {
+    const key = await importHmacKey(RFC4226_SECRET, { algorithm: "SHA-256" });
+    await expectUnsecureError(hotp(key, 0), "OUT_OF_RANGE", "hotp:");
+    await expectUnsecureError(totp(key), "OUT_OF_RANGE", "totp:");
+    await expectUnsecureError(hotpVerify(key, "755224", 0), "OUT_OF_RANGE", "hotpVerify:");
+    await expectUnsecureError(totpVerify(key, "755224"), "OUT_OF_RANGE", "totpVerify:");
+    // ...and accepts it once the algorithm agrees.
+    expect(await hotp(key, 0, { algorithm: "SHA-256" })).toBeTypeOf("string");
+  });
+
+  it("refuses a key that cannot sign HMAC, naming what it was given", async () => {
+    const key = await crypto.subtle.importKey("raw", RFC4226_SECRET, "HKDF", false, ["deriveBits"]);
+    const error = await expectUnsecureError(hotp(key, 0), "OUT_OF_RANGE");
+    expect(error.message).toContain('hotp: key must be an HMAC key with the "sign" usage');
+    expect(error.message).toContain("HKDF");
+  });
+
+  it("keeps otpauthURI on bytes and text — a key cannot be rendered into a URI", async () => {
+    const key = await importHmacKey(RFC4226_SECRET, { algorithm: "SHA-1" });
+    expectUnsecureError(
+      () => otpauthURI({ type: "totp", secret: key as any, account: "a" }),
+      "INVALID_TYPE",
+      "otpauthURI:",
+    );
+  });
+});
+
+describe("OTP imports the secret once per call", () => {
+  const secret = RFC4226_SECRET;
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function spies() {
+    return {
+      importKey: vi.spyOn(crypto.subtle, "importKey"),
+      sign: vi.spyOn(crypto.subtle, "sign"),
+    };
+  }
+
+  it("hotpVerify: one import and window + 1 signatures, whether or not it matches", async () => {
+    for (const otp of ["287082", "000000"]) {
+      const { importKey, sign } = spies();
+      await hotpVerify(secret, otp, 0, { window: 5 });
+      expect(importKey).toHaveBeenCalledTimes(1);
+      expect(sign).toHaveBeenCalledTimes(6);
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("totpVerify: one import and 2 * window + 1 signatures, whether or not it matches", async () => {
+    const match = await totp(secret, { time: 1_000_000 + 60 });
+    for (const otp of [match, "000000"]) {
+      const { importKey, sign } = spies();
+      await totpVerify(secret, otp, { window: 5, time: 1_000_000 });
+      expect(importKey).toHaveBeenCalledTimes(1);
+      expect(sign).toHaveBeenCalledTimes(11);
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("hotp and totp: one import, one signature", async () => {
+    for (const call of [() => hotp(secret, 0), () => totp(secret, { time: 1_000_000 })]) {
+      const { importKey, sign } = spies();
+      await call();
+      expect(importKey).toHaveBeenCalledTimes(1);
+      expect(sign).toHaveBeenCalledTimes(1);
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("imports nothing at all when it is handed a key", async () => {
+    const key = await importHmacKey(secret, { algorithm: "SHA-1" });
+    const { importKey, sign } = spies();
+    await totpVerify(key, "000000", { window: 5, time: 1_000_000 });
+    expect(importKey).not.toHaveBeenCalled();
+    expect(sign).toHaveBeenCalledTimes(11);
   });
 });

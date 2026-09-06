@@ -26,12 +26,14 @@ import {
   hash,
   hmac,
   hmacVerify,
+  importHmacKey,
   hkdf,
   // Password hashing
   argon2,
   argon2Hash,
   argon2Verify,
   argon2NeedsRehash,
+  importHkdfKey,
   // OTP
   hotp,
   hotpVerify,
@@ -138,6 +140,8 @@ options:
 
 The `secret` must not be empty — both functions throw `OUT_OF_RANGE` before reaching Web Crypto, because an unset secret is a deployment bug rather than a wrong signature. Untrusted signatures never throw: `null`, `undefined`, malformed text or a value that is not text or bytes all verify as `false`.
 
+`secret` may also be a `CryptoKey`, and `importHmacKey()` is how you get one: raw bytes are imported on every `hmac()` call, so a server that signs or verifies per request can do that work once at startup instead. The key is non-extractable and can only sign. Its hash is fixed at import time — passing `algorithm` alongside a key is allowed only when it names that same hash, otherwise `OUT_OF_RANGE`; so is a key that is not an HMAC signing key.
+
 ```ts
 import { hmac, hmacVerify } from "unsecure";
 
@@ -160,6 +164,18 @@ const valid = await hmacVerify(webhookSecret, requestBody, expected);
 const valid = await hmacVerify(secret, body, expectedBase64Sig, {
   returnAs: "base64",
 });
+```
+
+Import once, verify many times:
+
+```ts
+import { hmacVerify, importHmacKey } from "unsecure";
+
+// At startup — one importKey for the process
+const key = await importHmacKey(process.env.WEBHOOK_SECRET);
+
+// Per request — no import of its own
+const valid = await hmacVerify(key, body, request.headers.get("x-signature"));
 ```
 
 ### hkdf
@@ -191,6 +207,18 @@ const keyB64 = await hkdf(ikm, {
 // Domain separation — same IKM, different `info` → independent keys
 const encKey = await hkdf(ikm, { salt, info: "encrypt" });
 const macKey = await hkdf(ikm, { salt, info: "authenticate" });
+```
+
+`ikm` may also be a `CryptoKey` from `importHkdfKey()`, imported once and reused across derivations — the usual shape, since one IKM feeds many `info` values. Unlike an HMAC key it carries no hash, so `algorithm` is still chosen per call. A key that is not an HKDF `deriveBits` key throws `OUT_OF_RANGE`.
+
+```ts
+import { hkdf, importHkdfKey } from "unsecure";
+
+// One importKey for the process
+const key = await importHkdfKey(sharedSecret);
+
+const encKey = await hkdf(key, { salt, info: "myapp/enc/v1" });
+const macKey = await hkdf(key, { salt, info: "myapp/mac/v1" });
 ```
 
 > [!TIP]
@@ -288,7 +316,21 @@ const result = await hotpVerify(secret, "287082", user.counter, { window: 5 });
 if (result.valid) await store.setCounter(user.id, result.counter + 1);
 ```
 
-Verification always computes every candidate in the window — `window + 1` HMACs for HOTP, `2 * window + 1` for TOTP — so the time a call takes says nothing about which step matched. `delta` reports the nearest matching step.
+Verification always computes every candidate in the window — `window + 1` HMACs for HOTP, `2 * window + 1` for TOTP — so the time a call takes says nothing about which step matched. `delta` reports the nearest matching step. The secret is imported once per call and every candidate is signed with that one key, so a `window: 5` verify costs one `importKey`, not six.
+
+All four functions also accept an HMAC `CryptoKey` from `importHmacKey()`, which removes even that import:
+
+```ts
+import { importHmacKey, totpVerify } from "unsecure";
+
+// Once — the key's hash must be the algorithm the OTP call uses (default SHA-1)
+const key = await importHmacKey(secretBytes, { algorithm: "SHA-1" });
+
+// Per attempt — no importKey at all
+const { valid, delta } = await totpVerify(key, userCode);
+```
+
+A key whose hash is not the `algorithm` asked for throws `OUT_OF_RANGE`. `otpauthURI()` keeps taking bytes or a base32 string: a `CryptoKey` cannot be rendered into a URI, and passing one is `INVALID_TYPE`.
 
 #### totp / totpVerify
 

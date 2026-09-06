@@ -22,6 +22,7 @@ const _FORMS: ReadonlyMap<string, _Form> = /* @__PURE__ */ new Map<DigestReturnA
 ]);
 
 /** The one place an unknown `returnAs` is refused. */
+/* @__NO_SIDE_EFFECTS__ */
 function _formOf(returnAs: DigestReturnAs, source: string): _Form {
   const form = _FORMS.get(returnAs);
   if (form === undefined) {
@@ -48,6 +49,7 @@ export function encodeBytes<T extends DigestReturnAs>(
   returnAs: T,
   source: string,
 ): T extends "uint8array" | "bytes" ? Uint8Array<ArrayBuffer> : string;
+/* @__NO_SIDE_EFFECTS__ */
 export function encodeBytes(
   bytes: Uint8Array<ArrayBuffer>,
   returnAs: DigestReturnAs,
@@ -76,6 +78,7 @@ export function encodeBytes(
  * counts as a match. `returnAs` values that name raw bytes have no text form of
  * their own — hex is how the library prints bytes, so that is how text is read.
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function decodeBytes(
   text: string,
   returnAs: DigestReturnAs | undefined,

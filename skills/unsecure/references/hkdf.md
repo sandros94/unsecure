@@ -7,8 +7,10 @@ HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`. Extracts and expa
 ## Signature
 
 ```ts
+async function importHkdfKey(ikm: string | BytesSource): Promise<CryptoKey>;
+
 async function hkdf(
-  ikm: string | BytesSource,
+  ikm: string | BytesSource | CryptoKey,
   options?: {
     algorithm?: "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512"; // default: "SHA-256"
     length?: number; // output bytes, default: 32, max: 255 * HashLen
@@ -66,6 +68,21 @@ const encKey = await hkdf(ikm, { salt, info: "encrypt" }); // for AES-GCM
 const macKey = await hkdf(ikm, { salt, info: "authenticate" }); // for HMAC
 const idKey = await hkdf(ikm, { salt, info: "derive-id" }); // for identifier
 ```
+
+## Importing the IKM once
+
+Raw bytes are imported on every call. `importHkdfKey()` does it once and returns a non-extractable, `deriveBits`-only `CryptoKey` that `hkdf()` accepts in place of the IKM — which is the natural shape here, since one IKM usually feeds many `info` values. The key carries no hash (HKDF picks one per derivation), so `algorithm` still belongs on each call.
+
+```ts
+import { hkdf, importHkdfKey } from "unsecure/hkdf";
+
+const key = await importHkdfKey(sharedSecret);
+
+const encKey = await hkdf(key, { salt, info: "myapp/enc/v1" });
+const macKey = await hkdf(key, { salt, info: "myapp/mac/v1" });
+```
+
+A key that is not an HKDF key with the `deriveBits` usage is `OUT_OF_RANGE`, and the message names what it actually is.
 
 ## Use Case: Session Key Expansion
 

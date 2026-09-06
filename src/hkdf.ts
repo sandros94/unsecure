@@ -3,10 +3,42 @@ import { assertReturnAs, encodeBytes } from "./_internal/encoding.ts";
 import { HASH_LENGTH, normalizeAlgorithm } from "./_internal/algorithm.ts";
 import { assertInteger } from "./_internal/assert.ts";
 import { type BytesSource, toCryptoBytes } from "./_internal/bytes.ts";
+import { assertHkdfKey, isCryptoKey } from "./_internal/key.ts";
 import { viaWebCrypto } from "./_internal/platform.ts";
 
 /** RFC 5869 treats an absent salt or info as a zero-length one. */
 const EMPTY: Uint8Array<ArrayBuffer> = /* @__PURE__ */ new Uint8Array(0);
+
+/**
+ * Import input keying material once, as an HKDF key.
+ *
+ * Every `hkdf()` call that is handed raw bytes imports them again; a caller
+ * deriving several keys from one secret — the usual shape, with `info` doing
+ * the separating — can import once and pass the key from then on. The key is
+ * non-extractable and can only derive bits.
+ *
+ * Unlike an HMAC key, it carries no hash: `algorithm` is chosen per
+ * derivation, so one key serves every digest.
+ *
+ * @param ikm Input keying material. A string or any `BytesSource`.
+ * @returns A Promise that resolves to a non-extractable HKDF key with the
+ *          `deriveBits` usage.
+ *
+ * @throws {UnsecureError} `INVALID_TYPE` if `ikm` is neither text nor bytes;
+ *                         `PLATFORM` if the runtime's Web Crypto refuses.
+ *
+ * @example
+ * const key = await importHkdfKey(sharedSecret);
+ * const encKey = await hkdf(key, { salt, info: "myapp/enc/v1" });
+ * const macKey = await hkdf(key, { salt, info: "myapp/mac/v1" });
+ */
+/* @__NO_SIDE_EFFECTS__ */
+export async function importHkdfKey(ikm: string | BytesSource): Promise<CryptoKey> {
+  const ikmBytes = toCryptoBytes(ikm, "hkdf");
+  return viaWebCrypto("hkdf", "importKey", () =>
+    crypto.subtle.importKey("raw", ikmBytes, "HKDF", false, ["deriveBits"]),
+  );
+}
 
 export interface HKDFOptions {
   /**
@@ -65,9 +97,10 @@ export interface HKDFOptions {
  *
  * Use the `returnAs` option to explicitly override the output format.
  *
- * @param ikm Input keying material. Use a high-entropy secret — a shared
- *            secret, ECDH output, or seed. Do not pass a low-entropy
- *            password; use PBKDF2/Argon2 for password → key derivation.
+ * @param ikm Input keying material: a string, any `BytesSource`, or a `CryptoKey`
+ *            from {@link importHkdfKey}, which is used as-is. Use a high-entropy
+ *            secret — a shared secret, ECDH output, or seed. Do not pass a
+ *            low-entropy password; use PBKDF2/Argon2 for password → key derivation.
  * @param options Algorithm, length, salt, info, and output format.
  * @returns Derived bytes encoded according to `returnAs`, or mirroring the
  *          `ikm` input type when `returnAs` is omitted.
@@ -75,9 +108,10 @@ export interface HKDFOptions {
  * @throws {UnsecureError} `OUT_OF_RANGE` if `length` is not an integer from 1 to
  *                         `255 * HashLen` for the chosen algorithm (8160 for
  *                         SHA-256); `UNSUPPORTED` for an unknown `algorithm` or
- *                         `returnAs`; `INVALID_TYPE` if `ikm`, `salt` or `info` is
- *                         neither text nor bytes; `PLATFORM` if the runtime's Web
- *                         Crypto refuses.
+ *                         `returnAs`; `OUT_OF_RANGE` too if `ikm` is a key that
+ *                         cannot derive bits with HKDF; `INVALID_TYPE` if `ikm`,
+ *                         `salt` or `info` is neither text nor bytes; `PLATFORM`
+ *                         if the runtime's Web Crypto refuses.
  *
  * @example
  * // BytesSource ikm -> Uint8Array output (default)
@@ -96,22 +130,28 @@ export interface HKDFOptions {
  * // Domain separation: same IKM, different contexts -> independent keys
  * const encKey = await hkdf(ikm, { salt, info: "enc" });
  * const macKey = await hkdf(ikm, { salt, info: "mac" });
+ *
+ * @example
+ * // Import the IKM once, derive many times
+ * const key = await importHkdfKey(sharedSecret);
+ * const encKey = await hkdf(key, { salt, info: "enc" });
  */
 export async function hkdf<T extends DigestReturnAs>(
-  ikm: string | BytesSource,
+  ikm: string | BytesSource | CryptoKey,
   options: HKDFOptions & { returnAs: T },
 ): Promise<T extends "uint8array" | "bytes" ? Uint8Array<ArrayBuffer> : string>;
 export async function hkdf(ikm: string, options?: Omit<HKDFOptions, "returnAs">): Promise<string>;
 export async function hkdf(
-  ikm: BytesSource,
+  ikm: BytesSource | CryptoKey,
   options?: Omit<HKDFOptions, "returnAs">,
 ): Promise<Uint8Array<ArrayBuffer>>;
 export async function hkdf(
-  ikm: string | BytesSource,
+  ikm: string | BytesSource | CryptoKey,
   options?: Omit<HKDFOptions, "returnAs">,
 ): Promise<Uint8Array<ArrayBuffer> | string>;
+/* @__NO_SIDE_EFFECTS__ */
 export async function hkdf(
-  ikm: string | BytesSource,
+  ikm: string | BytesSource | CryptoKey,
   options: HKDFOptions = {},
 ): Promise<Uint8Array<ArrayBuffer> | string> {
   const { length = 32, salt, info, returnAs } = options;
@@ -123,13 +163,12 @@ export async function hkdf(
   assertInteger("hkdf", "length", length, 1, 255 * HASH_LENGTH[algorithm]);
 
   const isBufferInput = typeof ikm !== "string";
-  const ikmBytes = toCryptoBytes(ikm, "hkdf");
+  // A key the caller already holds is used as-is: that is the whole point of
+  // passing one, and re-importing it is not possible anyway.
+  const cryptoKey = isCryptoKey(ikm) ? (assertHkdfKey(ikm, "hkdf"), ikm) : await importHkdfKey(ikm);
+
   const saltBytes = salt === undefined ? EMPTY : toCryptoBytes(salt, "hkdf");
   const infoBytes = info === undefined ? EMPTY : toCryptoBytes(info, "hkdf");
-
-  const cryptoKey = await viaWebCrypto("hkdf", "importKey", () =>
-    crypto.subtle.importKey("raw", ikmBytes, "HKDF", false, ["deriveBits"]),
-  );
 
   const derivedBits = await viaWebCrypto("hkdf", "deriveBits", () =>
     crypto.subtle.deriveBits(

@@ -10,6 +10,7 @@ import { UnsecureError } from "./errors.ts";
  * bits are set explicitly so the implementation stays self-contained and
  * decoupled from runtime-specific shortcuts.
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function uuidv4(): string {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
@@ -39,6 +40,7 @@ export function uuidv4(): string {
  *                         `number`; `OUT_OF_RANGE` if it is not finite, is negative, or
  *                      exceeds `2^48 - 1` ms (~year 10,895).
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function uuidv7(timestamp?: Date | number): string {
   return _formatV7Random(timestamp === undefined ? Date.now() : _coerceMs(timestamp));
 }
@@ -115,6 +117,7 @@ export interface UUIDv7Generator {
  * reseeded across a millisecond boundary. All of this is per-process; do not
  * assume it across processes.
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function createUUIDv7Generator(): UUIDv7Generator {
   let lastWallTs = 0;
   let counter = 0;
@@ -161,6 +164,7 @@ export function createUUIDv7Generator(): UUIDv7Generator {
  *                         canonical-format UUIDv7; `INVALID_TYPE` if it is not a
  *                         string at all.
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function uuidv7Timestamp(uuid: string): number {
   if (!isUUIDv7(uuid)) {
     // A string that does not carry the shape is text claiming to be something
@@ -180,6 +184,7 @@ export function uuidv7Timestamp(uuid: string): number {
  * hyphen positions, the version nibble (`4`), and the variant bits (`10xx`).
  * Case-insensitive.
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function isUUIDv4(value: unknown): value is string {
   return _isCanonicalUUIDWithVersion(value, "4");
 }
@@ -189,6 +194,7 @@ export function isUUIDv4(value: unknown): value is string {
  * hyphen positions, the version nibble (`7`), and the variant bits (`10xx`).
  * Case-insensitive.
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function isUUIDv7(value: unknown): value is string {
   return _isCanonicalUUIDWithVersion(value, "7");
 }
@@ -199,6 +205,7 @@ const _UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 
 const _MAX_V7_MS = 0xffffffffffff;
 
+/* @__NO_SIDE_EFFECTS__ */
 function _isCanonicalUUIDWithVersion(value: unknown, version: string): value is string {
   if (typeof value !== "string" || !_UUID_REGEX.test(value)) return false;
   // Version nibble is at index 14 (first char of the third group).
@@ -210,6 +217,7 @@ function _isCanonicalUUIDWithVersion(value: unknown, version: string): value is 
   return v === "8" || v === "9" || v === "a" || v === "b";
 }
 
+/* @__NO_SIDE_EFFECTS__ */
 function _coerceMs(value: Date | number): number {
   let ms: number;
   if (value instanceof Date) {
@@ -228,6 +236,7 @@ function _coerceMs(value: Date | number): number {
   return ms;
 }
 
+/* @__NO_SIDE_EFFECTS__ */
 function _seedCounter(): number {
   const buf = new Uint8Array(2);
   crypto.getRandomValues(buf);
@@ -248,6 +257,7 @@ function _writeTimestampBE(bytes: Uint8Array, tsMs: number): void {
   bytes[5] = lo & 0xff;
 }
 
+/* @__NO_SIDE_EFFECTS__ */
 function _formatV7Random(tsMs: number): string {
   const bytes = new Uint8Array(16);
   _writeTimestampBE(bytes, tsMs);
@@ -259,6 +269,7 @@ function _formatV7Random(tsMs: number): string {
   return _formatUUID(bytes);
 }
 
+/* @__NO_SIDE_EFFECTS__ */
 function _formatV7Counter(tsMs: number, counter: number): string {
   const bytes = new Uint8Array(16);
   _writeTimestampBE(bytes, tsMs);
@@ -273,6 +284,7 @@ function _formatV7Counter(tsMs: number, counter: number): string {
   return _formatUUID(bytes);
 }
 
+/* @__NO_SIDE_EFFECTS__ */
 function _formatUUID(bytes: Uint8Array<ArrayBuffer>): string {
   const hex = hexStringify(bytes);
   return (

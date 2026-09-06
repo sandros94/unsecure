@@ -5,8 +5,13 @@ HMAC signing and constant-time verification via `crypto.subtle`.
 ## Signatures
 
 ```ts
-async function hmac(
+async function importHmacKey(
   secret: string | BytesSource,
+  options?: { algorithm?: "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512" }, // default: "SHA-256"
+): Promise<CryptoKey>;
+
+async function hmac(
+  secret: string | BytesSource | CryptoKey,
   data: string | BytesSource,
   options?: {
     algorithm?: "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512"; // default: "SHA-256"
@@ -15,7 +20,7 @@ async function hmac(
 ): Promise<string | Uint8Array>;
 
 async function hmacVerify(
-  secret: string | BytesSource,
+  secret: string | BytesSource | CryptoKey,
   data: string | BytesSource,
   signature: string | BytesSource | null | undefined,
   options?: { algorithm?; returnAs? },
@@ -35,6 +40,22 @@ Algorithm names are matched case-insensitively (`"sha-256"` works); anything els
 Untrusted input never throws: a `null` or `undefined` signature, text that is not a canonical encoding, or a value that is neither text nor bytes simply fails to verify. An empty `secret` or an unsupported `algorithm` still throws — those describe the server, not the request.
 
 `hmac()` and `hmacVerify()` both reject an empty `secret` with `UnsecureError` `OUT_OF_RANGE` (`hmac: secret must not be empty.`) before Web Crypto is reached; a secret that failed to load is a deployment bug, not a bad signature.
+
+## Importing the secret once
+
+Raw bytes are imported on every call. `importHmacKey()` does it once and returns a non-extractable, sign-only `CryptoKey` that `hmac()` and `hmacVerify()` accept in place of the secret — no `importKey` per call. The hash is fixed at import time, so a key made for SHA-256 signs only SHA-256.
+
+```ts
+import { hmacVerify, importHmacKey } from "unsecure/hmac";
+
+// Once, at startup
+const key = await importHmacKey(process.env.WEBHOOK_SECRET);
+
+// Per request
+const valid = await hmacVerify(key, body, req.headers.get("x-signature"));
+```
+
+Passing `algorithm` alongside a key is allowed only when it names the hash the key carries — a mismatch is `OUT_OF_RANGE` rather than a MAC computed with a digest you did not ask for. A key that is not an HMAC key with the `sign` usage is `OUT_OF_RANGE` too, and the message names what it actually is.
 
 ## Examples
 

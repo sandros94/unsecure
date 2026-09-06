@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { hkdf } from "../src/hkdf.ts";
+import { hkdf, importHkdfKey } from "../src/hkdf.ts";
 import { hexParse, hexStringify, base64Stringify } from "../src/utils/index.ts";
 import { expectUnsecureError } from "./_helpers.ts";
 
@@ -301,5 +301,81 @@ describe("hkdf web crypto failures", () => {
       "hkdf: the runtime's Web Crypto refused deriveBits.",
     );
     expect(error.cause).toBe(refusal);
+  });
+});
+
+describe("hkdf CryptoKey ikm", () => {
+  const ikm = hexParse(VECTORS.a1.ikm, { loose: true, returnAs: "uint8array" });
+  const salt = hexParse(VECTORS.a1.salt, { loose: true, returnAs: "uint8array" });
+  const info = hexParse(VECTORS.a1.info, { loose: true, returnAs: "uint8array" });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("imports a non-extractable HKDF deriveBits key", async () => {
+    const key = await importHkdfKey(ikm);
+    expect(key).toBeInstanceOf(CryptoKey);
+    expect(key.extractable).toBe(false);
+    expect(key.usages).toEqual(["deriveBits"]);
+    expect(key.algorithm.name).toBe("HKDF");
+  });
+
+  it("derives identically to the bytes path, for every algorithm", async () => {
+    for (const [, v] of Object.entries(VECTORS)) {
+      const bytes = hexParse(v.ikm, { loose: true, returnAs: "uint8array" });
+      const options = {
+        algorithm: v.algorithm,
+        length: v.length,
+        salt: hexParse(v.salt, { loose: true, returnAs: "uint8array" }),
+        info: hexParse(v.info, { loose: true, returnAs: "uint8array" }),
+      } as const;
+      const fromKey = await hkdf(await importHkdfKey(bytes), options);
+      expect(hexStringify(fromKey)).toBe(v.okm);
+    }
+  });
+
+  it("accepts text as well as bytes", async () => {
+    const key = await importHkdfKey("shared-secret-string");
+    expect(await hkdf(key, { salt, info, returnAs: "hex" })).toBe(
+      await hkdf("shared-secret-string", { salt, info }),
+    );
+  });
+
+  it("rejects an ikm that is neither text nor bytes", async () => {
+    await expectUnsecureError(importHkdfKey(42 as any), "INVALID_TYPE");
+  });
+
+  it("imports nothing when it is handed a key", async () => {
+    const key = await importHkdfKey(ikm);
+    const importKey = vi.spyOn(crypto.subtle, "importKey");
+    const deriveBits = vi.spyOn(crypto.subtle, "deriveBits");
+    await hkdf(key, { salt, info });
+    expect(importKey).not.toHaveBeenCalled();
+    expect(deriveBits).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a key of another algorithm, naming what it was given", async () => {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      ikm,
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+    const error = await expectUnsecureError(hkdf(key, { salt, info }), "OUT_OF_RANGE");
+    expect(error.message).toContain('hkdf: key must be an HKDF key with the "deriveBits" usage');
+    expect(error.message).toContain("HMAC");
+    expect(error.message).toContain("sign");
+  });
+
+  it("still range-checks length before it looks at the key", async () => {
+    const key = await importHkdfKey(ikm);
+    await expectUnsecureError(hkdf(key, { length: 0 }), "OUT_OF_RANGE", "hkdf: length");
+  });
+
+  it("defaults returnAs to bytes, as for any non-string ikm", async () => {
+    const key = await importHkdfKey(ikm);
+    expect(await hkdf(key, { salt, info })).toBeInstanceOf(Uint8Array);
   });
 });

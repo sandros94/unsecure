@@ -9,6 +9,7 @@ import { UnsecureError } from "../errors.ts";
  * partial implementation. The platform's own failure travels on as `cause`,
  * since it is the only thing that says why.
  */
+/* @__NO_SIDE_EFFECTS__ */
 export async function viaWebCrypto<T>(
   source: string,
   operation: string,

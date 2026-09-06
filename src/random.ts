@@ -47,6 +47,7 @@ export interface SecureRandomGenerator {
 /** What a caller holds when `next` throws, whichever entry point led there. */
 const _SOURCE = "SecureRandomGenerator.next";
 
+/* @__NO_SIDE_EFFECTS__ */
 export function createSecureRandomGenerator(): SecureRandomGenerator {
   const BUFFER_SIZE = 256;
   const buffer = new Uint32Array(BUFFER_SIZE);
@@ -201,6 +202,7 @@ export function secureRandomNumber(
   max: number,
   ignore?: Iterable<number> | Set<number>,
 ): number;
+/* @__NO_SIDE_EFFECTS__ */
 export function secureRandomNumber(
   a: number,
   b?: Iterable<number> | Set<number> | number,
@@ -229,6 +231,7 @@ const MAX_RANDOM_BYTES = 2 ** 31 - 1;
  * @example
  * const key = secureRandomBytes(32); // 256-bit key material
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function secureRandomBytes(length: number): Uint8Array<ArrayBuffer> {
   assertInteger("secureRandomBytes", "length", length, 0, MAX_RANDOM_BYTES);
   const bytes = new Uint8Array(length);
