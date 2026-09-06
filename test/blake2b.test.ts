@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { blake2b as nobleBlake2b } from "@noble/hashes/blake2.js";
 import { blake2b, createBlake2b } from "../src/_internal/blake2b.ts";
 import { hexStringify } from "../src/utils/index.ts";
+import { expectUnsecureError } from "./_helpers.ts";
 
 /** The KAT inputs are the byte string `00 01 02 … (n-1)`. */
 function counting(length: number): Uint8Array {
@@ -115,12 +116,17 @@ describe.concurrent("blake2b API", () => {
   });
 
   it("throws on an out-of-range output length", () => {
-    expect(() => blake2b(counting(4), 0)).toThrow(RangeError);
-    expect(() => blake2b(counting(4), 65)).toThrow(RangeError);
-    expect(() => blake2b(counting(4), 32.5)).toThrow(RangeError);
+    const message = "blake2b: outLength must be an integer between 1 and 64.";
+    expectUnsecureError(() => blake2b(counting(4), 0), "OUT_OF_RANGE", message);
+    expectUnsecureError(() => blake2b(counting(4), 65), "OUT_OF_RANGE", message);
+    expectUnsecureError(() => blake2b(counting(4), 32.5), "OUT_OF_RANGE", message);
   });
 
   it("throws on an over-long key", () => {
-    expect(() => blake2b(counting(4), 64, counting(65))).toThrow(RangeError);
+    expectUnsecureError(
+      () => blake2b(counting(4), 64, counting(65)),
+      "OUT_OF_RANGE",
+      "blake2b: key must be at most 64 bytes.",
+    );
   });
 });

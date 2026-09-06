@@ -3,6 +3,7 @@ import { hash as nodeRsHash, verify as nodeRsVerify } from "@node-rs/argon2";
 import { argon2, argon2Hash, argon2Verify } from "../src/argon2.ts";
 import type { Argon2Variant } from "../src/argon2.ts";
 import { base64Stringify, hexStringify } from "../src/utils/index.ts";
+import { expectUnsecureError } from "./_helpers.ts";
 
 const filled = (length: number, value: number) => new Uint8Array(length).fill(value);
 
@@ -50,7 +51,7 @@ describe.concurrent("argon2 API", () => {
     expect(implicit).toBe(explicit);
   });
 
-  it("mirrors string password -> hex and BufferSource password -> bytes", async () => {
+  it("mirrors string password -> hex and BytesSource password -> bytes", async () => {
     const hex = await argon2(password, salt, CHEAP);
     const bytes = await argon2(new TextEncoder().encode(password), salt, CHEAP);
     expect(hex).toBeTypeOf("string");
@@ -90,41 +91,78 @@ describe.concurrent("argon2 API", () => {
   });
 
   it("throws on an unknown variant", async () => {
-    await expect(
+    await expectUnsecureError(
       argon2(password, salt, { ...CHEAP, variant: "argon2x" as Argon2Variant }),
-    ).rejects.toThrow('Unsupported argon2 variant: "argon2x".');
+      "UNSUPPORTED",
+      'argon2: unsupported argon2 variant "argon2x".',
+    );
   });
 
   it("throws on out-of-range cost parameters", async () => {
-    await expect(argon2(password, salt, { ...CHEAP, m: 7 })).rejects.toThrow(RangeError);
-    await expect(argon2(password, salt, { m: 32, t: 2, p: 8 })).rejects.toThrow(/8 \* p \(64\)/);
-    await expect(argon2(password, salt, { ...CHEAP, t: 0 })).rejects.toThrow(RangeError);
-    await expect(argon2(password, salt, { ...CHEAP, p: 0 })).rejects.toThrow(RangeError);
-    await expect(argon2(password, salt, { ...CHEAP, length: 3 })).rejects.toThrow(RangeError);
-    await expect(argon2(password, salt, { ...CHEAP, m: 64.5 })).rejects.toThrow(RangeError);
+    await expectUnsecureError(argon2(password, salt, { ...CHEAP, m: 7 }), "OUT_OF_RANGE");
+    await expectUnsecureError(
+      argon2(password, salt, { m: 32, t: 2, p: 8 }),
+      "OUT_OF_RANGE",
+      "argon2: m (memory, KiB) must be an integer between 64 and 4294967295, got 32.",
+    );
+    await expectUnsecureError(argon2(password, salt, { ...CHEAP, t: 0 }), "OUT_OF_RANGE");
+    await expectUnsecureError(argon2(password, salt, { ...CHEAP, p: 0 }), "OUT_OF_RANGE");
+    await expectUnsecureError(argon2(password, salt, { ...CHEAP, length: 3 }), "OUT_OF_RANGE");
+    await expectUnsecureError(argon2(password, salt, { ...CHEAP, m: 64.5 }), "OUT_OF_RANGE");
   });
 
   it("throws on cost parameters and tag lengths beyond their RFC 9106 word size", async () => {
     // Checked by message: without the cap these would be caught late by an allocation failure,
     // run for hours, or be silently truncated into H_0.
-    await expect(argon2(password, salt, { ...CHEAP, m: 2 ** 32 })).rejects.toThrow(/2\^32 - 1/);
-    await expect(argon2(password, salt, { ...CHEAP, t: 2 ** 32 })).rejects.toThrow(/2\^32 - 1/);
-    await expect(argon2(password, salt, { ...CHEAP, length: 2 ** 32 })).rejects.toThrow(
-      /2\^32 - 1/,
+    await expectUnsecureError(
+      argon2(password, salt, { ...CHEAP, m: 2 ** 32 }),
+      "OUT_OF_RANGE",
+      /m \(memory, KiB\) must be an integer between 8 and 4294967295/,
     );
-    await expect(argon2(password, salt, { ...CHEAP, p: 2 ** 24 })).rejects.toThrow(/2\^24 - 1/);
+    await expectUnsecureError(
+      argon2(password, salt, { ...CHEAP, t: 2 ** 32 }),
+      "OUT_OF_RANGE",
+      /t \(iterations\) must be an integer between 1 and 4294967295/,
+    );
+    await expectUnsecureError(
+      argon2(password, salt, { ...CHEAP, length: 2 ** 32 }),
+      "OUT_OF_RANGE",
+      /length must be an integer between 4 and 4294967295/,
+    );
+    await expectUnsecureError(
+      argon2(password, salt, { ...CHEAP, p: 2 ** 24 }),
+      "OUT_OF_RANGE",
+      /p \(parallelism\) must be an integer between 1 and 16777215/,
+    );
   });
 
   it("throws on a salt shorter than 8 bytes", async () => {
-    await expect(argon2(password, filled(7, 1), CHEAP)).rejects.toThrow(
-      "argon2: salt must be at least 8 bytes.",
+    await expectUnsecureError(
+      argon2(password, filled(7, 1), CHEAP),
+      "OUT_OF_RANGE",
+      "argon2: salt length must be an integer between 8 and 4294967295, got 7.",
+    );
+  });
+
+  it("throws on a password, salt, secret or data that is neither text nor bytes", async () => {
+    await expectUnsecureError(argon2(42 as any, salt, CHEAP), "INVALID_TYPE");
+    await expectUnsecureError(argon2(password, null as any, CHEAP), "INVALID_TYPE");
+    await expectUnsecureError(
+      argon2(password, salt, { ...CHEAP, secret: [1, 2] as any }),
+      "INVALID_TYPE",
+    );
+    await expectUnsecureError(
+      argon2(password, salt, { ...CHEAP, data: {} as any }),
+      "INVALID_TYPE",
     );
   });
 
   it("throws on unsupported returnAs", async () => {
-    await expect(
+    await expectUnsecureError(
       argon2(password, salt, { ...CHEAP, returnAs: "unsupported" as any }),
-    ).rejects.toThrow('Unsupported argon2 "returnAs" option: unsupported');
+      "UNSUPPORTED",
+      'Unsupported argon2 "returnAs" option: unsupported',
+    );
   });
 });
 
@@ -203,28 +241,63 @@ describe.concurrent("argon2Hash / argon2Verify", () => {
       valid.replace(/.$/, "$"),
     ];
     for (const phc of malformed) {
-      await expect(argon2Verify(phc, password)).rejects.toThrow(SyntaxError);
+      await expectUnsecureError(
+        argon2Verify(phc, password),
+        "MALFORMED",
+        "argon2Verify: malformed PHC string.",
+      );
     }
+  });
+
+  it("refuses a phc that is not a string before reading it as one", async () => {
+    // A value that is not a string never claimed to be a PHC string, so it is the caller's
+    // mistake rather than a stored value in an unexpected format.
+    await expectUnsecureError(
+      argon2Verify(123 as any, password),
+      "INVALID_TYPE",
+      "argon2Verify: expected a PHC string, got number.",
+    );
+    await expectUnsecureError(
+      argon2Verify(null as any, password),
+      "INVALID_TYPE",
+      "argon2Verify: expected a PHC string, got null.",
+    );
+    await expectUnsecureError(
+      argon2Verify(undefined as any, password),
+      "INVALID_TYPE",
+      "argon2Verify: expected a PHC string, got undefined.",
+    );
+    await expectUnsecureError(
+      argon2Verify({} as any, password),
+      "INVALID_TYPE",
+      "argon2Verify: expected a PHC string, got Object.",
+    );
   });
 
   it("refuses an unsupported variant by name", async () => {
     const phc = (await argon2Hash(password, CHEAP)).replace("$argon2id$", "$argon2z$");
-    await expect(argon2Verify(phc, password)).rejects.toThrow(
-      'Unsupported argon2 variant: "argon2z".',
+    await expectUnsecureError(
+      argon2Verify(phc, password),
+      "UNSUPPORTED",
+      'argon2Verify: unsupported argon2 variant "argon2z".',
     );
   });
 
   it("refuses the pre-RFC 0x10 version rather than emulating it", async () => {
     const phc = (await argon2Hash(password, CHEAP)).replace("$v=19$", "$v=16$");
-    await expect(argon2Verify(phc, password)).rejects.toThrow(
-      "Unsupported argon2 version: 16. Only 19 (0x13) is supported.",
+    await expectUnsecureError(
+      argon2Verify(phc, password),
+      "UNSUPPORTED",
+      "argon2Verify: unsupported argon2 version 16; only 19 (0x13) is supported.",
     );
   });
 
   it("reads a PHC string with no version field as 0x10 and refuses it by version", async () => {
     const phc = (await argon2Hash(password, CHEAP)).replace("$v=19$", "$");
-    await expect(argon2Verify(phc, password)).rejects.toThrow(
-      "Unsupported argon2 version: 16 (no v= field). Only 19 (0x13) is supported.",
+    await expectUnsecureError(
+      argon2Verify(phc, password),
+      "UNSUPPORTED",
+      "argon2Verify: unsupported argon2 version 16 (no v= field); only 19 (0x13) is supported.",
     );
   });
 });

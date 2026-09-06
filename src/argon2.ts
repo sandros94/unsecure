@@ -1,9 +1,12 @@
 import type { DigestReturnAs } from "./hash.ts";
+import { assertInteger } from "./_internal/assert.ts";
 import { blake2b, createBlake2b } from "./_internal/blake2b.ts";
-import { encodeBytes } from "./_internal/encoding.ts";
+import { type BytesSource, describeValue, toBytes } from "./_internal/bytes.ts";
+import { assertReturnAs, encodeBytes } from "./_internal/encoding.ts";
 import { secureCompare } from "./compare.ts";
+import { UnsecureError } from "./errors.ts";
 import { secureRandomBytes } from "./random.ts";
-import { Base64, textEncoder } from "./utils/index.ts";
+import { Base64 } from "./utils/index.ts";
 
 // #region Types
 
@@ -56,12 +59,12 @@ export interface Argon2Parameters {
    * Optional secret key `K` — a pepper. Never stored alongside the tag, so a leaked database
    * is not enough to mount an offline attack. Must be supplied again to verify.
    */
-  secret?: string | BufferSource;
+  secret?: string | BytesSource;
   /**
    * Optional associated data `X`. Bound into the tag but, like `secret`, not encoded in the
    * PHC string — supply it again to verify.
    */
-  data?: string | BufferSource;
+  data?: string | BytesSource;
 }
 
 export interface Argon2Options extends Argon2Parameters {
@@ -70,7 +73,7 @@ export interface Argon2Options extends Argon2Parameters {
    *
    * When not specified, mirrors the `password` input type:
    * - `string` password defaults to `'hex'`
-   * - `BufferSource` password defaults to `'uint8array'`
+   * - `BytesSource` password defaults to `'uint8array'`
    */
   returnAs?: DigestReturnAs;
 }
@@ -82,7 +85,7 @@ export interface Argon2HashOptions extends Argon2Parameters {
    *
    * @default 16 random bytes from `secureRandomBytes()`
    */
-  salt?: string | BufferSource;
+  salt?: string | BytesSource;
 }
 
 /** The `secret` / `data` inputs {@link argon2Hash} was called with, if any. */
@@ -101,6 +104,14 @@ function _isVariant(value: string): value is Argon2Variant {
   return value === "argon2id" || value === "argon2i" || value === "argon2d";
 }
 
+/** The one wording for a flavour this module does not implement, wherever the name came from. */
+function _unsupportedVariant(source: string, variant: string): UnsecureError {
+  return new UnsecureError(
+    "UNSUPPORTED",
+    `${source}: unsupported argon2 variant ${JSON.stringify(variant)}.`,
+  );
+}
+
 /** Fixed by the design, not a knob: four slices per pass. */
 const _SLICES = 4;
 
@@ -109,6 +120,9 @@ const _BLOCK = 256;
 
 /** `H_0` carries every cost, tag length, and input length as a 32-bit word (RFC 9106 §3.1). */
 const _MAX_UINT32 = 0xffff_ffff;
+
+/** RFC 9106 §3.1 gives the lane count a 24-bit word of its own. */
+const _MAX_UINT24 = 0xff_ffff;
 
 /** OWASP's argon2id parameters, and RFC 9106 §3.1's recommended salt length. */
 const _DEFAULT_M = 19_456;
@@ -369,15 +383,6 @@ interface _Resolved {
   data: Uint8Array;
 }
 
-function _toBytes(value: string | BufferSource): Uint8Array {
-  if (typeof value === "string") return textEncoder.encode(value);
-  if (value instanceof Uint8Array) return value;
-  if (ArrayBuffer.isView(value)) {
-    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
-  }
-  return new Uint8Array(value);
-}
-
 function _resolve(parameters: Argon2Parameters): _Resolved {
   const {
     variant = "argon2id",
@@ -389,23 +394,12 @@ function _resolve(parameters: Argon2Parameters): _Resolved {
     data,
   } = parameters;
 
-  if (!_isVariant(variant)) {
-    throw new Error(`Unsupported argon2 variant: ${JSON.stringify(variant)}.`);
-  }
-  if (!Number.isInteger(p) || p < 1 || p >= 2 ** 24) {
-    throw new RangeError("argon2: p (parallelism) must be an integer between 1 and 2^24 - 1.");
-  }
-  if (!Number.isInteger(m) || m < 8 * p || m > _MAX_UINT32) {
-    throw new RangeError(
-      `argon2: m (memory, KiB) must be an integer between 8 * p (${8 * p}) and 2^32 - 1.`,
-    );
-  }
-  if (!Number.isInteger(t) || t < 1 || t > _MAX_UINT32) {
-    throw new RangeError("argon2: t (iterations) must be an integer between 1 and 2^32 - 1.");
-  }
-  if (!Number.isInteger(length) || length < 4 || length > _MAX_UINT32) {
-    throw new RangeError("argon2: length must be an integer between 4 and 2^32 - 1 bytes.");
-  }
+  if (!_isVariant(variant)) throw _unsupportedVariant("argon2", variant);
+  // `p` is checked first because it is what makes the lower bound on `m` a number.
+  assertInteger("argon2", "p (parallelism)", p, 1, _MAX_UINT24);
+  assertInteger("argon2", "m (memory, KiB)", m, 8 * p, _MAX_UINT32);
+  assertInteger("argon2", "t (iterations)", t, 1, _MAX_UINT32);
+  assertInteger("argon2", "length", length, 4, _MAX_UINT32);
 
   return {
     variant,
@@ -413,8 +407,8 @@ function _resolve(parameters: Argon2Parameters): _Resolved {
     t,
     p,
     length,
-    secret: secret === undefined ? new Uint8Array(0) : _toBytes(secret),
-    data: data === undefined ? new Uint8Array(0) : _toBytes(data),
+    secret: secret === undefined ? new Uint8Array(0) : toBytes(secret, "argon2"),
+    data: data === undefined ? new Uint8Array(0) : toBytes(data, "argon2"),
   };
 }
 
@@ -426,19 +420,16 @@ function _derive(
 ): Uint8Array<ArrayBuffer> {
   const { variant, m, t, p, length, secret, data } = resolved;
 
+  // Every input length goes into `H_0` as a 32-bit word; the salt also carries RFC 9106 §3.1's
+  // 8-byte floor, below which two derivations stop being reliably distinct.
   const inputs = [
-    ["password", password],
-    ["salt", salt],
-    ["secret", secret],
-    ["data", data],
+    ["password", password, 0],
+    ["salt", salt, 8],
+    ["secret", secret, 0],
+    ["data", data, 0],
   ] as const;
-  if (salt.length < 8) {
-    throw new RangeError("argon2: salt must be at least 8 bytes.");
-  }
-  for (const [name, value] of inputs) {
-    if (value.length > _MAX_UINT32) {
-      throw new RangeError(`argon2: ${name} must be at most 2^32 - 1 bytes.`);
-    }
+  for (const [name, value, minimum] of inputs) {
+    assertInteger("argon2", `${name} length`, value.length, minimum, _MAX_UINT32);
   }
 
   // H_0 = BLAKE2b-512(LE32(p) || LE32(T) || LE32(m) || LE32(t) || LE32(v) || LE32(y) ||
@@ -573,15 +564,17 @@ function _derive(
  *
  * When `returnAs` is not specified, the return type mirrors the `password` input:
  * - `string` password returns a hex `string`
- * - `BufferSource` password returns a `Uint8Array<ArrayBuffer>`
+ * - `BytesSource` password returns a `Uint8Array<ArrayBuffer>`
  *
- * @param password The secret. Can be a string or any BufferSource.
+ * @param password The secret. Can be a string or any `BytesSource`.
  * @param salt A unique, non-secret value, at least 8 bytes. 16 is recommended.
  * @param options Variant, cost parameters, optional `secret` / `data`, and output format.
  * @returns A Promise resolving to the tag.
  *
- * @throws {RangeError} If a cost parameter, the tag length, or the salt length is out of range.
- * @throws {Error} If `variant` is not one of the three Argon2 flavours.
+ * @throws {UnsecureError} `OUT_OF_RANGE` if a cost parameter, the tag length, or an input
+ * length is outside its range; `UNSUPPORTED` if `variant` is not one of the three Argon2
+ * flavours or `returnAs` is not a known encoding; `INVALID_TYPE` if `password`, `salt`,
+ * `secret` or `data` is neither text nor bytes.
  *
  * @example
  * // Defaults: argon2id at OWASP's parameters, 32-byte tag
@@ -598,33 +591,38 @@ function _derive(
  * });
  */
 export async function argon2<T extends DigestReturnAs>(
-  password: string | BufferSource,
-  salt: string | BufferSource,
+  password: string | BytesSource,
+  salt: string | BytesSource,
   options: Argon2Options & { returnAs: T },
 ): Promise<T extends "uint8array" | "bytes" ? Uint8Array<ArrayBuffer> : string>;
 export async function argon2(
   password: string,
-  salt: string | BufferSource,
+  salt: string | BytesSource,
   options?: Omit<Argon2Options, "returnAs">,
 ): Promise<string>;
 export async function argon2(
-  password: BufferSource,
-  salt: string | BufferSource,
+  password: BytesSource,
+  salt: string | BytesSource,
   options?: Omit<Argon2Options, "returnAs">,
 ): Promise<Uint8Array<ArrayBuffer>>;
 export async function argon2(
-  password: string | BufferSource,
-  salt: string | BufferSource,
+  password: string | BytesSource,
+  salt: string | BytesSource,
   options?: Omit<Argon2Options, "returnAs">,
 ): Promise<Uint8Array<ArrayBuffer> | string>;
 export async function argon2(
-  password: string | BufferSource,
-  salt: string | BufferSource,
+  password: string | BytesSource,
+  salt: string | BytesSource,
   options: Argon2Options = {},
 ): Promise<Uint8Array<ArrayBuffer> | string> {
+  const { returnAs } = options;
+  // Before the derivation, not after it: an unknown `returnAs` is a caller mistake, and
+  // reporting it should not cost a full hash first.
+  assertReturnAs(returnAs, "argon2");
+
   const isBufferInput = typeof password !== "string";
-  const tag = _derive(_toBytes(password), _toBytes(salt), _resolve(options));
-  const effectiveReturnAs = options.returnAs ?? (isBufferInput ? "uint8array" : "hex");
+  const tag = _derive(toBytes(password, "argon2"), toBytes(salt, "argon2"), _resolve(options));
+  const effectiveReturnAs = returnAs ?? (isBufferInput ? "uint8array" : "hex");
   return encodeBytes(tag, effectiveReturnAs, "argon2");
 }
 
@@ -642,21 +640,24 @@ export async function argon2(
  * @param options Variant, cost parameters, optional `secret` / `data`, and an optional `salt`.
  * @returns A Promise resolving to the PHC string.
  *
- * @throws {RangeError} If a cost parameter, the tag length, or a supplied salt is out of range.
- * @throws {Error} If `variant` is not one of the three Argon2 flavours.
+ * @throws {UnsecureError} `OUT_OF_RANGE` if a cost parameter, the tag length, or a supplied
+ * salt is outside its range; `UNSUPPORTED` if `variant` is not one of the three Argon2
+ * flavours; `INVALID_TYPE` if `password`, `salt`, `secret` or `data` is neither text nor bytes.
  *
  * @example
  * const stored = await argon2Hash("correct horse battery staple");
  * // "$argon2id$v=19$m=19456,t=2,p=1$…$…"
  */
 export async function argon2Hash(
-  password: string | BufferSource,
+  password: string | BytesSource,
   options: Argon2HashOptions = {},
 ): Promise<string> {
   const resolved = _resolve(options);
   const salt =
-    options.salt === undefined ? secureRandomBytes(_DEFAULT_SALT_LENGTH) : _toBytes(options.salt);
-  const tag = _derive(_toBytes(password), salt, resolved);
+    options.salt === undefined
+      ? secureRandomBytes(_DEFAULT_SALT_LENGTH)
+      : toBytes(options.salt, "argon2");
+  const tag = _derive(toBytes(password, "argon2"), salt, resolved);
 
   const { variant, m, t, p } = resolved;
   const saltText = Base64.stringify(salt, { padding: false });
@@ -682,34 +683,47 @@ export async function argon2Hash(
  * @param options The `secret` / `data` the hash was produced with, if any.
  * @returns A Promise resolving to whether they match.
  *
- * @throws {SyntaxError} If `phc` is not a well-formed PHC string.
- * @throws {Error} If `phc` names a variant or version this module does not implement.
+ * @throws {UnsecureError} `MALFORMED` if `phc` is a string that is not a well-formed PHC
+ * string; `UNSUPPORTED` if it names a variant or version this module does not implement;
+ * `OUT_OF_RANGE` if the cost parameters or the salt it carries are outside their range;
+ * `INVALID_TYPE` if `phc` is not a string, or `password`, `secret` or `data` is neither text
+ * nor bytes.
  *
  * @example
  * if (!(await argon2Verify(user.passwordHash, submitted))) refuse();
  */
 export async function argon2Verify(
   phc: string,
-  password: string | BufferSource,
+  password: string | BytesSource,
   options: Argon2VerifyOptions = {},
 ): Promise<boolean> {
+  // A value that is not a string never claimed to be a PHC string, so it is a caller mistake
+  // rather than a stored value in a shape nobody migrated.
+  if (typeof phc !== "string") {
+    throw new UnsecureError(
+      "INVALID_TYPE",
+      `argon2Verify: expected a PHC string, got ${describeValue(phc)}.`,
+    );
+  }
+
   const parsed = _PHC.exec(phc);
   if (parsed === null) {
-    throw new SyntaxError("argon2Verify: malformed PHC string.");
+    throw new UnsecureError("MALFORMED", "argon2Verify: malformed PHC string.");
   }
 
   const [, variant, , m, t, p, salt, tag] = parsed;
   // An unmatched optional group is `undefined` at runtime whatever the array type says.
   const version: string | undefined = parsed[2];
-  if (!_isVariant(variant)) {
-    throw new Error(`Unsupported argon2 variant: ${JSON.stringify(variant)}.`);
-  }
+  if (!_isVariant(variant)) throw _unsupportedVariant("argon2Verify", variant);
   // A string with no `v=` field predates version 0x13 and decodes as 0x10, so it is refused by
   // version rather than by shape.
   const versionNumber = version === undefined ? 0x10 : Number(version);
   if (versionNumber !== _VERSION) {
     const found = version === undefined ? `${versionNumber} (no v= field)` : version;
-    throw new Error(`Unsupported argon2 version: ${found}. Only 19 (0x13) is supported.`);
+    throw new UnsecureError(
+      "UNSUPPORTED",
+      `argon2Verify: unsupported argon2 version ${found}; only 19 (0x13) is supported.`,
+    );
   }
 
   // The alphabet is already constrained by `_PHC`, so a loose decode only tolerates the
@@ -718,7 +732,7 @@ export async function argon2Verify(
   const stored = Base64.parse(tag, { loose: true, returnAs: "bytes" });
 
   const actual = _derive(
-    _toBytes(password),
+    toBytes(password, "argon2"),
     saltBytes,
     _resolve({
       variant,

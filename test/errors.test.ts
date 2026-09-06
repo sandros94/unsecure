@@ -73,6 +73,9 @@ describe("every public function throws UnsecureError", () => {
   ];
 
   const asyncCases: Array<[string, () => Promise<unknown>]> = [
+    ["argon2", () => api.argon2("p", "saltsalt", { returnAs: "nope" as any })],
+    ["argon2Hash", () => api.argon2Hash("p", { t: 0 })],
+    ["argon2Verify", () => api.argon2Verify("not-a-phc-string", "p")],
     ["hash", () => api.hash("d", { algorithm: "SHA-3" as any })],
     ["hmac", () => api.hmac("", "d")],
     ["hmacVerify", () => api.hmacVerify("", "d", "00")],

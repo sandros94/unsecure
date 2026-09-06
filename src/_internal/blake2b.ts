@@ -1,3 +1,5 @@
+import { UnsecureError } from "../errors.ts";
+
 /**
  * BLAKE2b (RFC 7693) in plain JavaScript.
  *
@@ -211,14 +213,18 @@ export interface Blake2bHasher {
  * @param key Optional MAC key, up to 64 bytes.
  * @returns A hasher accepting `update()` calls followed by one `digest()`.
  *
- * @throws {RangeError} If `outLength` or the key length is outside 1–64 / 0–64.
+ * @throws {UnsecureError} `OUT_OF_RANGE` If `outLength` or the key length is outside
+ * 1–64 / 0–64.
  */
 export function createBlake2b(outLength: number = 64, key?: Uint8Array): Blake2bHasher {
   if (!Number.isInteger(outLength) || outLength < 1 || outLength > 64) {
-    throw new RangeError("blake2b: outLength must be an integer between 1 and 64.");
+    throw new UnsecureError(
+      "OUT_OF_RANGE",
+      "blake2b: outLength must be an integer between 1 and 64.",
+    );
   }
   if (key !== undefined && key.length > 64) {
-    throw new RangeError("blake2b: key must be at most 64 bytes.");
+    throw new UnsecureError("OUT_OF_RANGE", "blake2b: key must be at most 64 bytes.");
   }
   return new _Blake2b(outLength, key);
 }

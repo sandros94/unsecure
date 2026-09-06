@@ -9,20 +9,20 @@ Argon2 password hashing (RFC 9106), in plain JavaScript. No WebAssembly, no nati
 ```ts
 // Store and check passwords — this is the pair you usually want.
 async function argon2Hash(
-  password: string | BufferSource,
-  options?: Argon2Parameters & { salt?: string | BufferSource },
+  password: string | BytesSource,
+  options?: Argon2Parameters & { salt?: string | BytesSource },
 ): Promise<string>; // a PHC string
 
 async function argon2Verify(
   phc: string,
-  password: string | BufferSource,
-  options?: { secret?: string | BufferSource; data?: string | BufferSource },
+  password: string | BytesSource,
+  options?: { secret?: string | BytesSource; data?: string | BytesSource },
 ): Promise<boolean>;
 
 // The raw KDF underneath.
 async function argon2(
-  password: string | BufferSource,
-  salt: string | BufferSource,
+  password: string | BytesSource,
+  salt: string | BytesSource,
   options?: Argon2Parameters & {
     returnAs?: "hex" | "base64" | "b64" | "base64url" | "b64url" | "uint8array" | "bytes";
   },
@@ -34,8 +34,8 @@ interface Argon2Parameters {
   t?: number; // passes, default: 2
   p?: number; // lanes, default: 1
   length?: number; // tag bytes, default: 32, min 4
-  secret?: string | BufferSource; // pepper K, never stored
-  data?: string | BufferSource; // associated data X, never stored
+  secret?: string | BytesSource; // pepper K, never stored
+  data?: string | BytesSource; // associated data X, never stored
 }
 ```
 
@@ -91,12 +91,14 @@ if (ok && !user.passwordHash.includes("m=19456,t=2,p=1")) {
 
 ## Pitfall: Expecting `false` for a Malformed Hash
 
-Only a wrong password returns `false`. A `phc` that is not a well-formed PHC string throws `SyntaxError`, and one naming an unknown variant or a version other than `0x13` — including a string with no `v=` field, which predates it — throws `Error`. That is deliberate: a stored value in an unexpected format is a bug or a migration nobody ran, and reporting it as "wrong password" would bury it.
+Only a wrong password returns `false`. A `phc` that is a string but not a well-formed PHC string throws `UnsecureError` with code `MALFORMED`, one that is not a string at all throws `INVALID_TYPE`, and one naming an unknown variant or a version other than `0x13` — including a string with no `v=` field, which predates it — throws `UNSUPPORTED`. That is deliberate: a stored value in an unexpected format is a bug or a migration nobody ran, and reporting it as "wrong password" would bury it.
 
 ```ts
-await argon2Verify("not-a-phc-string", password); // throws SyntaxError
-await argon2Verify(phc.replace("v=19", "v=16"), password); // throws Error
+await argon2Verify("not-a-phc-string", password); // throws UnsecureError MALFORMED
+await argon2Verify(phc.replace("v=19", "v=16"), password); // throws UnsecureError UNSUPPORTED
 ```
+
+Cost parameters, the tag length and a supplied salt are bounded the way every other number in the library is: `p` 1–2^24-1, `m` 8p–2^32-1, `t` 1–2^32-1, `length` at least 4, a salt at least 8 bytes. Outside those, `OUT_OF_RANGE`. A `password`, `salt`, `secret` or `data` that is neither text nor bytes is `INVALID_TYPE`.
 
 ## Pitfall: Expecting `await` to Yield
 
