@@ -5,6 +5,7 @@ shortDescription: Cryptographic utilities on the Web Crypto API
 description: Hashing, HMAC, HKDF, Argon2, one-time passwords, UUIDs, CSPRNG helpers, prototype-pollution sanitizers and codecs. Zero dependencies, per-module subpaths, one typed error.
 
 themeColor: amber
+automd: true
 github: sandros94/unsecure
 
 redirects:
