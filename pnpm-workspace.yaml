@@ -18,4 +18,5 @@ minimumReleaseAgeExclude:
   - yuku-parser
   - "@yuku-ast/*"
   - "@yuku-codegen/*"
+  - "@yuku-toolchain/*"
   - "@yuku-parser/*"
