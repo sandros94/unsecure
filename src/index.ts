@@ -13,9 +13,11 @@ export { type HMACOptions, hmac, hmacVerify } from "./hmac.ts";
 export {
   type HOTPOptions,
   type HOTPVerifyOptions,
+  type HOTPVerifyResult,
   type OTPAuthURIOptions,
   type TOTPOptions,
   type TOTPVerifyOptions,
+  type TOTPVerifyResult,
   generateOTPSecret,
   hotp,
   hotpVerify,

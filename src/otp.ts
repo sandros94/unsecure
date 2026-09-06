@@ -59,7 +59,34 @@ export interface TOTPVerifyOptions extends TOTPOptions {
    * @default 1
    */
   window?: number;
+  /**
+   * The time step of the last code this secret was accepted for. Every
+   * candidate at or before it is refused, so an accepted code cannot be
+   * replayed for the rest of its window and an older captured code cannot
+   * be played after a newer one (RFC 6238 §5.2). Persist `step` from a
+   * successful result and pass it back here on the next verification.
+   * An integer >= 0.
+   */
+  lastAccepted?: number;
 }
+
+/**
+ * What {@link hotpVerify} reports. On success `counter` is the absolute
+ * counter that matched: persist `counter + 1` as the next expected value
+ * (RFC 4226 §7.2), or the same code keeps working.
+ */
+export type HOTPVerifyResult =
+  | { valid: true; delta: number; counter: number }
+  | { valid: false; delta: 0; counter?: undefined };
+
+/**
+ * What {@link totpVerify} reports. On success `step` is the absolute time
+ * step that matched: persist it and pass it back as `lastAccepted`, or the
+ * same code keeps working for the rest of its window.
+ */
+export type TOTPVerifyResult =
+  | { valid: true; delta: number; step: number }
+  | { valid: false; delta: 0; step?: undefined };
 
 export interface OTPAuthURIOptions {
   /** OTP type. */
@@ -222,28 +249,31 @@ export async function hotp(
  *
  * All `window + 1` HMACs are computed on every call, so how long a call takes
  * says nothing about which counter matched. `delta` is the nearest matching
- * step. Codes are single-use: persist `counter + delta + 1` after a successful
- * verification, or the same code keeps working.
+ * step. Codes are single-use: `counter` is the server's own state, so
+ * candidates before it are never checked, and the result's `counter` is the
+ * one to advance past — persist `counter + 1`, or the same code keeps working.
  *
  * @param secret The shared secret key.
  * @param otp The OTP code to verify. A missing code (`null` / `undefined`) is invalid.
  * @param counter The expected counter value, an integer >= 0.
  * @param options Algorithm, digit, and window options.
- * @returns An object with `valid` and `delta` (counter offset that matched).
+ * @returns `valid`, `delta` (offset from `counter` that matched) and, on
+ *          success, the absolute `counter` that matched.
  *
  * @throws {RangeError} If the secret is empty, or `counter`, `digits`, `window`
  *                      or `algorithm` is outside its documented range.
  *
  * @example
- * const { valid, delta } = await hotpVerify(secret, "287082", 0, { window: 5 });
- * // valid: true, delta: 1 (matched at counter 0 + 1)
+ * const result = await hotpVerify(secret, "287082", user.counter, { window: 5 });
+ * // { valid: true, delta: 1, counter: 1 }
+ * if (result.valid) await store.setCounter(user.id, result.counter + 1);
  */
 export async function hotpVerify(
   secret: string | BytesSource,
   otp: string | null | undefined,
   counter: number,
   options: HOTPVerifyOptions = {},
-): Promise<{ valid: boolean; delta: number }> {
+): Promise<HOTPVerifyResult> {
   const { window = 0 } = options;
   const { algorithm, digits } = _baseOptions("hotpVerify", options);
   assertInteger("hotpVerify", "window", window, 0);
@@ -267,7 +297,7 @@ export async function hotpVerify(
       delta = step;
     }
   }
-  return { valid, delta };
+  return valid ? { valid, delta, counter: counter + delta } : { valid, delta: 0 };
 }
 
 // #region TOTP
@@ -300,32 +330,37 @@ export async function totp(
  *
  * All `2 * window + 1` HMACs are computed on every call, so how long a call
  * takes says nothing about which step matched. `delta` is the nearest matching
- * step (the past wins a tie). Codes are single-use per RFC 6238 §5.2: persist
- * the accepted step and refuse it a second time, or a code stays valid for the
- * rest of its window.
+ * step (the past wins a tie). Codes are single-use per RFC 6238 §5.2: pass the
+ * `step` of the last success back as `lastAccepted` and every candidate at or
+ * before it is refused, so a captured code cannot be replayed for the rest of
+ * its window. Without `lastAccepted` nothing is refused — the library holds no
+ * state, so that part has to travel with the user record.
  *
  * @param secret The shared secret key.
  * @param otp The OTP code to verify. A missing code (`null` / `undefined`) is invalid.
- * @param options Algorithm, digit, period, time, and window options.
- * @returns An object with `valid` and `delta` (time step offset that matched).
+ * @param options Algorithm, digit, period, time, window and `lastAccepted` options.
+ * @returns `valid`, `delta` (time step offset that matched) and, on success,
+ *          the absolute `step` that matched.
  *
  * @throws {RangeError} If the secret is empty, or `digits`, `period`, `time`,
- *                      `window` or `algorithm` is outside its documented range —
- *                      `time` included when the window would run past the safe
- *                      integer range.
+ *                      `window`, `lastAccepted` or `algorithm` is outside its
+ *                      documented range — `time` included when the window would
+ *                      run past the safe integer range.
  *
  * @example
- * const { valid, delta } = await totpVerify(secret, userCode);
- * // delta: 0 = current step, -1 = previous, +1 = next
+ * const result = await totpVerify(secret, userCode, { lastAccepted: user.lastOtpStep });
+ * // { valid: true, delta: 0, step: 56666666 } — or { valid: false, delta: 0 } for a replay
+ * if (result.valid) await store.setLastOtpStep(user.id, result.step);
  */
 export async function totpVerify(
   secret: string | BytesSource,
   otp: string | null | undefined,
   options: TOTPVerifyOptions = {},
-): Promise<{ valid: boolean; delta: number }> {
-  const { window = 1, period = DEFAULT_PERIOD, time } = options;
+): Promise<TOTPVerifyResult> {
+  const { window = 1, period = DEFAULT_PERIOD, time, lastAccepted } = options;
   const { algorithm, digits } = _baseOptions("totpVerify", options);
   assertInteger("totpVerify", "window", window, 0);
+  if (lastAccepted !== undefined) assertInteger("totpVerify", "lastAccepted", lastAccepted, 0);
   const counter = _timeStep("totpVerify", time, period);
   // The window is walked by adding to the derived step, so both ends of it
   // have to stay safe integers — past that, candidates lose precision and
@@ -347,13 +382,17 @@ export async function totpVerify(
   let valid = false;
   let delta = 0;
   for (const step of steps) {
-    const matched = secureCompare(await _code(secretBytes, counter + step, algorithm, digits), otp);
-    if (matched && !valid) {
+    const candidate = counter + step;
+    const matched = secureCompare(await _code(secretBytes, candidate, algorithm, digits), otp);
+    // A step at or before the last accepted one is spent. Its code is still
+    // computed and compared so the call costs the same; it just cannot count.
+    const fresh = lastAccepted === undefined || candidate > lastAccepted;
+    if (matched && fresh && !valid) {
       valid = true;
       delta = step;
     }
   }
-  return { valid, delta };
+  return valid ? { valid, delta, step: counter + delta } : { valid, delta: 0 };
 }
 
 // #region Utilities

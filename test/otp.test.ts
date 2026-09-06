@@ -58,7 +58,7 @@ describe("HOTP (RFC 4226)", () => {
   describe("hotpVerify()", () => {
     it("should return valid for correct OTP", async () => {
       const result = await hotpVerify(RFC4226_SECRET, "755224", 0);
-      expect(result).toEqual({ valid: true, delta: 0 });
+      expect(result).toEqual({ valid: true, delta: 0, counter: 0 });
     });
 
     it("should return invalid for wrong OTP", async () => {
@@ -69,7 +69,7 @@ describe("HOTP (RFC 4226)", () => {
     it("should find OTP within window", async () => {
       // OTP for counter=3 is "969429"
       const result = await hotpVerify(RFC4226_SECRET, "969429", 0, { window: 5 });
-      expect(result).toEqual({ valid: true, delta: 3 });
+      expect(result).toEqual({ valid: true, delta: 3, counter: 3 });
     });
 
     it("should fail when OTP is outside window", async () => {
@@ -171,7 +171,7 @@ describe("TOTP (RFC 6238)", () => {
         time: 59,
         digits: 8,
       });
-      expect(result).toEqual({ valid: true, delta: 0 });
+      expect(result).toEqual({ valid: true, delta: 0, step: 1 });
     });
 
     it("should verify within window (previous step)", async () => {
@@ -182,7 +182,7 @@ describe("TOTP (RFC 6238)", () => {
         digits: 8,
         window: 1,
       });
-      expect(result).toEqual({ valid: true, delta: -1 });
+      expect(result).toEqual({ valid: true, delta: -1, step: 0 });
     });
 
     it("should verify within window (next step)", async () => {
@@ -193,7 +193,7 @@ describe("TOTP (RFC 6238)", () => {
         digits: 8,
         window: 1,
       });
-      expect(result).toEqual({ valid: true, delta: 1 });
+      expect(result).toEqual({ valid: true, delta: 1, step: 1 });
     });
 
     it("should fail outside window", async () => {
@@ -221,7 +221,7 @@ describe("TOTP (RFC 6238)", () => {
       const code = await totp(RFC6238_SHA1_SECRET, { digits: 8 });
       const result = await totpVerify(RFC6238_SHA1_SECRET, code, { digits: 8 });
       vi.restoreAllMocks();
-      expect(result).toEqual({ valid: true, delta: 0 });
+      expect(result).toEqual({ valid: true, delta: 0, step: 1 });
     });
   });
 });
@@ -539,7 +539,7 @@ describe("OTP verify window", () => {
       time: 1_700_000_000,
       window: 8,
     });
-    expect(result).toEqual({ valid: true, delta: 2 });
+    expect(result).toEqual({ valid: true, delta: 2, step: 56666668 });
   });
 
   it("computes every HOTP candidate in the window whether or not one matches", async () => {
@@ -574,11 +574,94 @@ describe("OTP verify window", () => {
   it("still reports 0 when the current step matches", async () => {
     const code = await totp(RFC6238_SHA1_SECRET, { time: 59, digits: 8 });
     expect(await totpVerify(RFC6238_SHA1_SECRET, code, { time: 59, digits: 8, window: 5 })).toEqual(
-      {
-        valid: true,
-        delta: 0,
-      },
+      { valid: true, delta: 0, step: 1 },
     );
+  });
+});
+
+describe("OTP replay protection", () => {
+  // time 59 with a 30-second period is step 1; 29 is step 0 and 89 is step 2.
+  const current = () => totp(RFC6238_SHA1_SECRET, { time: 59, digits: 8 });
+
+  it("refuses the code of a step that was already accepted", async () => {
+    const otp = await current();
+    const first = await totpVerify(RFC6238_SHA1_SECRET, otp, { time: 59, digits: 8 });
+    expect(first).toEqual({ valid: true, delta: 0, step: 1 });
+    const replay = await totpVerify(RFC6238_SHA1_SECRET, otp, {
+      time: 59,
+      digits: 8,
+      lastAccepted: first.step,
+    });
+    expect(replay).toEqual({ valid: false, delta: 0 });
+    expect("step" in replay).toBe(false);
+  });
+
+  it("refuses an older code once a newer step has been accepted", async () => {
+    const older = await totp(RFC6238_SHA1_SECRET, { time: 29, digits: 8 });
+    const open = { time: 59, digits: 8, window: 1 };
+    expect(await totpVerify(RFC6238_SHA1_SECRET, older, open)).toEqual({
+      valid: true,
+      delta: -1,
+      step: 0,
+    });
+    expect(await totpVerify(RFC6238_SHA1_SECRET, older, { ...open, lastAccepted: 1 })).toEqual({
+      valid: false,
+      delta: 0,
+    });
+  });
+
+  it("accepts a code newer than the last accepted step", async () => {
+    const next = await totp(RFC6238_SHA1_SECRET, { time: 89, digits: 8 });
+    expect(
+      await totpVerify(RFC6238_SHA1_SECRET, next, {
+        time: 59,
+        digits: 8,
+        window: 1,
+        lastAccepted: 1,
+      }),
+    ).toEqual({ valid: true, delta: 1, step: 2 });
+  });
+
+  it("still computes every candidate when lastAccepted refuses the match", async () => {
+    const otp = await current();
+    const sign = vi.spyOn(crypto.subtle, "sign");
+    try {
+      const result = await totpVerify(RFC6238_SHA1_SECRET, otp, {
+        time: 59,
+        digits: 8,
+        window: 3,
+        lastAccepted: 1,
+      });
+      expect(result).toEqual({ valid: false, delta: 0 });
+      expect(sign).toHaveBeenCalledTimes(7);
+    } finally {
+      sign.mockRestore();
+    }
+  });
+
+  it("validates lastAccepted like every other bounded option", async () => {
+    const otp = await current();
+    for (const bad of [-1, 1.5, Number.NaN, null, "1"]) {
+      await expect(
+        totpVerify(RFC6238_SHA1_SECRET, otp, {
+          time: 59,
+          digits: 8,
+          lastAccepted: bad as unknown as number,
+        }),
+      ).rejects.toThrow(/totpVerify: lastAccepted must be an integer >= 0/);
+    }
+  });
+
+  it("reports the counter hotpVerify matched, and none when it did not", async () => {
+    // "969429" is the RFC 4226 code for counter 3.
+    expect(await hotpVerify(RFC4226_SECRET, "969429", 2, { window: 5 })).toEqual({
+      valid: true,
+      delta: 1,
+      counter: 3,
+    });
+    const miss = await hotpVerify(RFC4226_SECRET, "000000", 2, { window: 5 });
+    expect(miss).toEqual({ valid: false, delta: 0 });
+    expect("counter" in miss).toBe(false);
   });
 });
 

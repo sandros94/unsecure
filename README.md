@@ -219,12 +219,12 @@ const code = await hotp(secretBytes, 0);
 // Generate an 8-digit OTP
 const code8 = await hotp(secretBytes, 0, { digits: 8 });
 
-// Verify an OTP
-const { valid, delta } = await hotpVerify(secret, "287082", 0, { window: 5 });
-// valid: true, delta: 1 (matched at counter 0 + 1)
+// Verify an OTP against the stored counter
+const result = await hotpVerify(secret, "287082", user.counter, { window: 5 });
+// { valid: true, delta: 1, counter: 1 } — the absolute counter that matched
 
-// Codes are single-use: advance the stored counter past the one that matched
-if (valid) await store.setCounter(userId, 0 + delta + 1);
+// Codes are single-use: the stored counter advances past the one that matched
+if (result.valid) await store.setCounter(user.id, result.counter + 1);
 ```
 
 Verification always computes every candidate in the window — `window + 1` HMACs for HOTP, `2 * window + 1` for TOTP — so the time a call takes says nothing about which step matched. `delta` reports the nearest matching step.
@@ -240,6 +240,7 @@ options:
 - **period**: time step duration in seconds, an integer `>= 1` (default `30`)
 - **time**: Unix timestamp in seconds, any finite number, floored (omit it — or pass `undefined` — for the current time; `null` is a value, not an omission, and throws)
 - **window**: (verify only) number of time steps to check in each direction, an integer `>= 0` (default `1`). `time` must leave every step of the window a safe integer
+- **lastAccepted**: (verify only) the `step` of the last code this secret was accepted for, an integer `>= 0`. Every candidate at or before it is refused
 
 ```ts
 import { totp, totpVerify } from "unsecure";
@@ -248,12 +249,16 @@ import { totp, totpVerify } from "unsecure";
 const code = await totp(base32Secret);
 
 // Verify a user-provided code (checks current, previous, and next time steps)
-const { valid, delta } = await totpVerify(secret, userCode);
-// delta: 0 = current step, -1 = previous, +1 = next
+const result = await totpVerify(secret, userCode, { lastAccepted: user.lastOtpStep });
+// { valid: true, delta: 0, step: 56666666 } — delta: 0 = current step, -1 = previous, +1 = next
+// { valid: false, delta: 0 } — wrong code, or a step already accepted
+
+// Codes are single-use: remember the step, and the same code is refused next time
+if (result.valid) await store.setLastOtpStep(user.id, result.step);
 ```
 
 > [!IMPORTANT]
-> RFC 6238 §5.2 requires a code to be accepted only once. Persist the step you accepted (`Math.floor(time / period) + delta`) and reject a code that resolves to a step you have already seen — otherwise a code an attacker captures stays usable for the rest of its window.
+> RFC 6238 §5.2 requires a code to be accepted only once. The library holds no state, so that memory travels with the user record: persist `step` from every successful verification and pass it back as `lastAccepted`. Without it a code an attacker captures stays usable for the rest of its window.
 
 #### generateOTPSecret
 

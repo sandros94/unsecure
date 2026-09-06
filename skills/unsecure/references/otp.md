@@ -149,32 +149,32 @@ await totp(secret); // string: auto-decoded from base32
 
 ## Pitfall: Accepting a Code Twice
 
-RFC 6238 §5.2: a code is single-use. `totpVerify()` says whether a code is valid for a step, not whether it has already been spent — that part is yours.
+RFC 6238 §5.2: a code is single-use. The library holds no state, so the memory of what was accepted travels with the user record: pass the `step` of the last success back as `lastAccepted`, and `totpVerify()` refuses every candidate at or before it — the code just used, and any older captured code — while still computing the whole window.
 
 ```ts
 // ❌ A code an attacker captures stays valid for the rest of its window
 const { valid } = await totpVerify(secret, userCode);
 
-// ✅ Persist the accepted step and refuse it a second time
-const { valid, delta } = await totpVerify(secret, userCode, { time });
-const step = Math.floor(time / 30) + delta;
-if (valid && step > user.lastOtpStep) {
-  await store.setLastOtpStep(user.id, step);
-} // else: reject — already used, or invalid
+// ✅ The refusal happens inside verify; you only store one integer
+const result = await totpVerify(secret, userCode, { lastAccepted: user.lastOtpStep });
+if (result.valid) {
+  await store.setLastOtpStep(user.id, result.step);
+} // else: wrong code, or a step already accepted — indistinguishable on purpose
 ```
+
+`user.lastOtpStep` starts out `undefined` for a user who has never verified, which is also what "nothing to refuse" means.
 
 ## Pitfall: HOTP Without Counter Tracking
 
-HOTP requires tracking the counter server-side. If you don't increment after successful verification, the same code works forever.
+HOTP requires tracking the counter server-side. `counter` is that state: candidates before it are never checked, and if you don't advance it after a success the same code works forever.
 
 ```ts
 // ❌ Never updating the counter
-const { valid } = await hotpVerify(secret, code, storedCounter, { window: 5 });
+const { valid } = await hotpVerify(secret, code, user.counter, { window: 5 });
 
-// ✅ Update counter on success
-const { valid, delta } = await hotpVerify(secret, code, storedCounter, { window: 5 });
-if (valid) {
-  storedCounter += delta + 1; // advance past the matched counter
-  // persist storedCounter to database
+// ✅ Advance past the counter that matched
+const result = await hotpVerify(secret, code, user.counter, { window: 5 });
+if (result.valid) {
+  await store.setCounter(user.id, result.counter + 1);
 }
 ```
