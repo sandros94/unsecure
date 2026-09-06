@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { expectUnsecureError } from "./_helpers.ts";
 import {
   base32Parse,
   base32Stringify,
@@ -37,9 +38,9 @@ describe.concurrent("Utility Functions", () => {
         expect(base32Stringify("")).toBe("");
       });
 
-      it("should throw TypeError on null or undefined", () => {
-        expect(() => base32Stringify(undefined as any)).toThrow(TypeError);
-        expect(() => base32Stringify(null as any)).toThrow(TypeError);
+      it("should throw INVALID_TYPE on null or undefined", () => {
+        expectUnsecureError(() => base32Stringify(undefined as any), "INVALID_TYPE");
+        expectUnsecureError(() => base32Stringify(null as any), "INVALID_TYPE");
       });
 
       it("should handle single byte values", () => {
@@ -96,12 +97,13 @@ describe.concurrent("Utility Functions", () => {
         expect(base32Parse("MzXw6YtBoI", { loose: true })).toBe("foobar");
       });
 
-      it("should throw TypeError on null or undefined", () => {
-        expect(() => base32Parse(undefined as any, { loose: true })).toThrow(TypeError);
-        expect(() => base32Parse(null as any, { loose: true })).toThrow(TypeError);
-        expect(() =>
-          base32Parse(undefined as any, { loose: true, returnAs: "uint8array" }),
-        ).toThrow(TypeError);
+      it("should throw INVALID_TYPE on null or undefined", () => {
+        expectUnsecureError(() => base32Parse(undefined as any, { loose: true }), "INVALID_TYPE");
+        expectUnsecureError(() => base32Parse(null as any, { loose: true }), "INVALID_TYPE");
+        expectUnsecureError(
+          () => base32Parse(undefined as any, { loose: true, returnAs: "uint8array" }),
+          "INVALID_TYPE",
+        );
       });
 
       it("should handle empty string input", () => {
@@ -149,9 +151,9 @@ describe.concurrent("Utility Functions", () => {
         expect(base64Stringify("")).toBe("");
       });
 
-      it("should throw TypeError on null or undefined", () => {
-        expect(() => base64Stringify(undefined as any)).toThrow(TypeError);
-        expect(() => base64Stringify(null as any)).toThrow(TypeError);
+      it("should throw INVALID_TYPE on null or undefined", () => {
+        expectUnsecureError(() => base64Stringify(undefined as any), "INVALID_TYPE");
+        expectUnsecureError(() => base64Stringify(null as any), "INVALID_TYPE");
       });
     });
 
@@ -178,11 +180,15 @@ describe.concurrent("Utility Functions", () => {
         expect(base64Stringify("", { alphabet: "base64url" })).toBe("");
       });
 
-      it("should throw TypeError on null or undefined", () => {
-        expect(() => base64Stringify(undefined as any, { alphabet: "base64url" })).toThrow(
-          TypeError,
+      it("should throw INVALID_TYPE on null or undefined", () => {
+        expectUnsecureError(
+          () => base64Stringify(undefined as any, { alphabet: "base64url" }),
+          "INVALID_TYPE",
         );
-        expect(() => base64Stringify(null as any, { alphabet: "base64url" })).toThrow(TypeError);
+        expectUnsecureError(
+          () => base64Stringify(null as any, { alphabet: "base64url" }),
+          "INVALID_TYPE",
+        );
       });
     });
 
@@ -226,9 +232,9 @@ describe.concurrent("Utility Functions", () => {
         expect(base64Parse("", { loose: true, returnAs: "uint8array" })).toEqual(new Uint8Array(0));
       });
 
-      it("should throw TypeError on null or undefined", () => {
-        expect(() => base64Parse(undefined as any, { loose: true })).toThrow(TypeError);
-        expect(() => base64Parse(null as any, { loose: true })).toThrow(TypeError);
+      it("should throw INVALID_TYPE on null or undefined", () => {
+        expectUnsecureError(() => base64Parse(undefined as any, { loose: true }), "INVALID_TYPE");
+        expectUnsecureError(() => base64Parse(null as any, { loose: true }), "INVALID_TYPE");
       });
     });
 
@@ -276,9 +282,9 @@ describe.concurrent("Utility Functions", () => {
         expect(base64Parse("", { loose: true, returnAs: "uint8array" })).toEqual(new Uint8Array(0));
       });
 
-      it("should throw TypeError on null or undefined", () => {
-        expect(() => base64Parse(undefined as any, { loose: true })).toThrow(TypeError);
-        expect(() => base64Parse(null as any, { loose: true })).toThrow(TypeError);
+      it("should throw INVALID_TYPE on null or undefined", () => {
+        expectUnsecureError(() => base64Parse(undefined as any, { loose: true }), "INVALID_TYPE");
+        expectUnsecureError(() => base64Parse(null as any, { loose: true }), "INVALID_TYPE");
       });
 
       it("should correctly pad and decode URL-safe strings without padding", () => {
@@ -314,9 +320,9 @@ describe.concurrent("Utility Functions", () => {
         expect(hexStringify("")).toBe("");
       });
 
-      it("should throw TypeError on null or undefined", () => {
-        expect(() => hexStringify(undefined as any)).toThrow(TypeError);
-        expect(() => hexStringify(null as any)).toThrow(TypeError);
+      it("should throw INVALID_TYPE on null or undefined", () => {
+        expectUnsecureError(() => hexStringify(undefined as any), "INVALID_TYPE");
+        expectUnsecureError(() => hexStringify(null as any), "INVALID_TYPE");
       });
     });
 
@@ -359,9 +365,9 @@ describe.concurrent("Utility Functions", () => {
         expect(hexParse("", { loose: true, returnAs: "uint8array" })).toEqual(new Uint8Array(0));
       });
 
-      it("should throw TypeError on null or undefined", () => {
-        expect(() => hexParse(undefined as any, { loose: true })).toThrow(TypeError);
-        expect(() => hexParse(null as any, { loose: true })).toThrow(TypeError);
+      it("should throw INVALID_TYPE on null or undefined", () => {
+        expectUnsecureError(() => hexParse(undefined as any, { loose: true }), "INVALID_TYPE");
+        expectUnsecureError(() => hexParse(null as any, { loose: true }), "INVALID_TYPE");
       });
 
       it("should decode hex strings with mixed case characters", () => {

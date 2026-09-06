@@ -99,7 +99,7 @@ export interface HexCodec {
  *
  * @param data - raw bytes (any `BytesSource`), or a `string` (UTF-8 encoded first)
  * @returns the hex-encoded string
- * @throws {TypeError} if `data` is not a string, `ArrayBuffer` or view over one
+ * @throws {UnsecureError} `INVALID_TYPE` if `data` is not a string, `ArrayBuffer` or view over one
  * @example
  * hexStringify(new Uint8Array([0xde, 0xad])); // "dead"
  */
@@ -116,8 +116,8 @@ export function hexStringify(data: string | BytesSource): string {
  * @param input - hex text, or its ASCII bytes
  * @param options - see {@link DecodeOptions}
  * @returns decoded bytes, or a UTF-8 `string` when `returnAs` is `"string"`
- * @throws {SyntaxError} on non-hex characters or odd length, unless `loose`
- * @throws {TypeError} if `input` is nullish
+ * @throws {UnsecureError} `MALFORMED` on non-hex characters or odd length, unless `loose`
+ * @throws {UnsecureError} `INVALID_TYPE` if `input` is nullish
  * @example
  * hexParse("dead", { returnAs: "bytes" }); // Uint8Array [0xde, 0xad]
  */

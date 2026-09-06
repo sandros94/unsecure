@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { secureCompare } from "../src/compare.ts";
 import { textEncoder } from "../src/utils/index.ts";
+import { expectUnsecureError } from "./_helpers.ts";
 
 describe.concurrent("secureCompare", () => {
   // Test cases for matching data
@@ -186,7 +187,7 @@ describe.concurrent("secureCompare input contract", () => {
   });
 
   it("throws for an expected value that is not text or bytes", () => {
-    expect(() => secureCompare(42 as any, "x")).toThrow(TypeError);
+    expectUnsecureError(() => secureCompare(42 as any, "x"), "INVALID_TYPE");
     expect(() => secureCompare(42 as any, "x")).toThrow(
       "secureCompare: expected a string, ArrayBuffer or ArrayBuffer view, got number.",
     );

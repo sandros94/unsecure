@@ -3,6 +3,7 @@ import { assertReturnAs, decodeBytes, encodeBytes } from "./_internal/encoding.t
 import { normalizeAlgorithm } from "./_internal/algorithm.ts";
 import { type BytesSource, toCryptoBytes } from "./_internal/bytes.ts";
 import { secureCompare } from "./compare.ts";
+import { UnsecureError } from "./errors.ts";
 
 export type HMACOptions = DigestOptions;
 
@@ -137,7 +138,7 @@ export async function hmacVerify(
     } catch (error) {
       // Malformed text is a failed verification; a `returnAs` the library does
       // not know is a caller mistake and keeps its usual error.
-      if (!(error instanceof SyntaxError)) throw error;
+      if (!(error instanceof UnsecureError) || error.code !== "MALFORMED") throw error;
       received = undefined;
     }
   }

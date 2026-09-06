@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { expectUnsecureError } from "./_helpers.ts";
 import { toBytes, toCryptoBytes } from "../src/_internal/bytes.ts";
 import {
   Base32,
@@ -34,9 +35,9 @@ describe.concurrent("Unified codec API", () => {
     });
 
     it("is strict by default", () => {
-      expect(() => Hex.parse("zz")).toThrow(SyntaxError);
-      expect(() => Hex.parse("abc")).toThrow(SyntaxError); // odd length
-      expect(() => Hex.parse("de ad")).toThrow(SyntaxError); // whitespace
+      expectUnsecureError(() => Hex.parse("zz"), "MALFORMED");
+      expectUnsecureError(() => Hex.parse("abc"), "MALFORMED"); // odd length
+      expectUnsecureError(() => Hex.parse("de ad"), "MALFORMED"); // whitespace
     });
 
     it("loose drops what it cannot use instead of stopping at it", () => {
@@ -68,9 +69,9 @@ describe.concurrent("Unified codec API", () => {
       expect(Hex.parse("")).toBe("");
       expect(Hex.parse("", { returnAs: "bytes" })).toEqual(new Uint8Array(0));
       // @ts-expect-error nullish
-      expect(() => Hex.stringify(null)).toThrow(TypeError);
+      expectUnsecureError(() => Hex.stringify(null), "INVALID_TYPE");
       // @ts-expect-error nullish
-      expect(() => Hex.parse(undefined)).toThrow(TypeError);
+      expectUnsecureError(() => Hex.parse(undefined), "INVALID_TYPE");
     });
   });
 
@@ -96,14 +97,14 @@ describe.concurrent("Unified codec API", () => {
     });
 
     it("is strict by default, loose tolerant", () => {
-      expect(() => Base64.parse("Zg=@")).toThrow(SyntaxError);
-      expect(() => Base64.parse("Zm9v-A")).toThrow(SyntaxError); // url char under base64 alphabet
+      expectUnsecureError(() => Base64.parse("Zg=@"), "MALFORMED");
+      expectUnsecureError(() => Base64.parse("Zm9v-A"), "MALFORMED"); // url char under base64 alphabet
       expect(Base64.parse("Zm9v_", { loose: true, returnAs: "bytes" })).toEqual(enc.encode("foo"));
     });
 
     it("strict rejects ASCII whitespace", () => {
-      expect(() => base64Parse("Zm 9v\nYg==")).toThrow(SyntaxError);
-      expect(() => base64Parse("Zm9vYg== ")).toThrow(SyntaxError);
+      expectUnsecureError(() => base64Parse("Zm 9v\nYg=="), "MALFORMED");
+      expectUnsecureError(() => base64Parse("Zm9vYg== "), "MALFORMED");
     });
 
     it("strict accepts unpadded canonical input on both alphabets", () => {
@@ -117,19 +118,19 @@ describe.concurrent("Unified codec API", () => {
     });
 
     it("strict rejects mis-padding, stray padding and impossible lengths", () => {
-      expect(() => base64Parse("Zm9vYg=")).toThrow(SyntaxError);
-      expect(() => base64Parse("Zm9vYmFy=")).toThrow(SyntaxError);
-      expect(() => base64Parse("Zg===")).toThrow(SyntaxError);
-      expect(() => base64Parse("Zm9vY")).toThrow(SyntaxError);
-      expect(() => base64Parse("Zg=Zg==")).toThrow(SyntaxError);
+      expectUnsecureError(() => base64Parse("Zm9vYg="), "MALFORMED");
+      expectUnsecureError(() => base64Parse("Zm9vYmFy="), "MALFORMED");
+      expectUnsecureError(() => base64Parse("Zg==="), "MALFORMED");
+      expectUnsecureError(() => base64Parse("Zm9vY"), "MALFORMED");
+      expectUnsecureError(() => base64Parse("Zg=Zg=="), "MALFORMED");
     });
 
     it("strict rejects set bits past the last byte", () => {
       expect(base64Parse("Zg==")).toBe("f");
-      expect(() => base64Parse("Zh==")).toThrow(SyntaxError);
-      expect(() => base64Parse("Zh")).toThrow(SyntaxError);
+      expectUnsecureError(() => base64Parse("Zh=="), "MALFORMED");
+      expectUnsecureError(() => base64Parse("Zh"), "MALFORMED");
       expect(base64Parse("Zm8=")).toBe("fo");
-      expect(() => base64Parse("Zm9=")).toThrow(SyntaxError);
+      expectUnsecureError(() => base64Parse("Zm9="), "MALFORMED");
     });
 
     it("loose drops what it cannot use and never throws on shape", () => {
@@ -142,7 +143,7 @@ describe.concurrent("Unified codec API", () => {
 
     it("url alphabet parse is strict too", () => {
       expect(Base64.parse("Zm9vYg", { alphabet: "base64url" })).toBe("foob");
-      expect(() => Base64.parse("Zm9v+A", { alphabet: "base64url" })).toThrow(SyntaxError);
+      expectUnsecureError(() => Base64.parse("Zm9v+A", { alphabet: "base64url" }), "MALFORMED");
     });
   });
 
@@ -187,31 +188,32 @@ describe.concurrent("Unified codec API", () => {
       const custom = "abcdefghijklmnopqrstuvwxyz234567";
       const encoded = Base32.stringify(allBytes, { alphabet: custom });
       expect(Base32.parse(encoded, { alphabet: custom, returnAs: "bytes" })).toEqual(allBytes);
-      expect(() => Base32.stringify(enc.encode("x"), { alphabet: "tooshort" })).toThrow(
-        SyntaxError,
+      expectUnsecureError(
+        () => Base32.stringify(enc.encode("x"), { alphabet: "tooshort" }),
+        "OUT_OF_RANGE",
       );
     });
 
     it("is strict by default, loose skips invalid", () => {
-      expect(() => Base32.parse("MZXW 6YTB")).toThrow(SyntaxError);
+      expectUnsecureError(() => Base32.parse("MZXW 6YTB"), "MALFORMED");
       expect(Base32.parse("MZXW 6YTB OI==\n====", { loose: true })).toBe("foobar");
     });
 
     it("strict accepts only the canonical encoding", () => {
       expect(base32Parse("MZXW6===")).toBe("foo");
       expect(base32Parse("MZXW6")).toBe("foo");
-      expect(() => base32Parse("MZXW7===")).toThrow(SyntaxError); // bits past the last byte
-      expect(() => base32Parse("MZ=XW6===")).toThrow(SyntaxError); // padding inside the body
-      expect(() => base32Parse("MZXW6=")).toThrow(SyntaxError); // 5 symbols need 3 pads
-      expect(() => base32Parse("M")).toThrow(SyntaxError); // cannot encode a byte
+      expectUnsecureError(() => base32Parse("MZXW7==="), "MALFORMED"); // bits past the last byte
+      expectUnsecureError(() => base32Parse("MZ=XW6==="), "MALFORMED"); // padding inside the body
+      expectUnsecureError(() => base32Parse("MZXW6="), "MALFORMED"); // 5 symbols need 3 pads
+      expectUnsecureError(() => base32Parse("M"), "MALFORMED"); // cannot encode a byte
       expect(base32Parse("MZXW6YQ")).toBe("foob"); // 7 symbols can
-      expect(() => base32Parse("MZXW6YTBO")).toThrow(SyntaxError); // 1 past a block
+      expectUnsecureError(() => base32Parse("MZXW6YTBO"), "MALFORMED"); // 1 past a block
     });
 
     it("strict is uppercase-only for the RFC alphabets; loose folds case", () => {
-      expect(() => base32Parse("mzxw6===")).toThrow(SyntaxError);
+      expectUnsecureError(() => base32Parse("mzxw6==="), "MALFORMED");
       expect(base32Parse("mzxw6===", { loose: true })).toBe("foo");
-      expect(() => base32Parse("cpnmu===", { alphabet: "base32hex" })).toThrow(SyntaxError);
+      expectUnsecureError(() => base32Parse("cpnmu===", { alphabet: "base32hex" }), "MALFORMED");
       expect(base32Parse("cpnmu===", { alphabet: "base32hex", loose: true })).toBe("foo");
     });
 
@@ -236,10 +238,10 @@ describe.concurrent("Unified codec API", () => {
       ];
       for (const [, alphabet] of bad) {
         expect(alphabet.length).toBe(32);
-        expect(() => base32Stringify("x", { alphabet })).toThrow(SyntaxError);
-        expect(() => base32Parse("AA", { alphabet })).toThrow(SyntaxError);
+        expectUnsecureError(() => base32Stringify("x", { alphabet }), "OUT_OF_RANGE");
+        expectUnsecureError(() => base32Parse("AA", { alphabet }), "OUT_OF_RANGE");
       }
-      expect(() => base32Parse("", { alphabet: "tooshort" })).toThrow(SyntaxError);
+      expectUnsecureError(() => base32Parse("", { alphabet: "tooshort" }), "OUT_OF_RANGE");
     });
 
     it("round-trips every single byte (all variants)", () => {
@@ -318,7 +320,7 @@ describe.concurrent("Unified codec API", () => {
     for (const [what, value] of notBytes) {
       it(`stringify rejects ${what}`, () => {
         for (const [name, stringify] of stringifiers) {
-          expect(() => stringify(value as string)).toThrow(TypeError);
+          expectUnsecureError(() => stringify(value as string), "INVALID_TYPE");
           expect(() => stringify(value as string)).toThrow(
             `${name}: expected a string, ArrayBuffer or ArrayBuffer view, got `,
           );
@@ -335,7 +337,7 @@ describe.concurrent("Unified codec API", () => {
     for (const [what, value] of notText) {
       it(`parse rejects ${what}`, () => {
         for (const [name, parse] of parsers) {
-          expect(() => parse(value as string)).toThrow(TypeError);
+          expectUnsecureError(() => parse(value as string), "INVALID_TYPE");
           expect(() => parse(value as string)).toThrow(
             `${name}: expected a string or Uint8Array, got `,
           );
@@ -370,7 +372,7 @@ describe.concurrent("Unified codec API", () => {
 
     for (const [what, value] of notBytes) {
       it(`toBytes and toCryptoBytes reject ${what}`, () => {
-        expect(() => toBytes(value as string, "t")).toThrow(TypeError);
+        expectUnsecureError(() => toBytes(value as string, "t"), "INVALID_TYPE");
         expect(() => toCryptoBytes(value as string, "t")).toThrow(
           /^t: expected a string, ArrayBuffer or ArrayBuffer view, got /,
         );
