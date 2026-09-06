@@ -27,6 +27,11 @@ import {
   hmac,
   hmacVerify,
   hkdf,
+  // Password hashing
+  argon2,
+  argon2Hash,
+  argon2Verify,
+  argon2NeedsRehash,
   // OTP
   hotp,
   hotpVerify,
@@ -79,11 +84,12 @@ For CDN delivery, prefer the per-module subpaths — each module ships as its ow
 // Per-module — ships only what the module needs
 import { uuidv7, createUUIDv7Generator } from "https://esm.sh/unsecure/uuid";
 import { hkdf } from "https://esm.sh/unsecure/hkdf";
+import { argon2Hash, argon2Verify } from "https://esm.sh/unsecure/argon2";
 import { totp, generateOTPSecret } from "https://esm.sh/unsecure/otp";
 import { Base64, Base32 } from "https://esm.sh/unsecure/utils";
 ```
 
-Each of `compare`, `entropy`, `errors`, `generate`, `hash`, `hkdf`, `hmac`, `otp`, `random`, `sanitize`, `uuid`, `utils` is an independent subpath.
+Each of `argon2`, `compare`, `entropy`, `errors`, `generate`, `hash`, `hkdf`, `hmac`, `otp`, `random`, `sanitize`, `uuid`, `utils` is an independent subpath.
 
 ### hash
 
@@ -158,7 +164,7 @@ const valid = await hmacVerify(secret, body, expectedBase64Sig, {
 
 ### hkdf
 
-HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`. Extract-and-expand from **high-entropy** input keying material — shared secrets, ECDH output, seeds. For **password-based** derivation use PBKDF2/Argon2 instead; HKDF has no work factor.
+HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`. Extract-and-expand from **high-entropy** input keying material — shared secrets, ECDH output, seeds. For **password-based** derivation use [`argon2`](#argon2) instead; HKDF has no work factor.
 
 options:
 
@@ -189,6 +195,59 @@ const macKey = await hkdf(ikm, { salt, info: "authenticate" });
 
 > [!TIP]
 > A different `info` per usage site (ideally versioned, e.g. `"myapp/enc/v1"`) lets you rotate key derivation without breaking old data. Requests beyond `255 * HashLen` throw `OUT_OF_RANGE` before reaching Web Crypto.
+
+### argon2
+
+Argon2 (RFC 9106) — the password hashing function, `argon2id` by default. Plain JavaScript: no WebAssembly, no native binding, no Node built-ins, so it also runs where WebAssembly cannot be compiled from bytes at request time — the way most Wasm Argon2 packages load, and something edge runtimes commonly forbid even while accepting a statically imported `.wasm` module. Check the platform's CPU budget before relying on that: a hash costs over a hundred milliseconds, and a per-request quota of a few milliseconds cuts it off. Measured at parity with `@noble/hashes` and roughly 12x a native binding — see `pnpm bench`.
+
+`argon2Hash()` and `argon2Verify()` are the pair you want for stored passwords; `argon2NeedsRehash()` tells you when a stored string is behind the parameters you hash at today; `argon2()` is the raw KDF underneath.
+
+options:
+
+- **variant**: `argon2id`, `argon2i`, `argon2d` (default `argon2id`)
+- **m**: memory cost in KiB (default `19456`, OWASP's argon2id recommendation)
+- **t**: time cost, i.e. passes over memory (default `2`)
+- **p**: parallelism, i.e. lanes (default `1`)
+- **length**: tag length in bytes (default `32`, min `4`)
+- **secret**: optional pepper, never stored with the tag (string or `BytesSource`)
+- **data**: optional associated data, likewise not stored (string or `BytesSource`)
+- **salt**: (`argon2Hash` only) default 16 random bytes; supply one only to reproduce a known tag
+- **returnAs**: (`argon2` only) `hex`, `base64`, `base64url`, `bytes` (default mirrors the `password` type)
+
+```ts
+import { argon2, argon2Hash, argon2Verify } from "unsecure";
+
+// Store a password — the PHC string carries the parameters and the salt
+const stored = await argon2Hash("correct horse battery staple");
+// '$argon2id$v=19$m=19456,t=2,p=1$Kf14AXIdAP9xLzuLjGNfzQ$XDMa/Lindm4POWc6qZPSUGtKkbjCbxc+eDYNoBNLEzM'
+
+// Check one, constant-time, at whatever parameters the stored string names
+const ok = await argon2Verify(stored, submitted);
+// true or false
+
+// Add a pepper — kept outside the database, so a dump alone is not enough
+const peppered = await argon2Hash(password, { secret: process.env.PEPPER });
+await argon2Verify(peppered, submitted, { secret: process.env.PEPPER });
+
+// Rewrite lazily when the defaults move on — verify first, the plaintext is only here now
+if (await argon2Verify(user.passwordHash, submitted)) {
+  if (argon2NeedsRehash(user.passwordHash)) user.passwordHash = await argon2Hash(submitted);
+}
+
+// Raw derivation, e.g. to turn a passphrase into key material
+const key = await argon2(passphrase, salt, { m: 65536, t: 3, length: 64, returnAs: "bytes" });
+```
+
+`argon2NeedsRehash(phc, parameters?)` is synchronous and hashes nothing: it reads the variant, cost, tag length and version out of the stored string and compares them with `parameters` resolved through the same defaults `argon2Hash()` uses — so calling it with no parameters asks "is this hash at today's defaults?". A version other than `0x13` answers `true`; `secret` and `data` never travel in the string and are ignored. A string it cannot read is refused exactly as `argon2Verify()` refuses it.
+
+> [!IMPORTANT]
+> The `async` signature is for symmetry with `hash()` and `hmac()`: the derivation itself runs synchronously on the calling thread, so `await argon2Hash()` does not yield the event loop — at the defaults it holds the thread for roughly 140 ms per call. Where logins share a thread with other traffic (a Node, Bun, or Deno server), run the call in a worker thread. A CLI, a build step, or a runtime that gives each request its own isolate can call it inline.
+
+> [!NOTE]
+> Only version `0x13` (`v=19`) is produced or accepted. A stored string naming another version (or omitting `v=`, which predates `0x13`) or an unknown variant is refused with `UNSUPPORTED`, and a shape that is not PHC with `MALFORMED` — refused by **throwing** rather than by returning `false`, because a value in an unexpected format is a bug or an unperformed migration, and answering "wrong password" would hide it. The salt and tag fields are decoded strictly, so a truncated field or one carrying bits past its last byte is `MALFORMED` too, not a silent mismatch; a `phc` that is not a string at all never made the claim and is `INVALID_TYPE`. A wrong password is the only thing that returns `false`.
+
+> [!TIP]
+> `p` is a parameter of the function, not a threading hint: lanes are computed sequentially here, so raising it changes the tag without making anything faster. Leave it at `1` unless you must match tags produced elsewhere.
 
 ### OTP (HOTP / TOTP)
 
@@ -631,14 +690,14 @@ class UnsecureError extends Error {
 
 `message` names the function, the value it judged and what it expected — `"hkdf: length must be an integer between 1 and 8160, got 0."` — and `code` is the same judgement in machine-readable form. Branch on `code`, not on message text.
 
-| `code`         | Raised when                                                                                                                                                                          | By                                                                                                                                                                                                   |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `INVALID_TYPE` | A value is of the wrong JavaScript type, or missing where one is required                                                                                                            | `secureCompare`, `hash`, `hmac`, `hmacVerify`, `hkdf`, the OTP functions, `secureGenerate`, `SecureRandomGenerator.next`, `uuidv7`, `uuidv7Timestamp`, every codec                                   |
-| `OUT_OF_RANGE` | The type is right but the value is outside its documented domain — a bound, an empty secret, no character set selected, a base32 `alphabet` that is not 32 distinct ASCII characters | `secureCompare` (`strict`), `hmac`, `hmacVerify`, `hkdf`, the OTP functions, `secureGenerate`, `secureRandomNumber`, `secureRandomBytes`, `randomJitter`, `uuidv7`, `base32Parse`, `base32Stringify` |
-| `MALFORMED`    | Text is not what it claims to be — a non-canonical encoding, decoded bytes that are not valid UTF-8, JSON that does not parse                                                        | `hexParse`, `base64Parse`, `base32Parse`, `safeJsonParse`, `uuidv7Timestamp`                                                                                                                         |
-| `UNSUPPORTED`  | A name is outside the set the library accepts — a digest `algorithm`, a `returnAs`, an `otpauthURI` `type`                                                                           | `hash`, `hmac`, `hmacVerify`, `hkdf`, the OTP functions                                                                                                                                              |
-| `FROZEN`       | A dangerous key cannot be removed because the object holding it is frozen or sealed                                                                                                  | `sanitizeObject`, `safeJsonParse`                                                                                                                                                                    |
-| `PLATFORM`     | The runtime's Web Crypto refused an operation the library had already validated; `cause` carries the platform error                                                                  | `hash`, `hmac`, `hmacVerify`, `hkdf`, the OTP functions                                                                                                                                              |
+| `code`         | Raised when                                                                                                                                                                          | By                                                                                                                                                                                                                         |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INVALID_TYPE` | A value is of the wrong JavaScript type, or missing where one is required                                                                                                            | `secureCompare`, `hash`, `hmac`, `hmacVerify`, `hkdf`, the argon2 functions, the OTP functions, `secureGenerate`, `SecureRandomGenerator.next`, `uuidv7`, `uuidv7Timestamp`, every codec                                   |
+| `OUT_OF_RANGE` | The type is right but the value is outside its documented domain — a bound, an empty secret, no character set selected, a base32 `alphabet` that is not 32 distinct ASCII characters | `secureCompare` (`strict`), `hmac`, `hmacVerify`, `hkdf`, the argon2 functions, the OTP functions, `secureGenerate`, `secureRandomNumber`, `secureRandomBytes`, `randomJitter`, `uuidv7`, `base32Parse`, `base32Stringify` |
+| `MALFORMED`    | Text is not what it claims to be — a non-canonical encoding, decoded bytes that are not valid UTF-8, JSON that does not parse                                                        | `argon2Verify`, `argon2NeedsRehash`, `hexParse`, `base64Parse`, `base32Parse`, `safeJsonParse`, `uuidv7Timestamp`                                                                                                          |
+| `UNSUPPORTED`  | A name is outside the set the library accepts — a digest `algorithm`, a `returnAs`, an `otpauthURI` `type`                                                                           | the argon2 functions, `hash`, `hmac`, `hmacVerify`, `hkdf`, the OTP functions                                                                                                                                              |
+| `FROZEN`       | A dangerous key cannot be removed because the object holding it is frozen or sealed                                                                                                  | `sanitizeObject`, `safeJsonParse`                                                                                                                                                                                          |
+| `PLATFORM`     | The runtime's Web Crypto refused an operation the library had already validated; `cause` carries the platform error                                                                  | `hash`, `hmac`, `hmacVerify`, `hkdf`, the OTP functions                                                                                                                                                                    |
 
 The union is complete for this release. A later minor may add a code, so keep a `default` branch.
 

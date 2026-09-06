@@ -6,6 +6,7 @@ export default defineBuildConfig({
       type: "bundle",
       input: [
         "./src/index.ts",
+        "./src/argon2.ts",
         "./src/compare.ts",
         "./src/entropy.ts",
         "./src/errors.ts",
