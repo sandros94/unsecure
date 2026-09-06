@@ -1,4 +1,5 @@
 import { describeValue } from "./bytes.ts";
+import { UnsecureError } from "../errors.ts";
 import type { DigestAlgorithm } from "../hash.ts";
 
 /**
@@ -26,11 +27,15 @@ const SUPPORTED = /* @__PURE__ */ Object.keys(HASH_LENGTH).join(", ");
 /* @__NO_SIDE_EFFECTS__ */
 export function normalizeAlgorithm(name: string, source: string): DigestAlgorithm {
   if (typeof name !== "string") {
-    throw new TypeError(`${source}: expected an algorithm name, got ${describeValue(name)}.`);
+    throw new UnsecureError(
+      "INVALID_TYPE",
+      `${source}: expected an algorithm name, got ${describeValue(name)}.`,
+    );
   }
   const canonical = name.toUpperCase();
   if (!Object.hasOwn(HASH_LENGTH, canonical)) {
-    throw new RangeError(
+    throw new UnsecureError(
+      "UNSUPPORTED",
       `${source}: unsupported algorithm "${name}"; expected one of ${SUPPORTED}.`,
     );
   }

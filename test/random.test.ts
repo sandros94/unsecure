@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { expectUnsecureError } from "./_helpers.ts";
 import {
   createSecureRandomGenerator,
   secureRandomBytes,
@@ -376,21 +377,21 @@ describe.concurrent("Random-based Functions", () => {
     });
 
     it("should throw RangeError for negative length", () => {
-      expect(() => secureRandomBytes(-1)).toThrow(RangeError);
+      expectUnsecureError(() => secureRandomBytes(-1), "OUT_OF_RANGE");
       expect(() => secureRandomBytes(-1)).toThrow(
         "secureRandomBytes: length must be an integer between 0 and 2147483647, got -1.",
       );
     });
 
     it("should throw RangeError for non-integer length", () => {
-      expect(() => secureRandomBytes(3.14)).toThrow(RangeError);
+      expectUnsecureError(() => secureRandomBytes(3.14), "OUT_OF_RANGE");
       expect(() => secureRandomBytes(3.14)).toThrow(
         "secureRandomBytes: length must be an integer between 0 and 2147483647, got 3.14.",
       );
     });
 
     it("should throw RangeError above the 2**31 - 1 ceiling", () => {
-      expect(() => secureRandomBytes(2 ** 31)).toThrow(RangeError);
+      expectUnsecureError(() => secureRandomBytes(2 ** 31), "OUT_OF_RANGE");
       expect(() => secureRandomBytes(2 ** 31)).toThrow(
         "secureRandomBytes: length must be an integer between 0 and 2147483647, got 2147483648.",
       );
@@ -554,7 +555,7 @@ describe("randomJitter", () => {
       expect(() => randomJitter(-1, 10)).toThrow(
         "randomJitter: minMs must be an integer >= 0, got -1.",
       );
-      expect(() => randomJitter(-1)).toThrow(RangeError);
+      expectUnsecureError(() => randomJitter(-1), "OUT_OF_RANGE");
     });
 
     it("throws RangeError when maxMs is negative (single-arg form)", () => {
@@ -576,10 +577,10 @@ describe("randomJitter", () => {
     });
 
     it("throws RangeError when minMs or maxMs is non-finite", () => {
-      expect(() => randomJitter(Number.NaN)).toThrow(RangeError);
-      expect(() => randomJitter(Number.POSITIVE_INFINITY)).toThrow(RangeError);
-      expect(() => randomJitter(0, Number.NaN)).toThrow(RangeError);
-      expect(() => randomJitter(0, Number.POSITIVE_INFINITY)).toThrow(RangeError);
+      expectUnsecureError(() => randomJitter(Number.NaN), "OUT_OF_RANGE");
+      expectUnsecureError(() => randomJitter(Number.POSITIVE_INFINITY), "OUT_OF_RANGE");
+      expectUnsecureError(() => randomJitter(0, Number.NaN), "OUT_OF_RANGE");
+      expectUnsecureError(() => randomJitter(0, Number.POSITIVE_INFINITY), "OUT_OF_RANGE");
     });
 
     it("throws RangeError on fractional milliseconds", () => {

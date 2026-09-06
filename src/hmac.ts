@@ -2,6 +2,7 @@ import type { DigestOptions, DigestReturnAs } from "./hash.ts";
 import { assertReturnAs, decodeBytes, encodeBytes } from "./_internal/encoding.ts";
 import { normalizeAlgorithm } from "./_internal/algorithm.ts";
 import { type BytesSource, toCryptoBytes } from "./_internal/bytes.ts";
+import { viaWebCrypto } from "./_internal/platform.ts";
 import { secureCompare } from "./compare.ts";
 import { UnsecureError } from "./errors.ts";
 
@@ -21,8 +22,10 @@ export type HMACOptions = DigestOptions;
  * @param options Configuration options (algorithm, returnAs).
  * @returns A Promise that resolves to the HMAC signature.
  *
- * @throws {RangeError} If `secret` is empty, or `algorithm` is not a supported digest.
- * @throws {TypeError} If `secret` or `data` is neither text nor bytes.
+ * @throws {UnsecureError} `OUT_OF_RANGE` if `secret` is empty; `UNSUPPORTED` if
+ *                         `algorithm` or `returnAs` is not one the library knows;
+ *                         `INVALID_TYPE` if `secret` or `data` is neither text nor
+ *                         bytes; `PLATFORM` if the runtime's Web Crypto refuses.
  *
  * @example
  * // Sign a string — returns hex by default
@@ -68,20 +71,18 @@ export async function hmac(
   // A secret that failed to load is a deployment bug, not a wrong signature:
   // it must fail loudly here rather than silently key every MAC with nothing.
   if (keyBytes.length === 0) {
-    throw new RangeError("hmac: secret must not be empty.");
+    throw new UnsecureError("OUT_OF_RANGE", "hmac: secret must not be empty.");
   }
   const isBufferInput = typeof data !== "string";
   const dataBytes = toCryptoBytes(data, "hmac");
 
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    keyBytes,
-    { name: "HMAC", hash: algorithm },
-    false,
-    ["sign"],
+  const cryptoKey = await viaWebCrypto("hmac", "importKey", () =>
+    crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: algorithm }, false, ["sign"]),
   );
 
-  const signature = new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, dataBytes));
+  const signature = new Uint8Array(
+    await viaWebCrypto("hmac", "sign", () => crypto.subtle.sign("HMAC", cryptoKey, dataBytes)),
+  );
 
   const effectiveReturnAs = returnAs ?? (isBufferInput ? "uint8array" : "hex");
 
@@ -110,7 +111,9 @@ export async function hmac(
  *                which is also how a string is read when `returnAs` asks for bytes).
  * @returns A Promise that resolves to `true` if the signature is valid.
  *
- * @throws {RangeError} If `secret` is empty, or `algorithm` is not a supported digest.
+ * @throws {UnsecureError} `OUT_OF_RANGE` if `secret` is empty; `UNSUPPORTED` if
+ *                         `algorithm` or `returnAs` is not one the library knows;
+ *                         `PLATFORM` if the runtime's Web Crypto refuses.
  *
  * @example
  * // Verify a webhook signature (hex format, the default)

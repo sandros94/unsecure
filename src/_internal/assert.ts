@@ -1,4 +1,5 @@
 import { describeValue } from "./bytes.ts";
+import { UnsecureError } from "../errors.ts";
 
 /**
  * Name a caller value in an error message: the value itself when a reader can
@@ -31,5 +32,8 @@ export function assertInteger(
     max === Number.MAX_SAFE_INTEGER
       ? `an integer >= ${min}`
       : `an integer between ${min} and ${max}`;
-  throw new RangeError(`${source}: ${name} must be ${range}, got ${showValue(value)}.`);
+  throw new UnsecureError(
+    "OUT_OF_RANGE",
+    `${source}: ${name} must be ${range}, got ${showValue(value)}.`,
+  );
 }

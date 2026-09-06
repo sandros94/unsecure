@@ -1,6 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { hash } from "../src/hash.ts";
 import { hexStringify, base64Stringify } from "../src/utils/index.ts";
+import { expectUnsecureError } from "./_helpers.ts";
 
 describe("hash utility", () => {
   const testString =
@@ -142,6 +143,7 @@ describe("hash utility", () => {
     await expect(hash(testString, { returnAs: "unsupported" as any })).rejects.toThrow(
       'Unsupported hash "returnAs" option: unsupported',
     );
+    await expectUnsecureError(hash(testString, { returnAs: "unsupported" as any }), "UNSUPPORTED");
   });
 
   it("should return ArrayBuffer-backed Uint8Array (not SharedArrayBuffer)", async () => {
@@ -170,15 +172,15 @@ describe("hash algorithm names", () => {
     }
   });
 
-  it("rejects an unknown algorithm with a RangeError that lists the supported ones", async () => {
+  it("rejects an unknown algorithm as UNSUPPORTED, listing the supported ones", async () => {
     await expect(hash("data", { algorithm: "SHA-3" as any })).rejects.toThrow(
       'hash: unsupported algorithm "SHA-3"; expected one of SHA-1, SHA-256, SHA-384, SHA-512.',
     );
-    await expect(hash("data", { algorithm: "SHA-3" as any })).rejects.toBeInstanceOf(RangeError);
+    await expectUnsecureError(hash("data", { algorithm: "SHA-3" as any }), "UNSUPPORTED");
   });
 
-  it("rejects a non-string algorithm with a TypeError", async () => {
-    await expect(hash("data", { algorithm: 256 as any })).rejects.toBeInstanceOf(TypeError);
+  it("rejects a non-string algorithm as INVALID_TYPE", async () => {
+    await expectUnsecureError(hash("data", { algorithm: 256 as any }), "INVALID_TYPE");
   });
 });
 
@@ -202,5 +204,22 @@ describe("hash input contract", () => {
     await expect(hash([1, 2, 3] as any)).rejects.toThrow(
       "hash: expected a string, ArrayBuffer or ArrayBuffer view, got Array.",
     );
+  });
+});
+
+describe("hash web crypto failures", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("reports a refused digest as PLATFORM, carrying the platform error", async () => {
+    const refusal = new DOMException("digest disabled", "NotSupportedError");
+    vi.spyOn(crypto.subtle, "digest").mockRejectedValue(refusal);
+    const error = await expectUnsecureError(
+      hash("data"),
+      "PLATFORM",
+      "hash: the runtime's Web Crypto refused digest.",
+    );
+    expect(error.cause).toBe(refusal);
   });
 });

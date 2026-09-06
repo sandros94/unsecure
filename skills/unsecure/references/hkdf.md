@@ -19,9 +19,9 @@ async function hkdf(
 ): Promise<string | Uint8Array>;
 ```
 
-Algorithm names are matched case-insensitively (`"sha-256"` works); anything else throws a `RangeError` naming the four supported digests, before Web Crypto is reached.
+Algorithm names are matched case-insensitively (`"sha-256"` works); anything else throws `UNSUPPORTED`, naming the four supported digests, before Web Crypto is reached.
 
-`BytesSource` is any byte container — `Uint8Array`, another typed array, `DataView`, `ArrayBuffer`, or a `SharedArrayBuffer`-backed view (copied before it reaches Web Crypto, which refuses shared memory). Anything else throws a `TypeError`.
+`BytesSource` is any byte container — `Uint8Array`, another typed array, `DataView`, `ArrayBuffer`, or a `SharedArrayBuffer`-backed view (copied before it reaches Web Crypto, which refuses shared memory). Anything else throws `INVALID_TYPE`. A derivation the runtime refuses after those checks pass is `PLATFORM`, with the platform error as `cause`. Every code belongs to `UnsecureError` — see [errors.md](./errors.md).
 
 **Defaults:**
 
@@ -113,7 +113,7 @@ await hkdf(ikm, { salt, info: "myapp/enc/v1" });
 
 ## Pitfall: Exceeding `255 * HashLen`
 
-RFC 5869 caps the output at `255 * HashLen` bytes per derivation (8160 for SHA-256, 16320 for SHA-512). `hkdf` throws `RangeError` before reaching Web Crypto rather than surfacing an opaque `OperationError`. If you need more material, derive multiple keys with distinct `info` values.
+RFC 5869 caps the output at `255 * HashLen` bytes per derivation (8160 for SHA-256, 16320 for SHA-512). `hkdf` throws `OUT_OF_RANGE` before reaching Web Crypto rather than surfacing an opaque `OperationError`. If you need more material, derive multiple keys with distinct `info` values.
 
 ## Note
 

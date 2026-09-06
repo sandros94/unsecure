@@ -1,5 +1,6 @@
 import { base64Stringify, hexStringify, base64Parse, hexParse } from "../utils/index.ts";
 import type { DigestReturnAs } from "../hash.ts";
+import { UnsecureError } from "../errors.ts";
 
 /** The text form a `returnAs` names; `"raw"` is bytes, which have none. */
 type _Form = "hex" | "base64" | "base64url" | "raw";
@@ -24,7 +25,10 @@ const _FORMS: ReadonlyMap<string, _Form> = /* @__PURE__ */ new Map<DigestReturnA
 function _formOf(returnAs: DigestReturnAs, source: string): _Form {
   const form = _FORMS.get(returnAs);
   if (form === undefined) {
-    throw new Error(`Unsupported ${source} "returnAs" option: ${String(returnAs)}`);
+    throw new UnsecureError(
+      "UNSUPPORTED",
+      `Unsupported ${source} "returnAs" option: ${String(returnAs)}`,
+    );
   }
   return form;
 }

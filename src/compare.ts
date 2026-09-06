@@ -1,4 +1,5 @@
 import { type BytesSource, toBytes } from "./_internal/bytes.ts";
+import { UnsecureError } from "./errors.ts";
 
 /** Stand-in for a `received` value that carries no bytes to compare. */
 const EMPTY = /* @__PURE__ */ new Uint8Array(0);
@@ -30,7 +31,7 @@ export interface SecureCompareOptions {
  * @param expected The known, trusted value (e.g. a computed HMAC or stored token).
  *                 A string or any `BytesSource`. If empty or `undefined`, the function
  *                 returns `false` by default, or throws when `options.strict` is set.
- *                 Anything else is a caller bug and throws a {@link TypeError}.
+ *                 Anything else is a caller bug and throws an {@link UnsecureError}.
  * @param received The untrusted, user-provided value to verify against `expected`.
  *                 A string or any `BytesSource` is compared; anything else — `null`,
  *                 `undefined`, a number, a plain array, an object — is a mismatch and
@@ -38,7 +39,9 @@ export interface SecureCompareOptions {
  * @param options Behavior options. See {@link SecureCompareOptions.strict}.
  * @returns `true` if the values match, `false` otherwise.
  *
- * @throws {TypeError} If `expected` is neither text, bytes nor `undefined`.
+ * @throws {UnsecureError} `INVALID_TYPE` if `expected` is neither text, bytes nor
+ *                         `undefined`; `OUT_OF_RANGE` if it is empty or absent under
+ *                         `strict`.
  *
  * @example
  * // Comparing two strings
@@ -77,7 +80,10 @@ export function secureCompare(
 
   if (a.length === 0) {
     if (options?.strict) {
-      throw new Error("Cannot verify. Expected value is empty or undefined.");
+      throw new UnsecureError(
+        "OUT_OF_RANGE",
+        "Cannot verify. Expected value is empty or undefined.",
+      );
     }
     return false;
   }

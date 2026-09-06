@@ -91,7 +91,7 @@ Hashes input data using a specified cryptographic algorithm. It uses the Web Cry
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws a `RangeError`
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws `UNSUPPORTED`
 - **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default mirrors the input type: a string returns hex, a `BytesSource` returns bytes)
 
 > [!WARNING]
@@ -127,10 +127,10 @@ Computes an HMAC signature using the Web Crypto API. Supports the same algorithm
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws a `RangeError`
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws `UNSUPPORTED`
 - **returnAs**: `hex`, `base64`, `base64url`, `bytes` (default mirrors input type). On `hmacVerify()` it names the format of a **string** `signature`, which is decoded strictly before the byte comparison; a `BytesSource` signature is compared as-is.
 
-The `secret` must not be empty — both functions throw a `RangeError` before reaching Web Crypto, because an unset secret is a deployment bug rather than a wrong signature. Untrusted signatures never throw: `null`, `undefined`, malformed text or a value that is not text or bytes all verify as `false`.
+The `secret` must not be empty — both functions throw `OUT_OF_RANGE` before reaching Web Crypto, because an unset secret is a deployment bug rather than a wrong signature. Untrusted signatures never throw: `null`, `undefined`, malformed text or a value that is not text or bytes all verify as `false`.
 
 ```ts
 import { hmac, hmacVerify } from "unsecure";
@@ -162,7 +162,7 @@ HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`. Extract-and-expan
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws a `RangeError`
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-256`) — matched case-insensitively; any other name throws `UNSUPPORTED`
 - **length**: output length in bytes (default `32`, max `255 * HashLen`)
 - **salt**: non-secret but strongly recommended (string or `BytesSource`, default empty)
 - **info**: context label for domain separation (string or `BytesSource`, default empty)
@@ -188,7 +188,7 @@ const macKey = await hkdf(ikm, { salt, info: "authenticate" });
 ```
 
 > [!TIP]
-> A different `info` per usage site (ideally versioned, e.g. `"myapp/enc/v1"`) lets you rotate key derivation without breaking old data. Requests beyond `255 * HashLen` throw a `RangeError` before reaching Web Crypto.
+> A different `info` per usage site (ideally versioned, e.g. `"myapp/enc/v1"`) lets you rotate key derivation without breaking old data. Requests beyond `255 * HashLen` throw `OUT_OF_RANGE` before reaching Web Crypto.
 
 ### OTP (HOTP / TOTP)
 
@@ -205,7 +205,7 @@ Generate and verify HMAC-based One-Time Passwords (RFC 4226).
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`) — matched case-insensitively; any other name throws a `RangeError`
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`) — matched case-insensitively; any other name throws `UNSUPPORTED`
 - **digits**: number of digits in the OTP code, an integer from `6` to `8` (default `6`)
 - **window**: (verify only) number of counter values to check ahead, an integer `>= 0` (default `0`)
 
@@ -237,7 +237,7 @@ Generate and verify Time-based One-Time Passwords (RFC 6238).
 
 options:
 
-- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`) — matched case-insensitively; any other name throws a `RangeError`
+- **algorithm**: `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` (default `SHA-1`) — matched case-insensitively; any other name throws `UNSUPPORTED`
 - **digits**: number of digits in the OTP code, an integer from `6` to `8` (default `6`)
 - **period**: time step duration in seconds, an integer `>= 1` (default `30`)
 - **time**: Unix timestamp in seconds, any finite number, floored (omit it — or pass `undefined` — for the current time; `null` is a value, not an omission, and throws)
