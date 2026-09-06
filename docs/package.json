@@ -1,0 +1,14 @@
+{
+  "name": "unsecure-docs",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "undocs build",
+    "dev": "undocs dev"
+  },
+  "devDependencies": {
+    "undocs": "npm:undocs-nightly@0.10.1-20260905-084100-67786b2"
+  },
+  "packageManager": "pnpm@11.25.0"
+}

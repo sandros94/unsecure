@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://unpkg.com/undocs/schema/config.json
+name: unsecure
+url: https://unsecure.s94.dev
+shortDescription: Cryptographic utilities on the Web Crypto API
+description: Hashing, HMAC, HKDF, Argon2, one-time passwords, UUIDs, CSPRNG helpers, prototype-pollution sanitizers and codecs. Zero dependencies, per-module subpaths, one typed error.
+
+themeColor: amber
+automd: true
+github: sandros94/unsecure
+
+redirects:
+  /guide: /getting-started
+  /blog: /
+
+socials:
+  bluesky: "https://bsky.app/profile/sandros94.com"
+
+landing:
+  heroLinks:
+    primary:
+      label: "Get Started"
+      icon: "i-lucide-rocket"
+      to: "/getting-started"
+  heroCode:
+    lang: "ts"
+    title: "app.ts"
+    content: |
+      // Store a password
+      import { argon2Hash, argon2Verify } from "unsecure/argon2";
+
+      const stored = await argon2Hash(plaintext);
+      const ok = await argon2Verify(stored, submitted);
+
+      // Verify a webhook
+      import { hmacVerify } from "unsecure/hmac";
+
+      const valid = await hmacVerify(secret, body, request.headers.get("x-signature"));
+
+      // Time-ordered identifiers
+      import { uuidv7 } from "unsecure/uuid";
+
+      const id = uuidv7(); // "01a076ba-1e53-7411-8518-84905f353e3d"
+  contributors: false
+  features:
+    - title: "Web Crypto, zero dependencies"
+      description: "Built on the [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API). No Node built-ins, no runtime dependencies, no WebAssembly. Install once, run in Node, Bun, Deno, Workers and browsers."
+      icon: "i-lucide-lock"
+    - title: "One module per subpath"
+      description: "Every module is its own entry point, so a CDN import of `unsecure/uuid` downloads the UUID code and nothing else. The barrel stays available for bundlers."
+      icon: "i-lucide-package"
+    - title: "One error, one code"
+      description: "Everything the library throws is an `UnsecureError` carrying a machine-readable `code`. Verification functions never throw on untrusted input; they return `false`."
+      icon: "i-lucide-triangle-alert"
+    - title: "Correct by default"
+      description: "Constant-time comparison, rejection sampling instead of modulo bias, strict codecs, bounds checked at the boundary, OWASP defaults for Argon2."
+      icon: "i-lucide-shield-check"
