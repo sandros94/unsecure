@@ -22,7 +22,7 @@ export { type DigestAlgorithm, type DigestOptions, type DigestReturnAs, hash } f
 
 export { type HKDFOptions, hkdf } from "./hkdf.ts";
 
-export { type HMACOptions, hmac, hmacVerify } from "./hmac.ts";
+export { type HMACOptions, hmac, hmacVerify, importHmacKey } from "./hmac.ts";
 
 export {
   type HOTPOptions,

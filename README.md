@@ -26,6 +26,7 @@ import {
   hash,
   hmac,
   hmacVerify,
+  importHmacKey,
   hkdf,
   // Password hashing
   argon2,
@@ -138,6 +139,8 @@ options:
 
 The `secret` must not be empty — both functions throw `OUT_OF_RANGE` before reaching Web Crypto, because an unset secret is a deployment bug rather than a wrong signature. Untrusted signatures never throw: `null`, `undefined`, malformed text or a value that is not text or bytes all verify as `false`.
 
+`secret` may also be a `CryptoKey`, and `importHmacKey()` is how you get one: raw bytes are imported on every `hmac()` call, so a server that signs or verifies per request can do that work once at startup instead. The key is non-extractable and can only sign. Its hash is fixed at import time — passing `algorithm` alongside a key is allowed only when it names that same hash, otherwise `OUT_OF_RANGE`; so is a key that is not an HMAC signing key.
+
 ```ts
 import { hmac, hmacVerify } from "unsecure";
 
@@ -160,6 +163,18 @@ const valid = await hmacVerify(webhookSecret, requestBody, expected);
 const valid = await hmacVerify(secret, body, expectedBase64Sig, {
   returnAs: "base64",
 });
+```
+
+Import once, verify many times:
+
+```ts
+import { hmacVerify, importHmacKey } from "unsecure";
+
+// At startup — one importKey for the process
+const key = await importHmacKey(process.env.WEBHOOK_SECRET);
+
+// Per request — no import of its own
+const valid = await hmacVerify(key, body, request.headers.get("x-signature"));
 ```
 
 ### hkdf

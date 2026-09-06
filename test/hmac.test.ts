@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { hmac, hmacVerify } from "../src/hmac.ts";
+import { hmac, hmacVerify, importHmacKey } from "../src/hmac.ts";
 import { expectUnsecureError } from "./_helpers.ts";
 
 describe("hmac", () => {
@@ -371,5 +371,129 @@ describe("hmac web crypto failures", () => {
     const refusal = new DOMException("sign refused", "OperationError");
     vi.spyOn(crypto.subtle, "sign").mockRejectedValue(refusal);
     await expectUnsecureError(hmacVerify("k", "d", "00"), "PLATFORM");
+  });
+});
+
+describe("hmac CryptoKey secrets", () => {
+  const secret = "my-secret-key";
+  const message = "hello world";
+  const algorithms = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"] as const;
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("imports a non-extractable HMAC signing key", async () => {
+    const key = await importHmacKey(secret);
+    expect(key).toBeInstanceOf(CryptoKey);
+    expect(key.type).toBe("secret");
+    expect(key.extractable).toBe(false);
+    expect(key.usages).toEqual(["sign"]);
+    expect(key.algorithm.name).toBe("HMAC");
+    expect((key.algorithm as HmacKeyAlgorithm).hash.name).toBe("SHA-256");
+  });
+
+  it("normalizes the algorithm name it is given", async () => {
+    const key = await importHmacKey(secret, { algorithm: "sha-512" as "SHA-512" });
+    expect((key.algorithm as HmacKeyAlgorithm).hash.name).toBe("SHA-512");
+  });
+
+  it("signs identically to the bytes path for every algorithm", async () => {
+    for (const algorithm of algorithms) {
+      const fromBytes = await hmac(secret, message, { algorithm, returnAs: "uint8array" });
+      const fromKey = await hmac(await importHmacKey(secret, { algorithm }), message, {
+        returnAs: "uint8array",
+      });
+      expect(fromKey).toEqual(fromBytes);
+    }
+  });
+
+  it("accepts bytes as well as text", async () => {
+    const key = await importHmacKey(new TextEncoder().encode(secret));
+    expect(await hmac(key, message)).toBe(await hmac(secret, message));
+  });
+
+  it("rejects an empty secret with the same error the bytes path gives", async () => {
+    await expectUnsecureError(importHmacKey(""), "OUT_OF_RANGE", "hmac: secret must not be empty.");
+    await expectUnsecureError(
+      importHmacKey(new Uint8Array(0)),
+      "OUT_OF_RANGE",
+      "hmac: secret must not be empty.",
+    );
+  });
+
+  it("rejects an unknown algorithm and a secret that is neither text nor bytes", async () => {
+    await expectUnsecureError(importHmacKey(secret, { algorithm: "SHA-3" as any }), "UNSUPPORTED");
+    await expectUnsecureError(importHmacKey(42 as any), "INVALID_TYPE");
+  });
+
+  it("imports nothing when it is handed a key", async () => {
+    const key = await importHmacKey(secret);
+    const importKey = vi.spyOn(crypto.subtle, "importKey");
+    const sign = vi.spyOn(crypto.subtle, "sign");
+    await hmac(key, message);
+    expect(importKey).not.toHaveBeenCalled();
+    expect(sign).toHaveBeenCalledTimes(1);
+  });
+
+  it("still mirrors the data input when returnAs is omitted", async () => {
+    const key = await importHmacKey(secret);
+    expect(await hmac(key, message)).toBeTypeOf("string");
+    expect(await hmac(key, new TextEncoder().encode(message))).toBeInstanceOf(Uint8Array);
+  });
+
+  it("accepts an algorithm option that matches the key's hash", async () => {
+    const key = await importHmacKey(secret, { algorithm: "SHA-512" });
+    expect(await hmac(key, message, { algorithm: "sha-512" as "SHA-512" })).toBe(
+      await hmac(secret, message, { algorithm: "SHA-512" }),
+    );
+  });
+
+  it("refuses an algorithm option that disagrees with the key's hash", async () => {
+    const key = await importHmacKey(secret, { algorithm: "SHA-512" });
+    await expectUnsecureError(
+      hmac(key, message, { algorithm: "SHA-256" }),
+      "OUT_OF_RANGE",
+      "hmac:",
+    );
+  });
+
+  it("refuses a key without the sign usage, naming what it was given", async () => {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"],
+    );
+    const error = await expectUnsecureError(hmac(key, message), "OUT_OF_RANGE");
+    expect(error.message).toContain('hmac: key must be an HMAC key with the "sign" usage');
+    expect(error.message).toContain("HMAC");
+    expect(error.message).toContain("verify");
+  });
+
+  it("refuses a key of another algorithm", async () => {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      "HKDF",
+      false,
+      ["deriveBits"],
+    );
+    const error = await expectUnsecureError(hmac(key, message), "OUT_OF_RANGE");
+    expect(error.message).toContain("HKDF");
+    expect(error.message).toContain("deriveBits");
+  });
+
+  it("still reports an unknown algorithm before it looks at the key", async () => {
+    const key = await importHmacKey(secret);
+    await expectUnsecureError(hmac(key, message, { algorithm: "SHA-3" as any }), "UNSUPPORTED");
+  });
+
+  it("verifies with a key", async () => {
+    const key = await importHmacKey(secret);
+    const sig = await hmac(secret, message);
+    expect(await hmacVerify(key, message, sig)).toBe(true);
+    expect(await hmacVerify(key, message, sig.replace(/^./, "0"))).toBe(false);
   });
 });
