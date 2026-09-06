@@ -100,6 +100,7 @@ const _VERSION = 0x13;
 const _TYPE: Record<Argon2Variant, number> = { argon2d: 0, argon2i: 1, argon2id: 2 };
 
 /** Whether a string names one of the three flavours. Anything else is refused by name. */
+/* @__NO_SIDE_EFFECTS__ */
 function _isVariant(value: string): value is Argon2Variant {
   return value === "argon2id" || value === "argon2i" || value === "argon2d";
 }
@@ -299,6 +300,7 @@ function _readBlock(memory: Uint32Array, offset: number, bytes: Uint8Array): voi
 }
 
 /** The inverse of {@link _readBlock}. */
+/* @__NO_SIDE_EFFECTS__ */
 function _writeBlock(words: Uint32Array): Uint8Array<ArrayBuffer> {
   const bytes = new Uint8Array(_BLOCK * 4);
   for (let i = 0; i < _BLOCK; i++) _writeLE32(bytes, i * 4, words[i]);
@@ -314,6 +316,7 @@ function _writeLE32(target: Uint8Array, offset: number, value: number): void {
 }
 
 /** RFC 9106 §3.3 variable-length hash `H'`. */
+/* @__NO_SIDE_EFFECTS__ */
 function _hashPrime(input: Uint8Array, length: number): Uint8Array<ArrayBuffer> {
   const prefix = new Uint8Array(4);
   _writeLE32(prefix, 0, length);
@@ -338,6 +341,7 @@ function _hashPrime(input: Uint8Array, length: number): Uint8Array<ArrayBuffer> 
 }
 
 /** `floor(a * b / 2^32)` for two unsigned 32-bit values, exactly. See {@link _mixBlock}. */
+/* @__NO_SIDE_EFFECTS__ */
 function _mulHigh(a: number, b: number): number {
   const low = Math.imul(a, b) >>> 0;
   return (((a >>> 0) * (b >>> 0) - low) / 0x1_0000_0000 + 0.5) | 0;
@@ -347,6 +351,7 @@ function _mulHigh(a: number, b: number): number {
  * RFC 9106 §3.4.1.2 — map a pseudo-random 32-bit value onto a block index inside the reference
  * area, which is every block already computed that the current one is allowed to look at.
  */
+/* @__NO_SIDE_EFFECTS__ */
 function _indexAlpha(
   pass: number,
   slice: number,
@@ -383,6 +388,7 @@ interface _Resolved {
   data: Uint8Array;
 }
 
+/* @__NO_SIDE_EFFECTS__ */
 function _resolve(parameters: Argon2Parameters): _Resolved {
   const {
     variant = "argon2id",
@@ -413,6 +419,7 @@ function _resolve(parameters: Argon2Parameters): _Resolved {
 }
 
 /** The whole of RFC 9106 §3.2, from `H_0` to the final tag. */
+/* @__NO_SIDE_EFFECTS__ */
 function _derive(
   password: Uint8Array,
   salt: Uint8Array,
@@ -610,6 +617,7 @@ export async function argon2(
   salt: string | BytesSource,
   options?: Omit<Argon2Options, "returnAs">,
 ): Promise<Uint8Array<ArrayBuffer> | string>;
+/* @__NO_SIDE_EFFECTS__ */
 export async function argon2(
   password: string | BytesSource,
   salt: string | BytesSource,
@@ -648,6 +656,7 @@ export async function argon2(
  * const stored = await argon2Hash("correct horse battery staple");
  * // "$argon2id$v=19$m=19456,t=2,p=1$…$…"
  */
+/* @__NO_SIDE_EFFECTS__ */
 export async function argon2Hash(
   password: string | BytesSource,
   options: Argon2HashOptions = {},
@@ -674,6 +683,7 @@ export async function argon2Hash(
  * the strict codec calls it what it is. Padding is absent in this format and the strict decode
  * is padding-agnostic, so the fields are accepted as written.
  */
+/* @__NO_SIDE_EFFECTS__ */
 function _decodeField(field: string, source: string): Uint8Array<ArrayBuffer> {
   try {
     return base64Parse(field, { returnAs: "bytes" });
@@ -707,6 +717,7 @@ interface _Stored {
  * has to say. The version is returned rather than judged: whether an old one is an error or an
  * answer depends on which of the two is asking.
  */
+/* @__NO_SIDE_EFFECTS__ */
 function _parsePhc(phc: string, source: string): _Stored {
   // A value that is not a string never claimed to be a PHC string, so it is a caller mistake
   // rather than a stored value in a shape nobody migrated.
@@ -766,6 +777,7 @@ function _parsePhc(phc: string, source: string): _Stored {
  * @example
  * if (!(await argon2Verify(user.passwordHash, submitted))) refuse();
  */
+/* @__NO_SIDE_EFFECTS__ */
 export async function argon2Verify(
   phc: string,
   password: string | BytesSource,
@@ -830,6 +842,7 @@ export async function argon2Verify(
  *   }
  * }
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function argon2NeedsRehash(phc: string, parameters: Argon2Parameters = {}): boolean {
   const stored = _parsePhc(phc, "argon2NeedsRehash");
   if (stored.version !== _VERSION) return true;

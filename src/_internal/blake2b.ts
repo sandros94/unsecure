@@ -216,6 +216,7 @@ export interface Blake2bHasher {
  * @throws {UnsecureError} `OUT_OF_RANGE` If `outLength` or the key length is outside
  * 1–64 / 0–64.
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function createBlake2b(outLength: number = 64, key?: Uint8Array): Blake2bHasher {
   if (!Number.isInteger(outLength) || outLength < 1 || outLength > 64) {
     throw new UnsecureError(
@@ -240,6 +241,7 @@ export function createBlake2b(outLength: number = 64, key?: Uint8Array): Blake2b
  * @example
  * blake2b(new TextEncoder().encode("abc"), 64);
  */
+/* @__NO_SIDE_EFFECTS__ */
 export function blake2b(
   data: Uint8Array,
   outLength: number = 64,
