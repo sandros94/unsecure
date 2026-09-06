@@ -1,4 +1,4 @@
-# .gitignore v1.6.0
+# .gitignore v1.8.2
 # https://gist.github.com/Sandros94/7f3dc1539c8f5905c495aa1bb417589c
 
 # Dependencies
@@ -6,13 +6,18 @@ node_modules
 
 # Temp directories
 .temp
-*.tmp*
+*.tmp
+*.tmp.*
 .cache
 .eslintcache
 
 # Build output
 dist
-tsconfig.tsbuildinfo
+dist-ssr
+*.tsbuildinfo
+
+# Vite
+.vite
 
 # Nuxt
 .nitro
@@ -41,10 +46,21 @@ coverage
 *.lcov
 .nyc_output
 tsconfig.vitest-temp.json
+__screenshots__/
+*.timestamp-*-*.mjs
+test-results/
+playwright-report/
 
 # Logs
 logs
-*.log*
+*.log
+*.log.*
+
+# Agents
+.agents/agent-memory/
+.agents/worktrees/
+.claude/agent-memory/
+.claude/worktrees/
 
 # VSCode
 .history
@@ -56,9 +72,14 @@ logs
 !.vscode/tasks.json
 !.vscode/*.code-snippets
 
-# Intellij idea
+# Editor directories and files
 *.iml
 .idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
 # OSX
 .DS_Store
@@ -80,6 +101,7 @@ $RECYCLE.BIN/
 
 # Various
 .profile
-**.local.*
+*.local
+*.local.*
 
 # Project specific
