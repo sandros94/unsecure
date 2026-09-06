@@ -6,7 +6,7 @@ import { assertReturnAs, encodeBytes } from "./_internal/encoding.ts";
 import { secureCompare } from "./compare.ts";
 import { UnsecureError } from "./errors.ts";
 import { secureRandomBytes } from "./random.ts";
-import { Base64 } from "./utils/index.ts";
+import { base64Parse, base64Stringify } from "./utils/index.ts";
 
 // #region Types
 
@@ -660,9 +660,31 @@ export async function argon2Hash(
   const tag = _derive(toBytes(password, "argon2"), salt, resolved);
 
   const { variant, m, t, p } = resolved;
-  const saltText = Base64.stringify(salt, { padding: false });
-  const tagText = Base64.stringify(tag, { padding: false });
+  const saltText = base64Stringify(salt, { padding: false });
+  const tagText = base64Stringify(tag, { padding: false });
   return `$${variant}$v=${_VERSION}$m=${m},t=${t},p=${p}$${saltText}$${tagText}`;
+}
+
+/**
+ * Read one base64 field out of a PHC string, strictly.
+ *
+ * `_PHC` already constrains the alphabet, but not what the characters mean: a length one past a
+ * whole group, or bits set beyond the final byte, is text no encoder produced. A lenient decode
+ * answers such a string with `false`, which reads as "wrong password" and hides the corruption;
+ * the strict codec calls it what it is. Padding is absent in this format and the strict decode
+ * is padding-agnostic, so the fields are accepted as written.
+ */
+function _decodeField(field: string): Uint8Array<ArrayBuffer> {
+  try {
+    return base64Parse(field, { returnAs: "bytes" });
+  } catch (error) {
+    if (error instanceof UnsecureError && error.code === "MALFORMED") {
+      throw new UnsecureError("MALFORMED", "argon2Verify: malformed PHC string.", {
+        cause: error,
+      });
+    }
+    throw error;
+  }
 }
 
 /**
@@ -726,10 +748,8 @@ export async function argon2Verify(
     );
   }
 
-  // The alphabet is already constrained by `_PHC`, so a loose decode only tolerates the
-  // padding that the PHC format requires be absent.
-  const saltBytes = Base64.parse(salt, { loose: true, returnAs: "bytes" });
-  const stored = Base64.parse(tag, { loose: true, returnAs: "bytes" });
+  const saltBytes = _decodeField(salt);
+  const stored = _decodeField(tag);
 
   const actual = _derive(
     toBytes(password, "argon2"),

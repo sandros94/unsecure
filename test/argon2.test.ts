@@ -3,6 +3,7 @@ import { hash as nodeRsHash, verify as nodeRsVerify } from "@node-rs/argon2";
 import { argon2, argon2Hash, argon2Verify } from "../src/argon2.ts";
 import type { Argon2Variant } from "../src/argon2.ts";
 import { base64Stringify, hexStringify } from "../src/utils/index.ts";
+import { UnsecureError } from "../src/errors.ts";
 import { expectUnsecureError } from "./_helpers.ts";
 
 const filled = (length: number, value: number) => new Uint8Array(length).fill(value);
@@ -27,6 +28,8 @@ const RFC_TAGS: Record<Argon2Variant, string> = {
   // §5.3
   argon2id: "0d640df58d78766c08c037a34a8b53c9d01ef0452d75b65eb52520e96b01e659",
 };
+
+const BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /** Cheap parameters. The defaults are deliberately expensive; correctness does not need them. */
 const CHEAP = { m: 64, t: 2, p: 1 } as const;
@@ -271,6 +274,51 @@ describe.concurrent("argon2Hash / argon2Verify", () => {
       argon2Verify({} as any, password),
       "INVALID_TYPE",
       "argon2Verify: expected a PHC string, got Object.",
+    );
+  });
+
+  it("refuses a tag whose trailing bits are not canonical base64", async () => {
+    // The last character of a 43-character tag carries two bits past the 32nd byte, which a
+    // canonical encoder leaves zero. Flipping one keeps the alphabet and the length intact, so
+    // only a strict decode can tell that this string is not one this module wrote.
+    const valid = await argon2Hash(password, CHEAP);
+    const last = valid.slice(-1);
+    const flipped = valid.slice(0, -1) + BASE64_ALPHABET[BASE64_ALPHABET.indexOf(last) ^ 1];
+    expect(flipped).not.toBe(valid);
+    const error = await expectUnsecureError(
+      argon2Verify(flipped, password),
+      "MALFORMED",
+      "argon2Verify: malformed PHC string.",
+    );
+    // The codec said which character and why; the module keeps that as the cause.
+    expect(error.cause).toBeInstanceOf(UnsecureError);
+  });
+
+  it("refuses a tag field that is not a whole number of base64 groups", async () => {
+    // 41 characters encode 30 bytes plus a dangling symbol. A loose decode drops it and
+    // compares a 30-byte tag; strict decoding says the string is malformed.
+    const valid = await argon2Hash(password, CHEAP);
+    const truncated = valid.slice(0, -2);
+    expect(truncated.split("$")[5]).toHaveLength(41);
+    await expectUnsecureError(
+      argon2Verify(truncated, password),
+      "MALFORMED",
+      "argon2Verify: malformed PHC string.",
+    );
+  });
+
+  it("refuses a salt shorter than the minimum once decoded", async () => {
+    // A fixed salt so the truncation is deterministic: 16 bytes of 0x09 print as "CQkJ…", and
+    // the first seven characters happen to be canonical base64 for five bytes. So this one
+    // reaches the salt-length check rather than the decoder, and fails at 5 < 8.
+    const valid = await argon2Hash(password, { ...CHEAP, salt: filled(16, 9) });
+    const fields = valid.split("$");
+    expect(fields[4]).toBe("CQkJCQkJCQkJCQkJCQkJCQ");
+    fields[4] = fields[4].slice(0, 7);
+    await expectUnsecureError(
+      argon2Verify(fields.join("$"), password),
+      "OUT_OF_RANGE",
+      "argon2: salt length must be an integer between 8 and 4294967295, got 5.",
     );
   });
 

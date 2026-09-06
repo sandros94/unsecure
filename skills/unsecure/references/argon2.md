@@ -96,7 +96,10 @@ Only a wrong password returns `false`. A `phc` that is a string but not a well-f
 ```ts
 await argon2Verify("not-a-phc-string", password); // throws UnsecureError MALFORMED
 await argon2Verify(phc.replace("v=19", "v=16"), password); // throws UnsecureError UNSUPPORTED
+await argon2Verify(phc.slice(0, -2), password); // throws UnsecureError MALFORMED
 ```
+
+The salt and tag fields are decoded strictly: a field that is not canonical base64 — one character past a whole group, or bits set beyond its last byte — is `MALFORMED`, with the codec's own error as `cause`. A corrupted column is a corrupted column, not a wrong password.
 
 Cost parameters, the tag length and a supplied salt are bounded the way every other number in the library is: `p` 1–2^24-1, `m` 8p–2^32-1, `t` 1–2^32-1, `length` at least 4, a salt at least 8 bytes. Outside those, `OUT_OF_RANGE`. A `password`, `salt`, `secret` or `data` that is neither text nor bytes is `INVALID_TYPE`.
 
