@@ -106,9 +106,5 @@
       "version": "^22.13 || >=24",
       "onFail": "error"
     }
-  },
-  "engines": {
-    "node": "^22.12 || >=24"
-  },
-  "packageManager": "pnpm@11.25.0"
+  }
 }
