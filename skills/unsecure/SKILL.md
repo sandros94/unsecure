@@ -23,6 +23,7 @@ Every public module is also its own subpath so CDN / browser consumers only ship
 - `unsecure` — barrel re-exporting every module below
 - `unsecure/compare` — `secureCompare`
 - `unsecure/entropy` — `entropy`
+- `unsecure/errors` — `UnsecureError`, `UnsecureErrorCode`
 - `unsecure/generate` — `secureGenerate`
 - `unsecure/hash` — `hash`
 - `unsecure/hkdf` — `hkdf`
@@ -88,6 +89,10 @@ Prototype-pollution sanitization. Load when working with `sanitizeObject()`, `sa
 
 UUID generation (RFC 9562). Load when working with `uuidv4()`, `uuidv7()`, `secureUUID()`, `createUUIDv7Generator()`, `uuidv7Timestamp()`, `isUUIDv7()`, time-ordered IDs, database primary keys, or UUID parsing/validation.
 
+### [errors.md](./references/errors.md)
+
+The one error class every function throws. Load when working with `UnsecureError`, `error.code`, catching or classifying failures from any `unsecure` call, or mapping them onto HTTP responses.
+
 ### [utils.md](./references/utils.md)
 
 Encoding/decoding utilities. Load when working with the hex, base64 or base32 codecs — the flat `hexParse`/`base64Stringify`/… functions or the `Hex` / `Base64` / `Base32` objects — `textEncoder`/`textDecoder`, or the `unsecure/utils` entry point.
@@ -102,3 +107,4 @@ Encoding/decoding utilities. Load when working with the hex, base64 or base32 co
 - `secureRandomBytes()` handles the 65536-byte `crypto.getRandomValues` limit via chunking, and refuses a length above `2**31 - 1`
 - `secureRandomNumber()` and `randomJitter()` draw from one module-level instance of that generator
 - All verification functions (`hmacVerify`, `hotpVerify`, `totpVerify`) use `secureCompare()` internally
+- Everything the library throws is an `UnsecureError` carrying a `code`; verification functions return `false` for untrusted input and throw only for caller or configuration mistakes

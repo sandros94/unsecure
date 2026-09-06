@@ -66,6 +66,8 @@ import {
   Hex,
   Base64,
   Base32,
+  // Errors
+  UnsecureError,
 } from "unsecure";
 ```
 
@@ -81,7 +83,7 @@ import { totp, generateOTPSecret } from "https://esm.sh/unsecure/otp";
 import { Base64, Base32 } from "https://esm.sh/unsecure/utils";
 ```
 
-Each of `compare`, `entropy`, `generate`, `hash`, `hkdf`, `hmac`, `otp`, `random`, `sanitize`, `uuid`, `utils` is an independent subpath.
+Each of `compare`, `entropy`, `errors`, `generate`, `hash`, `hkdf`, `hmac`, `otp`, `random`, `sanitize`, `uuid`, `utils` is an independent subpath.
 
 ### hash
 
@@ -614,6 +616,54 @@ Notes:
 - Object identity survives both. `sanitizeObject` strips dangerous own keys wherever it finds them and never replaces an object. `sanitizeObjectCopy` rebuilds only arrays and plain objects — one rooted on `Object.prototype` or on `null` — and carries `Date`, `Map`, `Set`, typed arrays, `RegExp`, class instances and functions into the copy by reference.
 - Neither function reads what a non-plain object _holds_: the entries of a `Map`, the members of a `Set`, the properties of a class instance are never traversed and never sanitized. `sanitizeObject` strips dangerous own keys from every object it walks into; `sanitizeObjectCopy` descends only into arrays and plain objects. Carried by reference means unchanged **and** unsanitized — feed such a container through `safeJsonParse(JSON.stringify(x))`, or sanitize its values yourself, if its contents are untrusted.
 - `sanitizeObjectCopy` rebuilds every plain object onto `Object.prototype` — even null-prototype input comes back rooted normally. A root that is not an array or plain object is returned unchanged.
+
+## Errors
+
+Everything this library throws is an `UnsecureError` — one class, exported from `unsecure` and from `unsecure/errors`.
+
+```ts
+class UnsecureError extends Error {
+  readonly name: "UnsecureError";
+  readonly code: UnsecureErrorCode;
+  readonly cause?: unknown; // the platform or JSON.parse failure, when there was one
+}
+```
+
+`message` names the function, the value it judged and what it expected — `"hkdf: length must be an integer between 1 and 8160, got 0."` — and `code` is the same judgement in machine-readable form. Branch on `code`, not on message text.
+
+| `code`         | Raised when                                                                                                                                                                          | By                                                                                                                                                                                                   |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INVALID_TYPE` | A value is of the wrong JavaScript type, or missing where one is required                                                                                                            | `secureCompare`, `hash`, `hmac`, `hmacVerify`, `hkdf`, the OTP functions, `secureGenerate`, `SecureRandomGenerator.next`, `uuidv7`, `uuidv7Timestamp`, every codec                                   |
+| `OUT_OF_RANGE` | The type is right but the value is outside its documented domain — a bound, an empty secret, no character set selected, a base32 `alphabet` that is not 32 distinct ASCII characters | `secureCompare` (`strict`), `hmac`, `hmacVerify`, `hkdf`, the OTP functions, `secureGenerate`, `secureRandomNumber`, `secureRandomBytes`, `randomJitter`, `uuidv7`, `base32Parse`, `base32Stringify` |
+| `MALFORMED`    | Text is not what it claims to be — a non-canonical encoding, decoded bytes that are not valid UTF-8, JSON that does not parse                                                        | `hexParse`, `base64Parse`, `base32Parse`, `safeJsonParse`, `uuidv7Timestamp`                                                                                                                         |
+| `UNSUPPORTED`  | A name is outside the set the library accepts — a digest `algorithm`, a `returnAs`, an `otpauthURI` `type`                                                                           | `hash`, `hmac`, `hmacVerify`, `hkdf`, the OTP functions                                                                                                                                              |
+| `FROZEN`       | A dangerous key cannot be removed because the object holding it is frozen or sealed                                                                                                  | `sanitizeObject`, `safeJsonParse`                                                                                                                                                                    |
+| `PLATFORM`     | The runtime's Web Crypto refused an operation the library had already validated; `cause` carries the platform error                                                                  | `hash`, `hmac`, `hmacVerify`, `hkdf`, the OTP functions                                                                                                                                              |
+
+The union is complete for this release. A later minor may add a code, so keep a `default` branch.
+
+```ts
+import { UnsecureError, hmacVerify } from "unsecure";
+
+try {
+  const valid = await hmacVerify(secret, body, request.headers.get("x-signature"));
+  return valid ? handle(body) : respond(403);
+} catch (error) {
+  if (!(error instanceof UnsecureError)) throw error;
+  switch (error.code) {
+    // An empty secret: the deployment is misconfigured, the request is fine.
+    case "OUT_OF_RANGE":
+      return respond(500);
+    // `error.cause` is the runtime's own failure.
+    case "PLATFORM":
+      return respond(503);
+    default:
+      return respond(400, { reason: error.code });
+  }
+}
+```
+
+Verification never throws for untrusted input: `secureCompare`, `hmacVerify`, `hotpVerify` and `totpVerify` answer `false` for a missing, malformed or wrong-typed value off the wire, and throw only for a caller or configuration mistake. A `catch` around a verify is about your own setup, never about the request.
 
 ## Development
 

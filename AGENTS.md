@@ -37,6 +37,7 @@ When a task involves design decisions, ambiguity, or changes to the project visi
 
 - `src/compare.ts` → `unsecure/compare` — `secureCompare()`: constant-time comparison of text or any `BytesSource` (returns `false` on empty/undefined `expected` by default; opt-in `strict: true` preserves the pre-0.2 throw). `received` is untrusted: anything that is not text or bytes — `null`, a number, a plain array — is a mismatch, never a throw; a wrong `expected` type is a caller bug and throws `TypeError`
 - `src/entropy.ts` → `unsecure/entropy` — `entropy()`: Shannon unigram entropy + bigram entropy (catches local structure) + longest-monotonic-run detection (catches sorted/reverse-sorted fakes). All additive; unigram fields unchanged.
+- `src/errors.ts` → `unsecure/errors` — `UnsecureError` and `UnsecureErrorCode`: the one class every function in the library throws, carrying a machine-readable `code` (`INVALID_TYPE`, `OUT_OF_RANGE`, `MALFORMED`, `UNSUPPORTED`, `FROZEN`, `PLATFORM`) and, where the failure came from outside, a `cause`
 - `src/generate.ts` → `unsecure/generate` — `secureGenerate()`: secure string/token generation with customizable charsets, buffered RNG. `length` is an integer >= 1 counted in code points, a `Date` timestamp must be valid, sets are iterated by code point (no lone surrogates) and must not repeat a character within or across sets — a repeat biases the draw
 - `src/hash.ts` → `unsecure/hash` — `hash()`: async hashing via `crypto.subtle.digest`; input is `string | BytesSource` coerced through `toCryptoBytes`
 - `src/hkdf.ts` → `unsecure/hkdf` — `hkdf()`: HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`, with `returnAs` matching `hash`/`hmac`; `ikm`/`salt`/`info` are `string | BytesSource`
@@ -62,6 +63,7 @@ The `src/random.ts` generator uses a 256-element `Uint32Array` buffer to batch `
 
 ## Key Conventions
 
+- Everything the library throws is an `UnsecureError` (`src/errors.ts`) with a `code` from the documented union; no native `TypeError` / `RangeError` / `SyntaxError` is constructed in `src/`, and a platform failure is re-thrown as `PLATFORM` with the original as `cause`. The code union is growable — adding a member is a minor, so callers are told to keep a `default` branch. Verify functions (`secureCompare`, `hmacVerify`, `hotpVerify`, `totpVerify`) still return `false` for untrusted input and throw only for caller or configuration mistakes
 - All crypto uses the Web Crypto API (`crypto.subtle`, `crypto.getRandomValues`) — no Node.js-specific crypto imports
 - Package manager is **pnpm** (v11.13.0, via corepack)
 - Linting uses **oxlint** and formatting uses **oxfmt** (not eslint/prettier)

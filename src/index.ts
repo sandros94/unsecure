@@ -2,6 +2,8 @@ export { type SecureCompareOptions, secureCompare } from "./compare.ts";
 
 export { type EntropyResult, entropy } from "./entropy.ts";
 
+export { type UnsecureErrorCode, UnsecureError } from "./errors.ts";
+
 export { type SecureGenerateOptions, secureGenerate } from "./generate.ts";
 
 export { type DigestAlgorithm, type DigestOptions, type DigestReturnAs, hash } from "./hash.ts";

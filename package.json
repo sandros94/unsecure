@@ -29,6 +29,10 @@
       "types": "./dist/entropy.d.mts",
       "default": "./dist/entropy.mjs"
     },
+    "./errors": {
+      "types": "./dist/errors.d.mts",
+      "default": "./dist/errors.mjs"
+    },
     "./generate": {
       "types": "./dist/generate.d.mts",
       "default": "./dist/generate.mjs"
