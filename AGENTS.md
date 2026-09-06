@@ -65,6 +65,12 @@ When adding a new public module, three edits are required in lockstep: add the i
 
 The `src/random.ts` generator uses a 256-element `Uint32Array` buffer to batch `crypto.getRandomValues` calls, with rejection sampling to avoid modulo bias. `secureRandomNumber` and `randomJitter` are thin wrappers over a module-level instance of it, so the module has exactly one draw path and no unbiased-vs-biased split.
 
+## Bundle-size guard
+
+`test/bundle.test.ts` is what keeps the tree-shaking promise honest. For one named import per public subpath it bundles a virtual entry straight from `src` with rolldown's JS API (`platform: "neutral"`, tree-shaking on, `minify: true`, nothing written to disk — so the test needs no prior `pnpm build`), then asserts the minified byte size is at or under a ceiling and that a list of marker strings — codec alphabets, `fromBase64` / `toHex`, the shared generator's `Uint32Array` — is absent. Markers are strings that survive minification; mangled local identifiers cannot be asserted on. It runs in the `default` vitest project only (the `native-base64` project's `include` does not match it) and never under `pnpm bench`, which collects `*.bench.ts`.
+
+Each ceiling is the size measured when the row was written, plus 15%, rounded up to the next 100 bytes, with the measurement in a comment beside it. When a deliberate change grows a bundle past its ceiling, the failure names the new size: re-measure, then update the ceiling and its comment in the same one-line diff. A growth you cannot explain is the test doing its job — find what got pulled in before raising the number.
+
 ## Key Conventions
 
 - Everything the library throws is an `UnsecureError` (`src/errors.ts`) with a `code` from the documented union; no native `TypeError` / `RangeError` / `SyntaxError` is constructed in `src/`, and a platform failure is re-thrown as `PLATFORM` with the original as `cause`. The code union is growable — adding a member is a minor, so callers are told to keep a `default` branch. Verify functions (`secureCompare`, `hmacVerify`, `hotpVerify`, `totpVerify`) still return `false` for untrusted input and throw only for caller or configuration mistakes

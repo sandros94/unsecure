@@ -231,6 +231,9 @@ importers:
       oxlint-tsgolint:
         specifier: ^0.24.0
         version: 0.24.0
+      rolldown:
+        specifier: 1.2.0
+        version: 1.2.0
       simple-git-hooks:
         specifier: ^2.13.1
         version: 2.13.1
