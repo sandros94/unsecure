@@ -126,7 +126,7 @@
     "obuild": "^0.4.39",
     "oxfmt": "^0.66.0",
     "oxlint": "^1.81.0",
-    "oxlint-tsgolint": "^0.25.0",
+    "oxlint-tsgolint": "^7.0.2001",
     "rolldown": "1.2.7",
     "simple-git-hooks": "^2.14.0",
     "typescript": "~7.0.2",
