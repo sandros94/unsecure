@@ -69,6 +69,17 @@ export interface DecodeOptions {
   loose?: boolean;
 }
 
+/** `parse` options for the codecs that pad to a block with `=`. */
+export interface PaddedDecodeOptions extends DecodeOptions {
+  /**
+   * Pin the `=` padding in strict mode: `true` requires it, `false` refuses
+   * it, omitted accepts either. Formats that name one spelling — JOSE forbids
+   * padding, MIME requires it — set this so the other spelling is `MALFORMED`.
+   * `loose` drops `=` whatever this says.
+   */
+  padding?: boolean;
+}
+
 /**
  * `parse` reads encoded text: a `string`, or the ASCII bytes of one. Anything
  * else — a number, a plain object, an `ArrayBuffer` — is a caller mistake, not
@@ -167,6 +178,8 @@ export function _tailBits(rem: number, bits: number): number {
  * (whitespace included in the rejection), `=` only as a trailing run and only
  * in the count the body length calls for — or absent, since padding tells a
  * decoder nothing the length does not — and no set bits past the last byte.
+ * `padding` narrows that to one spelling: `true` makes the run mandatory,
+ * `false` makes any `=` malformed.
  */
 /* @__NO_SIDE_EFFECTS__ */
 export function _strictBody(
@@ -174,6 +187,7 @@ export function _strictBody(
   table: Int16Array,
   shape: _BlockShape,
   label: string,
+  padding?: boolean,
 ): string {
   let end = text.length;
   while (end > 0 && text.charCodeAt(end - 1) === 61) end--;
@@ -197,10 +211,14 @@ export function _strictBody(
 
   const padNeeded = rem === 0 ? 0 : shape.group - rem;
   if (padFound > 0) {
-    if (padNeeded === 0) throw _malformed(label, `unexpected "=" padding.`);
+    if (padNeeded === 0 || padding === false) {
+      throw _malformed(label, `unexpected "=" padding.`);
+    }
     if (padFound !== padNeeded) {
       throw _malformed(label, `expected ${padNeeded} "=" padding characters, found ${padFound}.`);
     }
+  } else if (padding === true && padNeeded > 0) {
+    throw _malformed(label, `expected ${padNeeded} "=" padding characters, found 0.`);
   }
 
   if (tail > 0 && (table[text.charCodeAt(end - 1)]! & ((1 << tail) - 1)) !== 0) {

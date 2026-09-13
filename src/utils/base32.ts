@@ -1,7 +1,7 @@
 import {
   type _BlockShape,
   type BytesSource,
-  type DecodeOptions,
+  type PaddedDecodeOptions,
   type DecodeReturnAs,
   _assertData,
   _badOption,
@@ -41,7 +41,7 @@ export interface Base32StringifyOptions {
   padding?: boolean;
 }
 
-export interface Base32ParseOptions extends DecodeOptions {
+export interface Base32ParseOptions extends PaddedDecodeOptions {
   /**
    * `"base32"`, `"base32hex"`, `"crockford"`, or a custom 32-char string.
    * @default "base32"
@@ -147,12 +147,13 @@ function _decodeBase32(
   table: Int16Array,
   loose: boolean,
   label: string,
+  padding?: boolean,
 ): Uint8Array<ArrayBuffer> {
   if (loose) {
     const values = _symbols(text, table);
     return _decodeSymbols(values, _looseCount(values.length, _B32_SHAPE), 5);
   }
-  const body = _strictBody(text, table, _B32_SHAPE, label);
+  const body = _strictBody(text, table, _B32_SHAPE, label, padding);
   return _decodeSymbols(_symbols(body, table), body.length, 5);
 }
 
@@ -189,8 +190,9 @@ export function base32Stringify(
  * Decode a base32 string. Strict by default: the text must be the canonical
  * encoding of some byte string — alphabet characters only (uppercase for the
  * RFC variants), no whitespace, padding either absent or exactly right, no set
- * bits past the final byte. `{ loose: true }` drops whatever it cannot use,
- * folding case for the named variants, instead of throwing.
+ * bits past the final byte. `{ padding: false }` refuses `=` and
+ * `{ padding: true }` requires it. `{ loose: true }` drops whatever it cannot
+ * use, folding case for the named variants, instead of throwing.
  *
  * @param input - base32 text, or its ASCII bytes
  * @param options - see {@link Base32ParseOptions}
@@ -222,7 +224,7 @@ export function base32Parse(
   const { text, wantString } = _parsePrep(input, options);
   if (!text) return wantString ? "" : new Uint8Array(0);
   const table = _decodeTable(alphabet, chars, loose);
-  const bytes = _decodeBase32(text, table, loose, "Base32.parse");
+  const bytes = _decodeBase32(text, table, loose, "Base32.parse", options?.padding);
   return _parseFinalize(bytes, wantString, !loose, "Base32.parse");
 }
 

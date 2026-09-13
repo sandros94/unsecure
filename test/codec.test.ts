@@ -141,6 +141,29 @@ describe.concurrent("Unified codec API", () => {
       expect(base64Parse("!!!", { loose: true, returnAs: "bytes" })).toEqual(new Uint8Array(0));
     });
 
+    it("padding option pins one spelling in strict mode", () => {
+      expect(base64Parse("Zg", { padding: false })).toBe("f");
+      expectUnsecureError(
+        () => base64Parse("Zg==", { padding: false }),
+        "MALFORMED",
+        'Base64.parse: unexpected "=" padding.',
+      );
+      expectUnsecureError(
+        () => base64Parse("Zm9vYg==", { alphabet: "base64url", padding: false }),
+        "MALFORMED",
+      );
+      expect(base64Parse("Zg==", { padding: true })).toBe("f");
+      expectUnsecureError(
+        () => base64Parse("Zg", { padding: true }),
+        "MALFORMED",
+        'Base64.parse: expected 2 "=" padding characters, found 0.',
+      );
+      expect(base64Parse("Zm9vYmFy", { padding: true })).toBe("foobar");
+      expectUnsecureError(() => base64Parse("Zm9vYg=", { padding: true }), "MALFORMED");
+      expect(base64Parse("Zg==", { padding: false, loose: true })).toBe("f");
+      expect(base64Parse("Zg", { padding: true, loose: true })).toBe("f");
+    });
+
     it("url alphabet parse is strict too", () => {
       expect(Base64.parse("Zm9vYg", { alphabet: "base64url" })).toBe("foob");
       expectUnsecureError(() => Base64.parse("Zm9v+A", { alphabet: "base64url" }), "MALFORMED");
@@ -162,6 +185,23 @@ describe.concurrent("Unified codec API", () => {
       for (const [input, expected] of rfc) {
         expect(Base32.stringify(enc.encode(input))).toBe(expected);
       }
+    });
+
+    it("padding option pins one spelling in strict mode", () => {
+      expect(base32Parse("MY", { padding: false })).toBe("f");
+      expectUnsecureError(
+        () => base32Parse("MY======", { padding: false }),
+        "MALFORMED",
+        'Base32.parse: unexpected "=" padding.',
+      );
+      expect(base32Parse("MY======", { padding: true })).toBe("f");
+      expectUnsecureError(
+        () => base32Parse("MY", { padding: true }),
+        "MALFORMED",
+        'Base32.parse: expected 6 "=" padding characters, found 0.',
+      );
+      expect(base32Parse("MZXW6YTB", { padding: true })).toBe("fooba");
+      expect(base32Parse("MY======", { padding: false, loose: true })).toBe("f");
     });
 
     it("padding option drops the '=' fill", () => {

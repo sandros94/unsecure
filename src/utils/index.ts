@@ -6,6 +6,7 @@ export {
   type BytesSource,
   type DecodeReturnAs,
   type DecodeOptions,
+  type PaddedDecodeOptions,
   textEncoder,
   textDecoder,
 } from "./_codec.ts";

@@ -108,6 +108,7 @@ base64Parse("AQID", { returnAs: "bytes" }); // Uint8Array
 base64Parse(token, { alphabet: "base64url" }); // strict URL-safe decode
 base64Parse("Zm9vYg"); // unpadded is canonical too
 base64Parse(untrusted, { loose: true }); // tolerant (accepts either alphabet)
+base64Parse(segment, { alphabet: "base64url", padding: false }); // JOSE: "=" is malformed
 ```
 
 ## Base32
@@ -148,7 +149,9 @@ decoding to the same bytes.
 - `=` only as a trailing run, and only in the count the body length calls for,
   or absent entirely. Unpadded is canonical, so anything `stringify` emits —
   including `{ padding: false }` and the unpadded `base64url` default —
-  round-trips;
+  round-trips. Parse-side `padding` pins one spelling: `false` makes any `=`
+  malformed (JOSE, PHC), `true` makes the run mandatory (MIME); loose ignores
+  it;
 - a length that can encode whole bytes (`Zm9vY` cannot);
 - no set bits past the final byte (`Zg==` decodes `f`; `Zh==` does not decode).
 

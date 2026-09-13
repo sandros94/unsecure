@@ -2,7 +2,7 @@ import { _Buffer, _hasBuffer, _toBuffer } from "./_buffer.ts";
 import {
   type _BlockShape,
   type BytesSource,
-  type DecodeOptions,
+  type PaddedDecodeOptions,
   type DecodeReturnAs,
   _assertData,
   _decodeSymbols,
@@ -46,7 +46,7 @@ export interface Base64StringifyOptions {
   padding?: boolean;
 }
 
-export interface Base64ParseOptions extends DecodeOptions {
+export interface Base64ParseOptions extends PaddedDecodeOptions {
   /**
    * Alphabet to enforce in strict mode. `loose` accepts either alphabet and
    * ignores this.
@@ -131,6 +131,7 @@ function _decodeBase64(
   alphabet: Base64Alphabet,
   loose: boolean,
   label: string,
+  padding?: boolean,
 ): Uint8Array<ArrayBuffer> {
   const url = alphabet === "base64url";
   let body: string;
@@ -142,7 +143,13 @@ function _decodeBase64(
       .replace(/[^A-Za-z0-9+/]/g, "");
     body = clean.slice(0, _looseCount(clean.length, _B64_SHAPE));
   } else {
-    const strict = _strictBody(text, url ? _B64_TABLE_URL : _B64_TABLE_STD, _B64_SHAPE, label);
+    const strict = _strictBody(
+      text,
+      url ? _B64_TABLE_URL : _B64_TABLE_STD,
+      _B64_SHAPE,
+      label,
+      padding,
+    );
     body = url ? strict.replace(/-/g, "+").replace(/_/g, "/") : strict;
   }
   const rem = body.length % 4;
@@ -180,6 +187,7 @@ export function base64Stringify(
  * Decode a base64 string. Strict by default: the text must be the canonical
  * encoding of some byte string — alphabet characters only, no whitespace,
  * padding either absent or exactly right, no set bits past the final byte.
+ * `{ padding: false }` refuses `=` and `{ padding: true }` requires it.
  * `{ loose: true }` drops whatever it cannot use instead of throwing.
  *
  * @param input - base64 text, or its ASCII bytes
@@ -209,7 +217,7 @@ export function base64Parse(
   if (!text) return wantString ? "" : new Uint8Array(0);
   const alphabet = options?.alphabet ?? "base64";
   const loose = options?.loose ?? false;
-  const bytes = _decodeBase64(text, alphabet, loose, "Base64.parse");
+  const bytes = _decodeBase64(text, alphabet, loose, "Base64.parse", options?.padding);
   return _parseFinalize(bytes, wantString, !loose, "Base64.parse");
 }
 
