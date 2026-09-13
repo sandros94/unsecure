@@ -1,6 +1,6 @@
 {
   "name": "unsecure",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Low-level Security utilities",
   "keywords": [
     "2fa",
