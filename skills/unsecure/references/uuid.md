@@ -1,6 +1,6 @@
 # uuidv4() / uuidv7() / secureUUID() / createUUIDv7Generator() / uuidv7Timestamp() / isUUIDv4() / isUUIDv7()
 
-UUID generation backed by `crypto.getRandomValues` (RFC 9562). `uuidv7()` is the default new-UUID choice — its timestamp prefix makes it friendly to ordered indexes (e.g. Postgres 18 native `uuidv7()` semantics).
+UUID generation backed by `crypto.getRandomValues` through the library's shared entropy pool (RFC 9562), so `uuidv4()` costs about what `crypto.randomUUID()` does. `uuidv7()` is the default new-UUID choice — its timestamp prefix makes it friendly to ordered indexes (e.g. Postgres 18 native `uuidv7()` semantics).
 
 ## Signatures
 

@@ -4,7 +4,7 @@ Cryptographically secure random number generation, byte generation, shuffling, a
 
 ## createSecureRandomGenerator()
 
-Buffered CSPRNG — uses a 256-element `Uint32Array` to batch `crypto.getRandomValues` calls. Best when generating many random numbers. Uses rejection sampling to avoid modulo bias.
+Buffered CSPRNG with a 1 KiB entropy pool of its own, refilled by one `crypto.getRandomValues` call per 256 draws. Reach for it when the draws must share nothing with the rest of the process. Uses rejection sampling to avoid modulo bias.
 
 ```ts
 import { createSecureRandomGenerator } from "unsecure";
@@ -30,7 +30,7 @@ Both name their source as `SecureRandomGenerator.next`, whether the draw was ask
 
 ## secureRandomNumber()
 
-Same draw as `rng.next()`, taken from a generator shared by the whole process — one `crypto.getRandomValues` call per 256 draws, rejection sampling included. Reach for `createSecureRandomGenerator()` when a caller wants a generator of its own; there is no throughput reason to.
+Same draw as `rng.next()`, taken from a generator shared by the whole process — it sits on the library's 4 KiB entropy pool, the one `uuidv4()` and `secureRandomBytes()` draw from too, rejection sampling included. Reach for `createSecureRandomGenerator()` when a caller wants a generator of its own; there is no throughput reason to.
 
 ```ts
 import { secureRandomNumber } from "unsecure";
@@ -42,7 +42,7 @@ secureRandomNumber(10, [2, 4, 6]); // [0, 10) excluding evens
 
 ## secureRandomBytes()
 
-Generate a `Uint8Array` of cryptographically secure random bytes. Handles the 65536-byte `crypto.getRandomValues` limit internally via chunking. `length` must be an integer in `[0, 2**31 - 1]`; anything larger throws `OUT_OF_RANGE` instead of allocating gigabytes and filling them for hours.
+Generate a `Uint8Array` of cryptographically secure random bytes. Up to 64 bytes come out of the shared entropy pool, so a salt costs a copy rather than a call; longer requests go to `crypto.getRandomValues` directly, chunked under its 65536-byte limit. `length` must be an integer in `[0, 2**31 - 1]`; anything larger throws `OUT_OF_RANGE` instead of allocating gigabytes and filling them for hours.
 
 ```ts
 import { secureRandomBytes } from "unsecure";
@@ -86,6 +86,15 @@ await randomJitter(undefined, 50); // 0–49ms — an absent lower bound is 0
 
 Bounds must be non-negative integers (`setTimeout` truncates, so a fractional bound never described the delay), and `maxMs === minMs` resolves after exactly that many milliseconds without drawing randomness. Otherwise `OUT_OF_RANGE` — `null` included: only an absent bound (`undefined`) takes a default.
 
+## resetEntropy()
+
+Forget every byte the shared entropy pool holds — the pool behind `secureRandomNumber()`, `secureRandomBytes()`, `randomJitter()`, a `secureShuffle()` given no generator, and every UUID. The buffer is wiped and released; the next draw fills a new one. Nothing is allocated until the first draw, so `resetEntropy({ refill: true })` is also how to pay for the first `crypto.getRandomValues` call at start-up instead of on the first request. A generator from `createSecureRandomGenerator()` has its own pool and its own `reset()`; this does not reach it.
+
+```ts
+resetEntropy(); // wipe now, refill on the next draw
+resetEntropy({ refill: true }); // wipe and refill now
+```
+
 ## Use Case: Secure Lottery / Drawing
 
 ```ts
@@ -115,7 +124,7 @@ async function handleLogin(credentials: Credentials) {
 
 ## Pitfall: Expecting an Isolated Generator from secureRandomNumber()
 
-`secureRandomNumber()` and `randomJitter()` draw from one process-wide buffered generator, so a test that stubs `crypto.getRandomValues` sees the stub only once every 256 draws. Create a private generator when the draws must be isolated.
+`secureRandomNumber()` and `randomJitter()` draw from one process-wide generator over a 4 KiB entropy pool, so a test that stubs `crypto.getRandomValues` sees the stub only once every thousand draws. Create a private generator when the draws must be isolated.
 
 ```ts
 // ❌ Assumes every call reaches crypto.getRandomValues
@@ -125,6 +134,15 @@ secureRandomNumber(100);
 // ✅ A generator of your own, refilled on its first draw
 const rng = createSecureRandomGenerator();
 rng.next(100);
+```
+
+## Pitfall: Restoring from a Snapshot
+
+A pool filled before a process snapshot comes back filled in every restored copy, and every copy would mint the same UUIDs and `secureRandomBytes()`. Node startup snapshots are covered automatically (the pool registers a reset while one is being built). A VM checkpoint or serverless warm image is invisible to the library: call `resetEntropy()` from its restore hook, or draw nothing before init completes so there is nothing to replay.
+
+```ts
+// ✅ in the platform's restore hook
+resetEntropy({ refill: true });
 ```
 
 ## Pitfall: Using Math.random() Alongside This Library
