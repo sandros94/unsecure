@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { expectUnsecureError } from "./_helpers.ts";
 import {
   createSecureRandomGenerator,
+  resetEntropy,
   secureRandomBytes,
   secureRandomNumber,
   secureShuffle,
@@ -606,5 +607,42 @@ describe("secureRandomNumber uniformity", () => {
     for (const count of counts) {
       expect(Math.abs(count - draws / 3)).toBeLessThan(2000);
     }
+  });
+});
+
+describe("resetEntropy()", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("makes the next shared draw refill", () => {
+    secureRandomNumber(10);
+    const spy = vi.spyOn(crypto, "getRandomValues");
+    resetEntropy();
+    expect(spy).not.toHaveBeenCalled();
+    secureRandomNumber(10);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("refills right away with { refill: true }", () => {
+    const spy = vi.spyOn(crypto, "getRandomValues");
+    resetEntropy({ refill: true });
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]![0]).toHaveLength(4096);
+    secureRandomBytes(16);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reach a generator of its own, which has reset() instead", () => {
+    const gen = createSecureRandomGenerator();
+    gen.next(10);
+    const spy = vi.spyOn(crypto, "getRandomValues");
+    resetEntropy();
+    gen.next(10);
+    expect(spy).not.toHaveBeenCalled();
+    gen.reset();
+    gen.next(10);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]![0]).toHaveLength(1024);
   });
 });

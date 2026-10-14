@@ -1,4 +1,5 @@
 import { assertInteger, showValue } from "./_internal/assert.ts";
+import { type EntropyPool, createEntropyPool, sharedPool } from "./_internal/pool.ts";
 import { UnsecureError } from "./errors.ts";
 
 /**
@@ -34,31 +35,38 @@ export interface SecureRandomGenerator {
    *                         or a Set<number>.
    */
   next(min: number, max: number, ignore?: Iterable<number> | Set<number>): number;
+
+  /** Wipe this generator's pool; the next draw refills it. See {@link resetEntropy}. */
+  reset(): void;
 }
 
+/** Options for {@link resetEntropy}. */
+export interface ResetEntropyOptions {
+  /** Refill right away instead of on the next draw. @default false */
+  refill?: boolean;
+}
+
+/** What a caller holds when `next` throws, whichever entry point led there. */
+const _SOURCE = "SecureRandomGenerator.next";
+
+/** Bytes per refill of a private generator: 256 draws. */
+const _GENERATOR_POOL_BYTES = 1024;
+
 /**
- * Creates a cryptographically secure random number generator that uses a buffer
- * to reduce the number of calls to the Web Crypto API. This is a performant
- * way to generate multiple random numbers.
+ * Creates a cryptographically secure random number generator with an entropy
+ * pool of its own, so its draws share nothing with the rest of the process.
  * Supports next(max), next(min, max) and both variants with an optional
  * ignore iterable or Set of values to exclude from results.
  * @returns {SecureRandomGenerator} An object with a `next` method for generating numbers.
  */
-/** What a caller holds when `next` throws, whichever entry point led there. */
-const _SOURCE = "SecureRandomGenerator.next";
-
 /* @__NO_SIDE_EFFECTS__ */
 export function createSecureRandomGenerator(): SecureRandomGenerator {
-  const BUFFER_SIZE = 256;
-  const buffer = new Uint32Array(BUFFER_SIZE);
-  let index = BUFFER_SIZE; // Initialize to force a refill on the first call.
+  return _generatorOver(createEntropyPool(_GENERATOR_POOL_BYTES));
+}
 
-  /** Fills the buffer with new random values. */
-  function _refillBuffer(): void {
-    crypto.getRandomValues(buffer);
-    index = 0;
-  }
-
+/** The one draw path: rejection sampling over 32-bit words from `pool`. */
+/* @__NO_SIDE_EFFECTS__ */
+function _generatorOver(pool: EntropyPool): SecureRandomGenerator {
   function next(max: number, ignore?: Iterable<number> | Set<number>): number;
   function next(min: number, max: number, ignore?: Iterable<number> | Set<number>): number;
   function next(
@@ -137,10 +145,7 @@ export function createSecureRandomGenerator(): SecureRandomGenerator {
     let randomValue: number;
     let candidate: number;
     do {
-      if (index >= BUFFER_SIZE) {
-        _refillBuffer();
-      }
-      randomValue = buffer[index++]!;
+      randomValue = pool.nextUint32();
       candidate = min + (randomValue % range);
       // Loop while value is biased (>= maxSafe) or candidate is in ignore set.
     } while (randomValue >= maxSafe || (ignoreSet !== undefined && ignoreSet.has(candidate)));
@@ -148,15 +153,14 @@ export function createSecureRandomGenerator(): SecureRandomGenerator {
     return candidate;
   }
 
-  return { next };
+  return { next, reset: () => pool.reset() };
 }
 
 /**
- * The generator behind {@link secureRandomNumber} and {@link randomJitter}.
- * Shared so one buffered refill serves the whole process. The purity
- * annotation lets a bundler drop it from builds that import neither.
+ * The generator behind {@link secureRandomNumber}, {@link randomJitter} and a
+ * {@link secureShuffle} given no generator, over the library's shared pool.
  */
-const _sharedGenerator: SecureRandomGenerator = /* @__PURE__ */ createSecureRandomGenerator();
+const _sharedGenerator: SecureRandomGenerator = /* @__PURE__ */ _generatorOver(sharedPool);
 
 /**
  * Gets a single cryptographically secure random integer in the range [0, max).
@@ -220,7 +224,24 @@ export function secureRandomNumber(
 const MAX_RANDOM_BYTES = 2 ** 31 - 1;
 
 /**
- * Generate a Uint8Array of cryptographically secure random bytes.
+ * Wipe and release the shared entropy pool behind `secureRandomNumber()`,
+ * `secureRandomBytes()`, `randomJitter()`, `secureShuffle()` and every UUID.
+ * Call it from a snapshot-restore hook (VM checkpoint, serverless warm image)
+ * so restored copies do not replay the same bytes; Node's own startup
+ * snapshots are handled automatically. `refill: true` fills the pool at once,
+ * which also serves as a start-up prefill. A private generator has `reset()`.
+ *
+ * @example
+ * resetEntropy({ refill: true });
+ */
+export function resetEntropy(options?: ResetEntropyOptions): void {
+  sharedPool.reset(options?.refill === true);
+}
+
+/**
+ * Generate a Uint8Array of cryptographically secure random bytes. Up to 64
+ * bytes come from the shared entropy pool; longer requests go to
+ * `crypto.getRandomValues` directly, in 65536-byte chunks.
  *
  * @param length Number of random bytes to generate, from 0 to `2**31 - 1`.
  * @returns A Uint8Array filled with random bytes.
@@ -234,15 +255,7 @@ const MAX_RANDOM_BYTES = 2 ** 31 - 1;
 /* @__NO_SIDE_EFFECTS__ */
 export function secureRandomBytes(length: number): Uint8Array<ArrayBuffer> {
   assertInteger("secureRandomBytes", "length", length, 0, MAX_RANDOM_BYTES);
-  const bytes = new Uint8Array(length);
-  if (length > 0) {
-    // crypto.getRandomValues has a 65536-byte limit per call
-    for (let offset = 0; offset < length; offset += 65536) {
-      const chunk = bytes.subarray(offset, Math.min(offset + 65536, length));
-      crypto.getRandomValues(chunk);
-    }
-  }
-  return bytes;
+  return sharedPool.fill(new Uint8Array(length));
 }
 
 /**
@@ -250,14 +263,13 @@ export function secureRandomBytes(length: number): Uint8Array<ArrayBuffer> {
  * cryptographically secure random number generator.
  * @template T
  * @param {Array<T>} array The array to shuffle.
- * @param {SecureRandomGenerator} [generator] - An optional random number generator to reuse.
- *
- * @description If you require to shuffle multiple times it is adviced to pass the `generator` parameter to avoid creating a new generator for each shuffle. (refer to `createSecureRandomGenerator()` factory)
+ * @param {SecureRandomGenerator} [generator] - A generator of your own to draw from; without one the
+ *                                              shuffle draws from the generator shared by the process.
  *
  * @returns {Array<T>} The shuffled array.
  */
 export function secureShuffle<T>(array: Array<T>, generator?: SecureRandomGenerator): Array<T> {
-  const gen = generator ?? createSecureRandomGenerator();
+  const gen = generator ?? _sharedGenerator;
   // Loop from the last element down to the second.
   for (let i = array.length - 1; i > 0; i--) {
     // Pick a random index from the start of the array up to the current position.

@@ -1,9 +1,10 @@
+import { sharedPool } from "./_internal/pool.ts";
 import { hexStringify } from "./utils/index.ts";
 import { UnsecureError } from "./errors.ts";
 
 /**
- * Generate a UUID version 4 (RFC 9562 §5.4) backed by
- * `crypto.getRandomValues`. 122 bits of randomness — collision probability
+ * Generate a UUID version 4 (RFC 9562 §5.4) from the library's entropy pool,
+ * itself filled by `crypto.getRandomValues`. 122 bits of randomness — collision probability
  * reaches ~50% at roughly 2^61 UUIDs (birthday bound).
  *
  * This does not delegate to `crypto.randomUUID()` — the version and variant
@@ -12,8 +13,7 @@ import { UnsecureError } from "./errors.ts";
  */
 /* @__NO_SIDE_EFFECTS__ */
 export function uuidv4(): string {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
+  const bytes = sharedPool.fill(new Uint8Array(16));
   // Version 4: set the high nibble of byte 6 to 0b0100.
   bytes[6] = (bytes[6]! & 0x0f) | 0x40;
   // Variant RFC 9562: set the top two bits of byte 8 to 0b10.
@@ -238,11 +238,9 @@ function _coerceMs(value: Date | number): number {
 
 /* @__NO_SIDE_EFFECTS__ */
 function _seedCounter(): number {
-  const buf = new Uint8Array(2);
-  crypto.getRandomValues(buf);
   // Seed in the lower half of the 12-bit range so we always have ≥2048
   // monotonic increments before the counter would overflow into a new ms.
-  return ((buf[0]! << 8) | buf[1]!) & 0x7ff;
+  return sharedPool.nextUint32() & 0x7ff;
 }
 
 function _writeTimestampBE(bytes: Uint8Array, tsMs: number): void {
@@ -259,11 +257,10 @@ function _writeTimestampBE(bytes: Uint8Array, tsMs: number): void {
 
 /* @__NO_SIDE_EFFECTS__ */
 function _formatV7Random(tsMs: number): string {
-  const bytes = new Uint8Array(16);
+  // A full fill, then the timestamp over bytes 0-5: a `subarray(6)` on a fresh
+  // array makes V8 materialize its on-heap store, which costs more than 6 bytes.
+  const bytes = sharedPool.fill(new Uint8Array(16));
   _writeTimestampBE(bytes, tsMs);
-  // Fill the 10 remaining bytes with random material, then overwrite the
-  // version nibble (byte 6) and the variant bits (byte 8).
-  crypto.getRandomValues(bytes.subarray(6));
   bytes[6] = (bytes[6]! & 0x0f) | 0x70;
   bytes[8] = (bytes[8]! & 0x3f) | 0x80;
   return _formatUUID(bytes);
@@ -271,15 +268,14 @@ function _formatV7Random(tsMs: number): string {
 
 /* @__NO_SIDE_EFFECTS__ */
 function _formatV7Counter(tsMs: number, counter: number): string {
-  const bytes = new Uint8Array(16);
+  // Full fill, then the fixed fields over it (see _formatV7Random).
+  const bytes = sharedPool.fill(new Uint8Array(16));
   _writeTimestampBE(bytes, tsMs);
   // Version 7 in the high nibble of byte 6; counter fills rand_a (12 bits
   // spanning the low nibble of byte 6 and all of byte 7).
   bytes[6] = 0x70 | ((counter >>> 8) & 0x0f);
   bytes[7] = counter & 0xff;
-  // Fill rand_b (bytes 8-15) with random material, then overwrite the
-  // top two bits of byte 8 with the RFC 9562 variant (0b10).
-  crypto.getRandomValues(bytes.subarray(8));
+  // rand_b (bytes 8-15) keeps the fill; byte 8 takes the RFC 9562 variant.
   bytes[8] = (bytes[8]! & 0x3f) | 0x80;
   return _formatUUID(bytes);
 }

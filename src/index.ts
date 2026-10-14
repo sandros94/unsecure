@@ -47,6 +47,8 @@ export {
   secureRandomBytes,
   secureRandomNumber,
   secureShuffle,
+  resetEntropy,
+  type ResetEntropyOptions,
 } from "./random.ts";
 
 export { safeJsonParse, sanitizeObject, sanitizeObjectCopy } from "./sanitize.ts";

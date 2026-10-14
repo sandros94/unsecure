@@ -9,8 +9,8 @@ import { rolldown } from "rolldown";
 
 /**
  * The README promises that importing one function ships one function: no
- * codec a caller did not ask for, no shared random buffer behind a call that
- * fills its own bytes. `sideEffects: false` and the `@__PURE__` annotations
+ * codec a caller did not ask for, no entropy pool behind a function that never
+ * draws. `sideEffects: false` and the `@__PURE__` annotations
  * are what make that true, and nothing but a bundler can tell whether they
  * still do — a stray top-level call or an import moved to the wrong module
  * breaks it silently and only shows up in someone's shipped bytes.
@@ -100,7 +100,7 @@ const ENTRIES: ReadonlyArray<Entry> = [
   {
     name: "secureGenerate",
     module: "generate.ts",
-    measured: 3564,
+    measured: 4424,
     absent: [...CODECS, MARKERS.importKey],
   },
   // hex and base64 come with `returnAs`, base32 does not
@@ -136,12 +136,12 @@ const ENTRIES: ReadonlyArray<Entry> = [
     measured: 10787,
     absent: [MARKERS.randomBuffer, MARKERS.randomBytes, MARKERS.deriveBits, MARKERS.hkdf],
   },
-  // fills its own bytes, so the shared generator stays behind
+  // draws from the shared pool; the sampling generator over it stays behind
   {
     name: "secureRandomBytes",
     module: "random.ts",
-    measured: 843,
-    absent: [...CODECS, MARKERS.randomBuffer, MARKERS.importKey],
+    measured: 1573,
+    absent: [...CODECS, MARKERS.importKey],
   },
   {
     name: "sanitizeObject",
@@ -149,12 +149,12 @@ const ENTRIES: ReadonlyArray<Entry> = [
     measured: 978,
     absent: [...CODECS, MARKERS.randomBytes, MARKERS.importKey],
   },
-  // hex only: a UUID is printed as hex
+  // hex only: a UUID is printed as hex; the entropy pool comes along by design
   {
     name: "uuidv7",
     module: "uuid.ts",
-    measured: 2352,
-    absent: [...BASE32, ...BASE64, MARKERS.randomBuffer, MARKERS.importKey],
+    measured: 3178,
+    absent: [...BASE32, ...BASE64, MARKERS.importKey],
   },
   {
     name: "hexParse",

@@ -1,4 +1,4 @@
-import { createSecureRandomGenerator, secureShuffle } from "./random.ts";
+import { secureRandomNumber, secureShuffle } from "./random.ts";
 import { assertInteger, showValue } from "./_internal/assert.ts";
 import { UnsecureError } from "./errors.ts";
 
@@ -114,8 +114,7 @@ export function secureGenerate(options?: SecureGenerateOptions): string {
   const charset = sets.flat();
   _assertDistinct(charset);
 
-  const random = createSecureRandomGenerator();
-  const guaranteedChars = sets.map((set) => set[random.next(set.length)]!);
+  const guaranteedChars = sets.map((set) => set[secureRandomNumber(set.length)]!);
 
   const lengthToGenerate = length - timestampStr.length;
   const remainingLength = lengthToGenerate - guaranteedChars.length;
@@ -123,11 +122,11 @@ export function secureGenerate(options?: SecureGenerateOptions): string {
 
   // Fill the rest of the string length with random characters from the full set
   for (let i = 0; i < remainingLength; i++) {
-    randomChars.push(charset[random.next(charset.length)]!);
+    randomChars.push(charset[secureRandomNumber(charset.length)]!);
   }
 
   // Combine guaranteed characters with random ones and shuffle securely
-  const finalPasswordArray = secureShuffle([...guaranteedChars, ...randomChars], random);
+  const finalPasswordArray = secureShuffle([...guaranteedChars, ...randomChars]);
 
   // Ensure the string is the exact length requested
   return timestampStr + finalPasswordArray.slice(0, lengthToGenerate).join("");
