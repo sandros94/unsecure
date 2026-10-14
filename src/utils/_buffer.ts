@@ -11,8 +11,15 @@ interface _BufferLike extends Uint8Array {
 interface _BufferCtor {
   from(str: string): _BufferLike;
   from(str: string, encoding: "hex" | "base64" | "base64url" | "utf8"): _BufferLike;
+  from(array: Uint8Array): _BufferLike;
   from(array: ArrayBufferLike, byteOffset?: number, length?: number): _BufferLike;
 }
+
+/**
+ * V8 keeps typed arrays this small on-heap; wrapping one as a `Buffer` view
+ * forces it off-heap at several times the cost of a copy. Above it a view is free.
+ */
+const _ON_HEAP_MAX = 64;
 
 export const _Buffer: _BufferCtor | undefined = /* @__PURE__ */ (() => {
   try {
@@ -26,5 +33,7 @@ export const _hasBuffer: boolean = /* @__PURE__ */ (() => typeof _Buffer?.from =
 
 /* @__NO_SIDE_EFFECTS__ */
 export function _toBuffer(bytes: Uint8Array): _BufferLike {
-  return _Buffer!.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return bytes.byteLength <= _ON_HEAP_MAX
+    ? _Buffer!.from(bytes)
+    : _Buffer!.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 }

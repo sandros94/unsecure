@@ -107,19 +107,19 @@ const ENTRIES: ReadonlyArray<Entry> = [
   {
     name: "hash",
     module: "hash.ts",
-    measured: 3875,
+    measured: 3902,
     absent: [...BASE32, MARKERS.randomBuffer, MARKERS.randomBytes, MARKERS.importKey],
   },
   {
     name: "hkdf",
     module: "hkdf.ts",
-    measured: 5054,
+    measured: 5081,
     absent: [...BASE32, MARKERS.randomBuffer, MARKERS.randomBytes, MARKERS.digest],
   },
   {
     name: "hmac",
     module: "hmac.ts",
-    measured: 4958,
+    measured: 4985,
     absent: [
       ...BASE32,
       MARKERS.randomBuffer,
@@ -133,7 +133,7 @@ const ENTRIES: ReadonlyArray<Entry> = [
   {
     name: "hotp",
     module: "otp.ts",
-    measured: 10787,
+    measured: 10814,
     absent: [MARKERS.randomBuffer, MARKERS.randomBytes, MARKERS.deriveBits, MARKERS.hkdf],
   },
   // draws from the shared pool; the sampling generator over it stays behind
