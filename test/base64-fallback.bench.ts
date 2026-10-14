@@ -1,4 +1,4 @@
-import { bench, describe } from "vitest";
+import { describe, test } from "vitest";
 
 // -----------------------------------------------------------------------------
 // Fallback-only base64 encode strategies.
@@ -107,49 +107,42 @@ for (const size of [1024, _HYBRID_THRESHOLD + 1024]) {
 // under that for the unchunked runs so they don't throw mid-bench.
 const UNCHUNKED_MAX = 32 << 10; // 32 KiB
 
-// Byte-by-byte: initially capped at 64 KiB out of caution, but the first bench
-// run showed it's actually the *fastest* strategy, so run it on every size.
-const BYTE_BY_BYTE_MAX = Infinity;
-
-const SIZES: ReadonlyArray<readonly [string, number]> = [
-  ["1 KiB", 1 << 10],
-  ["4 KiB", 4 << 10],
-  ["16 KiB", 16 << 10],
-  ["32 KiB", 32 << 10],
-  ["64 KiB", 64 << 10],
-  ["256 KiB", 256 << 10],
-  ["1 MiB", 1 << 20],
-];
+// Byte-by-byte was initially capped at 64 KiB out of caution, but the first
+// bench run showed it's actually the *fastest* strategy, so it runs on every size.
+const SIZES = [
+  { label: "1 KiB", size: 1 << 10 },
+  { label: "4 KiB", size: 4 << 10 },
+  { label: "16 KiB", size: 16 << 10 },
+  { label: "32 KiB", size: 32 << 10 },
+  { label: "64 KiB", size: 64 << 10 },
+  { label: "256 KiB", size: 256 << 10 },
+  { label: "1 MiB", size: 1 << 20 },
+] as const;
 
 describe("base64 encode — fallback-only paths (no Buffer, no toBase64)", () => {
-  for (const [label, size] of SIZES) {
-    // oxlint-disable-next-line vitest/valid-title
-    describe(label, () => {
-      const input = makeBytes(size);
+  test.for(SIZES)("$label", async ({ size }, { bench }) => {
+    const input = makeBytes(size);
 
-      if (size <= UNCHUNKED_MAX) {
-        bench("1. unchunked spread (current impl)", () => {
-          encodeUnchunked(input);
-        });
-      }
-
+    await bench.compare(
+      ...(size <= UNCHUNKED_MAX
+        ? [
+            bench("1. unchunked spread (current impl)", () => {
+              encodeUnchunked(input);
+            }),
+          ]
+        : []),
       bench("2. chunked spread (proposed fix)", () => {
         encodeChunked(input);
-      });
-
-      if (size <= BYTE_BY_BYTE_MAX) {
-        bench("3. byte-by-byte fromCharCode", () => {
-          encodeByteByByte(input);
-        });
-      }
-
+      }),
+      bench("3. byte-by-byte fromCharCode", () => {
+        encodeByteByByte(input);
+      }),
       bench("4. pure JS (no btoa)", () => {
         encodePureJs(input);
-      });
-
+      }),
       bench("5. hybrid byte-by-byte + pure JS", () => {
         encodeHybrid(input);
-      });
-    });
-  }
+      }),
+    );
+  });
 });

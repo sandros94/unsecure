@@ -6,7 +6,12 @@ Everything the library throws is an `UnsecureError`. One class, one code set, on
 
 ```ts
 type UnsecureErrorCode =
-  "INVALID_TYPE" | "OUT_OF_RANGE" | "MALFORMED" | "UNSUPPORTED" | "FROZEN" | "PLATFORM";
+  | "INVALID_TYPE"
+  | "OUT_OF_RANGE"
+  | "MALFORMED"
+  | "UNSUPPORTED"
+  | "FROZEN"
+  | "PLATFORM";
 
 class UnsecureError extends Error {
   readonly name: "UnsecureError";

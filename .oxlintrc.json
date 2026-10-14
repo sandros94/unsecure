@@ -18,7 +18,14 @@
     "oxc/only-used-in-recursion": "off",
     "vitest/expect-expect": [
       "warn",
-      { "assertFunctionNames": ["expect", "expectUnsecureError", "assertLibraryError"] }
+      {
+        "assertFunctionNames": [
+          "expect",
+          "expectUnsecureError",
+          "assertLibraryError",
+          "bench.compare"
+        ]
+      }
     ],
     "require-mock-type-parameters": "off"
   }

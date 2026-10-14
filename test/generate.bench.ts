@@ -1,94 +1,54 @@
-import { bench, describe } from "vitest";
+import { describe, test } from "vitest";
 import { secureGenerate } from "../src/generate.ts";
-import { uuidv4 } from "../src/uuid.ts";
+import { uuidv4, uuidv7 } from "../src/uuid.ts";
 
-describe("bench token generation", () => {
-  const shifty = new Shifty(true, 16);
+describe("secureGenerate against @deepsource/shifty", () => {
+  test.for([16, 32, 64, 128, 256, 384, 512])("%i characters", async (length, { bench }) => {
+    const shifty = new Shifty(true, length);
 
-  describe("16 characters", () => {
-    bench("unsecure", () => {
-      secureGenerate({ length: 16 });
-    });
-
-    bench("@deepsource/shifty", () => {
-      shifty.generate(16);
-    });
-  });
-
-  describe("32 characters", () => {
-    bench("unsecure", () => {
-      secureGenerate({ length: 32 });
-    });
-
-    bench("@deepsource/shifty", () => {
-      shifty.generate(32);
-    });
-  });
-
-  describe("64 characters", () => {
-    bench("unsecure", () => {
-      secureGenerate({ length: 64 });
-    });
-
-    bench("@deepsource/shifty", () => {
-      shifty.generate(64);
-    });
-  });
-
-  describe("128 characters", () => {
-    bench("unsecure", () => {
-      secureGenerate({ length: 128 });
-    });
-
-    bench("@deepsource/shifty", () => {
-      shifty.generate(128);
-    });
-  });
-
-  describe("256 characters", () => {
-    bench("unsecure", () => {
-      secureGenerate({ length: 256 });
-    });
-
-    bench("@deepsource/shifty", () => {
-      shifty.generate(256);
-    });
-  });
-
-  describe("384 characters", () => {
-    bench("unsecure", () => {
-      secureGenerate({ length: 384 });
-    });
-
-    bench("@deepsource/shifty", () => {
-      shifty.generate(384);
-    });
-  });
-
-  describe("512 characters", () => {
-    bench("unsecure", () => {
-      secureGenerate({ length: 512 });
-    });
-
-    bench("@deepsource/shifty", () => {
-      shifty.generate(512);
-    });
+    await bench.compare(
+      bench("unsecure", () => {
+        secureGenerate({ length });
+      }),
+      bench("@deepsource/shifty", () => {
+        shifty.generate(length);
+      }),
+    );
   });
 });
 
-describe("bench UUID generation", () => {
+describe("uuid", () => {
   const TIMES = 1000;
 
-  bench("unsecure", () => {
-    for (let i = 0; i < TIMES; i++) {
-      uuidv4();
-    }
+  test("uuidv4 against crypto.randomUUID (1000 per iteration)", async ({ bench }) => {
+    await bench.compare(
+      bench("unsecure", () => {
+        for (let i = 0; i < TIMES; i++) {
+          uuidv4();
+        }
+      }),
+      bench("Web Crypto API", () => {
+        for (let i = 0; i < TIMES; i++) {
+          crypto.randomUUID();
+        }
+      }),
+    );
   });
 
-  bench("Web Crypto API", () => {
-    for (let i = 0; i < TIMES; i++) {
-      crypto.randomUUID();
-    }
+  // not really measuring anything, just personally remembering perf improvements to one and forgetting about the other
+  test("uuidv7 against uuidv4 (1000 per iteration)", async ({ bench }) => {
+    await bench.compare(
+      bench("uuidv7", () => {
+        for (let i = 0; i < TIMES; i++) {
+          uuidv7();
+        }
+      }),
+      bench("uuidv4", () => {
+        for (let i = 0; i < TIMES; i++) {
+          uuidv4();
+        }
+      }),
+    );
   });
 });
 
