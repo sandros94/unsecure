@@ -1,6 +1,6 @@
 import { describe, test } from "vitest";
 import { argon2id as nobleArgon2id } from "@noble/hashes/argon2.js";
-import { argon2 } from "../src/argon2.ts";
+import { argon2 } from "unsecure/argon2";
 
 const PASSWORD = "correct horse battery staple";
 const SALT = new Uint8Array(16).fill(7);

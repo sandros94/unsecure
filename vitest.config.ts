@@ -48,7 +48,16 @@ export default defineConfig({
   test: {
     slowTestThreshold: 1000,
     projects: [
-      { test: { name: "default" } },
+      {
+        test: {
+          name: "default",
+          // Benchmarks import the built package (`unsecure/<module>`), and the
+          // build must reach Node as native ESM: through the module runner
+          // every imported binding is a getter, which dominates a hot loop.
+          // Tests import from `src` and are untouched by this.
+          server: { deps: { external: [/\/dist\//] } },
+        },
+      },
       ...(!NATIVE_METHODS_AVAILABLE && nativeFlagAccepted() ? [nativeProject] : []),
     ],
   },

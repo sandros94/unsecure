@@ -12,12 +12,12 @@ import { describe, test } from "vitest";
 // entirely, for the pure-JS variant) — no `Buffer`, no `toBase64`.
 // -----------------------------------------------------------------------------
 
-/** Original library impl (pre-audit). Throws past V8's ~65535 arg limit. */
+/** Pre-audit library impl. Throws past V8's ~65535 arg limit. */
 function encodeUnchunked(bytes: Uint8Array): string {
   return btoa(String.fromCodePoint(...bytes));
 }
 
-/** Chunked spread — initially considered fix, benched and rejected. Never wins. */
+/** Chunked spread — considered as the fix, benched and rejected. Never wins. */
 function encodeChunked(bytes: Uint8Array): string {
   const CHUNK = 0x8000; // 32 KiB
   if (bytes.length <= CHUNK) {
@@ -30,7 +30,7 @@ function encodeChunked(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-/** Byte-by-byte + btoa. Fastest on V8 at ≤64 KiB. No arg-count ceiling. */
+/** Byte-by-byte + btoa — what `_encodeBase64` ships. Fastest on V8 at ≤64 KiB. No arg-count ceiling. */
 function encodeByteByByte(bytes: Uint8Array): string {
   let binary = "";
   for (let i = 0; i < bytes.length; i++) {
@@ -126,15 +126,15 @@ describe("base64 encode — fallback-only paths (no Buffer, no toBase64)", () =>
     await bench.compare(
       ...(size <= UNCHUNKED_MAX
         ? [
-            bench("1. unchunked spread (current impl)", () => {
+            bench("1. unchunked spread (pre-audit)", () => {
               encodeUnchunked(input);
             }),
           ]
         : []),
-      bench("2. chunked spread (proposed fix)", () => {
+      bench("2. chunked spread", () => {
         encodeChunked(input);
       }),
-      bench("3. byte-by-byte fromCharCode", () => {
+      bench("3. byte-by-byte fromCharCode (shipped)", () => {
         encodeByteByByte(input);
       }),
       bench("4. pure JS (no btoa)", () => {

@@ -1,6 +1,6 @@
 import { describe, test } from "vitest";
-import { secureGenerate } from "../src/generate.ts";
-import { uuidv4, uuidv7 } from "../src/uuid.ts";
+import { secureGenerate } from "unsecure/generate";
+import { uuidv4, uuidv7 } from "unsecure/uuid";
 
 describe("secureGenerate against @deepsource/shifty", () => {
   test.for([16, 32, 64, 128, 256, 384, 512])("%i characters", async (length, { bench }) => {
