@@ -138,4 +138,4 @@ export function hexParse(input: string | Uint8Array, options?: DecodeOptions): s
 }
 
 /** Hex codec: `Hex.stringify(bytes)` / `Hex.parse(text)`. Strict decode by default. */
-export const Hex: HexCodec = /* @__PURE__ */ { stringify: hexStringify, parse: hexParse };
+export const Hex: HexCodec = { stringify: hexStringify, parse: hexParse };

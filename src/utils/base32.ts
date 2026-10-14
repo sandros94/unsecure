@@ -232,7 +232,7 @@ export function base32Parse(
  * Base32 codec: `Base32.stringify(bytes)` / `Base32.parse(text)`. Strict by default.
  * `alphabet` accepts `"base32"` | `"base32hex"` | `"crockford"` | a custom 32-char string.
  */
-export const Base32: Base32Codec = /* @__PURE__ */ {
+export const Base32: Base32Codec = {
   stringify: base32Stringify,
   parse: base32Parse,
 };

@@ -225,7 +225,7 @@ export function base64Parse(
  * Base64 codec: `Base64.stringify(bytes)` / `Base64.parse(text)`. Strict decode
  * by default. Pass `{ alphabet: "base64url" }` for URL-safe (unpadded by default).
  */
-export const Base64: Base64Codec = /* @__PURE__ */ {
+export const Base64: Base64Codec = {
   stringify: base64Stringify,
   parse: base64Parse,
 };
