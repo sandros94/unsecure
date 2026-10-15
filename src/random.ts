@@ -1,5 +1,6 @@
 import { assertInteger, showValue } from "./_internal/assert.ts";
 import { type EntropyPool, createEntropyPool, sharedPool } from "./_internal/pool.ts";
+import { _drawInPlace } from "./_internal/shuffle.ts";
 import { UnsecureError } from "./errors.ts";
 
 /**
@@ -270,12 +271,9 @@ export function secureRandomBytes(length: number): Uint8Array<ArrayBuffer> {
  */
 export function secureShuffle<T>(array: Array<T>, generator?: SecureRandomGenerator): Array<T> {
   const gen = generator ?? _sharedGenerator;
-  // Loop from the last element down to the second.
-  for (let i = array.length - 1; i > 0; i--) {
-    // Pick a random index from the start of the array up to the current position.
-    const j = gen.next(i + 1);
-    // Swap the elements at the current and random positions.
-    [array[i], array[j]] = [array[j]!, array[i]!];
+  const next = (max: number): number => gen.next(max);
+  for (let i = 0; i < array.length - 1; i++) {
+    _drawInPlace(array, i, array.length, next);
   }
   return array;
 }
