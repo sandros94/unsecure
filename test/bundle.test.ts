@@ -90,6 +90,20 @@ const ENTRIES: ReadonlyArray<Entry> = [
     measured: 1110,
     absent: [...CODECS, MARKERS.randomBuffer, MARKERS.randomBytes, MARKERS.importKey],
   },
+  // fairness, not secrecy: the shared generator and its pool come along by design
+  {
+    name: "createDeck",
+    module: "deck.ts",
+    measured: 4350,
+    absent: [...CODECS, MARKERS.importKey, MARKERS.digest],
+  },
+  // tiers bring their own chances, so no randomness of its own
+  {
+    name: "createCascade",
+    module: "deck.ts",
+    measured: 1268,
+    absent: [...CODECS, MARKERS.randomBuffer, MARKERS.randomBytes, MARKERS.importKey],
+  },
   // the only public function that throws nothing
   {
     name: "entropy",
@@ -100,7 +114,7 @@ const ENTRIES: ReadonlyArray<Entry> = [
   {
     name: "secureGenerate",
     module: "generate.ts",
-    measured: 4424,
+    measured: 4482,
     absent: [...CODECS, MARKERS.importKey],
   },
   // hex and base64 come with `returnAs`, base32 does not
@@ -202,6 +216,7 @@ interface UnusedCall {
  */
 const UNUSED_CALLS: ReadonlyArray<UnusedCall> = [
   { name: "secureCompare", module: "compare.ts", call: 'secureCompare("a", "b")', ceiling: 0 },
+  { name: "createDeck", module: "deck.ts", call: 'createDeck(["a"])', ceiling: 0 },
   { name: "hexParse", module: "utils/index.ts", call: 'hexParse("ab")', ceiling: 0 },
   { name: "sanitizeObjectCopy", module: "sanitize.ts", call: "sanitizeObjectCopy({})", ceiling: 0 },
   { name: "uuidv7", module: "uuid.ts", call: "uuidv7()", ceiling: 0 },

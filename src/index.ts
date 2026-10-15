@@ -41,6 +41,32 @@ export {
 } from "./otp.ts";
 
 export {
+  type CascadeTier,
+  type ChanceLike,
+  type ChanceModel,
+  type ChanceOptions,
+  type DeckChance,
+  type DeckChanceOptions,
+  type DeckItems,
+  type DeckOptions,
+  type DeckState,
+  type Fraction,
+  type PaddedDeckOptions,
+  type PityChance,
+  type PityChanceOptions,
+  type PityState,
+  type PRDChance,
+  type PRDChanceOptions,
+  type PRDState,
+  type Probability,
+  type Cascade,
+  type Chance,
+  type Deck,
+  createCascade,
+  createChance,
+  createDeck,
+} from "./deck.ts";
+export {
   type SecureRandomGenerator,
   createSecureRandomGenerator,
   randomJitter,

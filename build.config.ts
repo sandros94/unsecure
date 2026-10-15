@@ -8,6 +8,7 @@ export default defineBuildConfig({
         "./src/index.ts",
         "./src/argon2.ts",
         "./src/compare.ts",
+        "./src/deck.ts",
         "./src/entropy.ts",
         "./src/errors.ts",
         "./src/generate.ts",
