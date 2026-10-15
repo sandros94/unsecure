@@ -124,10 +124,10 @@
   },
   "devDependencies": {
     "@noble/hashes": "^2.4.0",
-    "@node-rs/argon2": "^2.2.0",
+    "@node-rs/argon2": "^2.2.2",
     "@types/node": "^26.6.5",
     "@vitest/coverage-v8": "^5.0.4",
-    "obuild": "^0.4.39",
+    "obuild": "^0.4.45",
     "oxfmt": "^0.73.0",
     "oxlint": "^1.88.0",
     "oxlint-tsgolint": "^7.0.2004",
