@@ -25,7 +25,7 @@ Every public module is also its own subpath so CDN / browser consumers only ship
 - `unsecure/argon2` — `argon2`, `argon2Hash`, `argon2Verify`, `argon2NeedsRehash`
 - `unsecure/compare` — `secureCompare`
 - `unsecure/entropy` — `entropy`
-- `unsecure/deck` — `createDeck`, `createChance`, `createCascade`
+- `unsecure/odds` — `createDeck`, `createChance`, `createCascade`
 - `unsecure/errors` — `UnsecureError`, `UnsecureErrorCode`
 - `unsecure/generate` — `secureGenerate`
 - `unsecure/hash` — `hash`
@@ -85,7 +85,7 @@ Constant-time comparison. Load when working with `secureCompare()`, the `strict`
 
 Shannon entropy analysis. Load when working with `entropy()`, measuring randomness quality, password strength validation, or input quality heuristics.
 
-### [deck.md](./references/deck.md)
+### [odds.md](./references/odds.md)
 
 Fair-feeling randomness. Load when working with `createDeck()`, `createChance()`, `createCascade()`, shuffle bags, loot tables, critical-hit or proc chances, pseudo-random distribution (PRD), pity timers, or "random but never unlucky for long" requirements.
 

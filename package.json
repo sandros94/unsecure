@@ -61,9 +61,9 @@
       "types": "./dist/compare.d.mts",
       "default": "./dist/compare.mjs"
     },
-    "./deck": {
-      "types": "./dist/deck.d.mts",
-      "default": "./dist/deck.mjs"
+    "./odds": {
+      "types": "./dist/odds.d.mts",
+      "default": "./dist/odds.mjs"
     },
     "./entropy": {
       "types": "./dist/entropy.d.mts",

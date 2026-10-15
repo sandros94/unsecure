@@ -65,7 +65,7 @@ export {
   createCascade,
   createChance,
   createDeck,
-} from "./deck.ts";
+} from "./odds.ts";
 export {
   type SecureRandomGenerator,
   createSecureRandomGenerator,
