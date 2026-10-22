@@ -47,6 +47,9 @@
   "sideEffects": false,
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
+  "browser": {
+    "buffer": false
+  },
   "types": "./dist/index.d.mts",
   "exports": {
     ".": {

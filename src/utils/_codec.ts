@@ -22,12 +22,27 @@ const _fatalDecoder: TextDecoder = /* @__PURE__ */ new TextDecoder("utf-8", {
 });
 
 /**
- * Bytes a native encoder can be trusted with. Some runtimes' `toBase64` /
- * `toHex` read from the start of the backing buffer rather than from the
- * view, so a view that does not span its whole buffer is copied first.
+ * Whether a TC39 `Uint8Array` encoder reads a view where it starts, probed
+ * once at load by the codec that calls it. An implementation that reads from
+ * the start of the backing buffer instead encodes the wrong bytes for any view
+ * that does not span it, so on such a runtime {@link _wholeBuffer} copies the
+ * view first. Telling the two apart per call would mean reading `.buffer`,
+ * which on an array small enough to live on-heap materializes the buffer at
+ * more than the encode costs; the probe pays that once.
  */
 /* @__NO_SIDE_EFFECTS__ */
-export function _wholeBuffer(bytes: Uint8Array): Uint8Array {
+export function _honoursViews(encode: (view: Uint8Array) => string, expected: string): boolean {
+  try {
+    return encode(Uint8Array.of(0, 1, 2, 3).subarray(1, 3)) === expected;
+  } catch {
+    return false;
+  }
+}
+
+/** Bytes a native encoder can be trusted with: the view itself where `honoured`, else a copy. */
+/* @__NO_SIDE_EFFECTS__ */
+export function _wholeBuffer(bytes: Uint8Array, honoured: boolean): Uint8Array {
+  if (honoured) return bytes;
   return bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
     ? bytes
     : bytes.slice();

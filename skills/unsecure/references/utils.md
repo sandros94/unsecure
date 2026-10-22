@@ -175,8 +175,11 @@ const str = textDecoder.decode(bytes);
 
 ## Internal: Buffer / native detection
 
-Encoding prefers Node.js `Buffer` when available, then the TC39
-`Uint8Array.toBase64`/`toHex` methods, then manual fallbacks.
+Hex and base64 pick a bulk backend per call. Node `Buffer` does the work where
+the runtime has it, except that inputs of 64 bytes or fewer go to the TC39
+`Uint8Array` `toHex`/`toBase64`/`fromHex`/`fromBase64` methods when those exist
+too: they read an on-heap array in place where `Buffer` must copy it. Where only
+one backend exists it serves every size; a manual loop is the last resort.
 
 Decoding settles the contract in JavaScript first and hands a backend only
 canonical, fully padded, standard-alphabet text to bulk-decode. Native

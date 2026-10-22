@@ -1,9 +1,10 @@
-import { _Buffer, _hasBuffer, _toBuffer } from "./_buffer.ts";
+import { _Buffer, _preferBuffer, _toBuffer } from "./_buffer.ts";
 import {
   type BytesSource,
   type DecodeOptions,
   type DecodeReturnAs,
   _assertData,
+  _honoursViews,
   _malformed,
   _parseFinalize,
   _parsePrep,
@@ -22,11 +23,14 @@ const _nativeToHex: boolean = /* @__PURE__ */ (() =>
   typeof (Uint8Array.prototype as Partial<_ToHex>).toHex === "function")();
 const _nativeFromHex: boolean = /* @__PURE__ */ (() =>
   typeof (Uint8Array as Partial<_FromHex>).fromHex === "function")();
+/** Whether `toHex` honours a view; a runtime without it never reaches it. */
+const _hexViews: boolean = /* @__PURE__ */ (() =>
+  !_nativeToHex || _honoursViews((view) => (view as unknown as _ToHex).toHex(), "0102"))();
 
 /* @__NO_SIDE_EFFECTS__ */
 function _encodeHex(bytes: Uint8Array): string {
-  if (_hasBuffer) return _toBuffer(bytes).toString("hex");
-  if (_nativeToHex) return (_wholeBuffer(bytes) as unknown as _ToHex).toHex();
+  if (_preferBuffer(bytes.length, _nativeToHex)) return _toBuffer(bytes).toString("hex");
+  if (_nativeToHex) return (_wholeBuffer(bytes, _hexViews) as unknown as _ToHex).toHex();
   let out = "";
   for (let i = 0; i < bytes.length; i++) {
     out += bytes[i]!.toString(16).padStart(2, "0");
@@ -82,7 +86,9 @@ function _hexManual(text: string): Uint8Array<ArrayBuffer> {
  */
 /* @__NO_SIDE_EFFECTS__ */
 function _decodeHex(text: string): Uint8Array<ArrayBuffer> {
-  if (_hasBuffer) return new Uint8Array(_Buffer!.from(text, "hex"));
+  if (_preferBuffer(text.length >>> 1, _nativeFromHex)) {
+    return new Uint8Array(_Buffer!.from(text, "hex"));
+  }
   if (_nativeFromHex) return (Uint8Array as unknown as _FromHex).fromHex(text);
   return _hexManual(text);
 }

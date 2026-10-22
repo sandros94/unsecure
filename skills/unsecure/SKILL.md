@@ -114,7 +114,7 @@ Encoding/decoding utilities. Load when working with the hex, base64 or base32 co
 ## Architecture Notes
 
 - **Zero dependencies** — everything is built on Web Crypto API (`crypto.subtle`, `crypto.getRandomValues`)
-- Internal buffer utilities detect Node.js `Buffer` for fastest-path encoding, with fallbacks to TC39 `Uint8Array` methods or manual implementations
+- Codecs pick a bulk backend per call: Node `Buffer` where present, except that inputs of 64 bytes or fewer use the TC39 `Uint8Array` hex/base64 methods when those exist too; a manual loop is the fallback where neither exists
 - Random generator uses a 256-element `Uint32Array` buffer with rejection sampling to avoid modulo bias
 - `secureRandomBytes()` handles the 65536-byte `crypto.getRandomValues` limit via chunking, and refuses a length above `2**31 - 1`
 - `secureRandomNumber()` and `randomJitter()` draw from one module-level instance of that generator

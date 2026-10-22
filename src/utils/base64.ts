@@ -1,4 +1,4 @@
-import { _Buffer, _hasBuffer, _toBuffer } from "./_buffer.ts";
+import { _Buffer, _preferBuffer, _toBuffer } from "./_buffer.ts";
 import {
   type _BlockShape,
   type BytesSource,
@@ -6,6 +6,7 @@ import {
   type DecodeReturnAs,
   _assertData,
   _decodeSymbols,
+  _honoursViews,
   _looseCount,
   _parseFinalize,
   _parsePrep,
@@ -29,6 +30,9 @@ const _nativeToBase64: boolean = /* @__PURE__ */ (() =>
   typeof (Uint8Array.prototype as Partial<_ToBase64>).toBase64 === "function")();
 const _nativeFromBase64: boolean = /* @__PURE__ */ (() =>
   typeof (Uint8Array as Partial<_FromBase64>).fromBase64 === "function")();
+/** Whether `toBase64` honours a view; a runtime without it never reaches it. */
+const _base64Views: boolean = /* @__PURE__ */ (() =>
+  !_nativeToBase64 || _honoursViews((view) => (view as unknown as _ToBase64).toBase64(), "AQI="))();
 
 /** Standard (`+/`) or URL-safe (`-_`) alphabet. */
 export type Base64Alphabet = "base64" | "base64url";
@@ -90,14 +94,14 @@ function _padTo4(s: string): string {
 /* @__NO_SIDE_EFFECTS__ */
 function _encodeBase64(bytes: Uint8Array, alphabet: Base64Alphabet, padding: boolean): string {
   const url = alphabet === "base64url";
-  if (_hasBuffer) {
+  if (_preferBuffer(bytes.length, _nativeToBase64)) {
     // Node emits padded "base64" and unpadded "base64url".
     const s = _toBuffer(bytes).toString(url ? "base64url" : "base64");
     if (url) return padding ? _padTo4(s) : s;
     return padding ? s : _unpad(s);
   }
   if (_nativeToBase64) {
-    return (_wholeBuffer(bytes) as unknown as _ToBase64).toBase64({
+    return (_wholeBuffer(bytes, _base64Views) as unknown as _ToBase64).toBase64({
       alphabet,
       omitPadding: !padding,
     });
@@ -120,7 +124,9 @@ function _encodeBase64(bytes: Uint8Array, alphabet: Base64Alphabet, padding: boo
  */
 /* @__NO_SIDE_EFFECTS__ */
 function _decodeCanonical(padded: string, symbols: number): Uint8Array<ArrayBuffer> {
-  if (_hasBuffer) return new Uint8Array(_Buffer!.from(padded, "base64"));
+  if (_preferBuffer((symbols * 6) >>> 3, _nativeFromBase64)) {
+    return new Uint8Array(_Buffer!.from(padded, "base64"));
+  }
   if (_nativeFromBase64) return (Uint8Array as unknown as _FromBase64).fromBase64(padded);
   return _decodeSymbols(_symbols(padded, _B64_TABLE_STD), symbols, 6);
 }
