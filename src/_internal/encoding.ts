@@ -1,4 +1,5 @@
-import { base64Stringify, hexStringify, base64Parse, hexParse } from "../utils/index.ts";
+import { base64Parse, base64Stringify } from "../utils/base64.ts";
+import { hexParse, hexStringify } from "../utils/hex.ts";
 import type { DigestReturnAs } from "../hash.ts";
 import { UnsecureError } from "../errors.ts";
 

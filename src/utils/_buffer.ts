@@ -1,5 +1,4 @@
-// Which bulk backend serves a codec call: Node's `Buffer`, when the runtime
-// has it, measured against the TC39 `Uint8Array` methods by input size.
+// Which bulk backend serves a codec call: Node's `Buffer` or the TC39 `Uint8Array` methods.
 
 /** Minimal shape of the Node.js `Buffer` instance we rely on. */
 interface _BufferLike extends Uint8Array {
@@ -39,14 +38,9 @@ export function _toBuffer(bytes: Uint8Array): _BufferLike {
 }
 
 /**
- * Whether `Buffer` should do the bulk work for `byteLength` bytes, given
- * whether the runtime also has the TC39 `Uint8Array` method for the job.
- *
- * Where both exist the size decides: the native method reads an on-heap array
- * in place, while `Buffer` has to copy it first, so up to `_ON_HEAP_MAX`
- * bytes it is the faster of the two by a wide margin. Above that the array is
- * off-heap either way and `Buffer` keeps the edge in bulk work. Where only
- * one exists it serves every size, and the manual loop is the last resort.
+ * `Buffer` does the bulk work where it exists, except for inputs of up to
+ * `_ON_HEAP_MAX` bytes when the TC39 method exists too: that one reads an
+ * on-heap array in place where `Buffer` would copy it first.
  */
 /* @__NO_SIDE_EFFECTS__ */
 export function _preferBuffer(byteLength: number, native: boolean): boolean {

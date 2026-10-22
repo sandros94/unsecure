@@ -91,8 +91,13 @@ function _padTo4(s: string): string {
   return rem === 0 ? s : s + "=".repeat(4 - rem);
 }
 
+/** Bytes to base64 text; internal callers that already hold bytes skip the option parsing. */
 /* @__NO_SIDE_EFFECTS__ */
-function _encodeBase64(bytes: Uint8Array, alphabet: Base64Alphabet, padding: boolean): string {
+export function _encodeBase64(
+  bytes: Uint8Array,
+  alphabet: Base64Alphabet,
+  padding: boolean,
+): string {
   const url = alphabet === "base64url";
   if (_preferBuffer(bytes.length, _nativeToBase64)) {
     // Node emits padded "base64" and unpadded "base64url".
@@ -131,8 +136,9 @@ function _decodeCanonical(padded: string, symbols: number): Uint8Array<ArrayBuff
   return _decodeSymbols(_symbols(padded, _B64_TABLE_STD), symbols, 6);
 }
 
+/** Base64 text to bytes, strict unless `loose`; the internal half of {@link base64Parse}. */
 /* @__NO_SIDE_EFFECTS__ */
-function _decodeBase64(
+export function _decodeBase64(
   text: string,
   alphabet: Base64Alphabet,
   loose: boolean,

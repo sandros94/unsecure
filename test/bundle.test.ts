@@ -143,12 +143,41 @@ const ENTRIES: ReadonlyArray<Entry> = [
       MARKERS.hkdf,
     ],
   },
-  // base32 is here because OTP secrets are base32 text
+  // base32 is here because OTP secrets are base32 text; the MAC is signed
+  // directly, so the encodings behind `hmac()`'s `returnAs` stay out
   {
     name: "hotp",
     module: "otp.ts",
-    measured: 10814,
-    absent: [MARKERS.randomBuffer, MARKERS.randomBytes, MARKERS.deriveBits, MARKERS.hkdf],
+    measured: 6622,
+    absent: [
+      ...BASE64,
+      ...HEX,
+      MARKERS.randomBuffer,
+      MARKERS.randomBytes,
+      MARKERS.deriveBits,
+      MARKERS.hkdf,
+    ],
+  },
+  // a URI builder: base32 for the secret, no HMAC, no randomness
+  {
+    name: "otpauthURI",
+    module: "otp.ts",
+    measured: 6226,
+    absent: [
+      ...BASE64,
+      ...HEX,
+      MARKERS.randomBuffer,
+      MARKERS.randomBytes,
+      MARKERS.importKey,
+      MARKERS.digest,
+    ],
+  },
+  // the PHC fields are base64; the pool is behind the salt, and `digest` is BLAKE2b's own method
+  {
+    name: "argon2Verify",
+    module: "argon2.ts",
+    measured: 13182,
+    absent: [...BASE32, ...HEX, MARKERS.importKey, MARKERS.deriveBits, MARKERS.hkdf],
   },
   // draws from the shared pool; the sampling generator over it stays behind
   {
@@ -163,12 +192,12 @@ const ENTRIES: ReadonlyArray<Entry> = [
     measured: 978,
     absent: [...CODECS, MARKERS.randomBytes, MARKERS.importKey],
   },
-  // hex only: a UUID is printed as hex; the entropy pool comes along by design
+  // no codec at all: a UUID is printed from its own hex table; the entropy pool comes along by design
   {
     name: "uuidv7",
     module: "uuid.ts",
-    measured: 3178,
-    absent: [...BASE32, ...BASE64, MARKERS.importKey],
+    measured: 2003,
+    absent: [...CODECS, MARKERS.importKey],
   },
   {
     name: "hexParse",
@@ -305,4 +334,79 @@ describe("unused-call elimination", () => {
       TIMEOUT,
     );
   }
+});
+
+/**
+ * The published layout is what a CDN consumer pays for: a subpath entry plus
+ * every chunk it imports, whole. Chunks group modules by which entries reach
+ * them, so the invariant is per entry: it must reach no codec it does not use.
+ */
+describe("chunk layout", () => {
+  const BASE32_MARKER = [MARKERS.base32];
+  const BASE64_MARKER = [MARKERS.base64Decode];
+  const HEX_MARKER = [MARKERS.hexDecode];
+  const DIGEST = [...BASE64_MARKER, ...HEX_MARKER];
+
+  /** Every entry of `build.config.ts`, with the codecs it is allowed to reach. */
+  const ENTRIES: ReadonlyArray<readonly [entry: string, allowed: ReadonlyArray<string>]> = [
+    ["index", [...BASE32_MARKER, ...DIGEST]],
+    ["argon2", DIGEST],
+    ["compare", []],
+    ["odds", []],
+    ["entropy", []],
+    ["errors", []],
+    ["generate", []],
+    ["hash", DIGEST],
+    ["hkdf", DIGEST],
+    ["hmac", DIGEST],
+    ["otp", BASE32_MARKER],
+    ["random", []],
+    ["sanitize", []],
+    ["uuid", []],
+    ["utils/index", [...BASE32_MARKER, ...DIGEST]],
+  ];
+  const CODEC_MARKERS = [...BASE32_MARKER, ...DIGEST];
+
+  it(
+    "lets every entry reach only the codecs it uses",
+    async () => {
+      const build = await rolldown({
+        input: Object.fromEntries(ENTRIES.map(([name]) => [name, path.join(SRC, `${name}.ts`)])),
+        platform: "neutral",
+        treeshake: true,
+        logLevel: "silent",
+      });
+      try {
+        const { output } = await build.generate({
+          format: "esm",
+          minify: true,
+          entryFileNames: "[name].mjs",
+          chunkFileNames: "_chunks/[name].mjs",
+        });
+        const chunks = output.filter((chunk) => chunk.type === "chunk");
+        const codeOf = (fileName: string): string =>
+          chunks.find((chunk) => chunk.fileName === fileName)!.code;
+        for (const [entry, allowed] of ENTRIES) {
+          const reached = new Set<string>();
+          const queue = [`${entry}.mjs`];
+          for (let next = queue.shift(); next !== undefined; next = queue.shift()) {
+            if (reached.has(next)) continue;
+            reached.add(next);
+            queue.push(...chunks.find((chunk) => chunk.fileName === next)!.imports);
+          }
+          for (const name of reached) {
+            for (const marker of CODEC_MARKERS) {
+              if (allowed.includes(marker)) continue;
+              expect(codeOf(name), `${entry} reaches ${name}, which holds ${marker}`).not.toContain(
+                marker,
+              );
+            }
+          }
+        }
+      } finally {
+        await build.close();
+      }
+    },
+    TIMEOUT,
+  );
 });

@@ -6,7 +6,7 @@ import { assertReturnAs, encodeBytes } from "./_internal/encoding.ts";
 import { secureCompare } from "./compare.ts";
 import { UnsecureError } from "./errors.ts";
 import { secureRandomBytes } from "./random.ts";
-import { base64Parse, base64Stringify } from "./utils/index.ts";
+import { _decodeBase64, _encodeBase64 } from "./utils/base64.ts";
 
 // #region Types
 
@@ -669,8 +669,8 @@ export async function argon2Hash(
   const tag = _derive(toBytes(password, "argon2"), salt, resolved);
 
   const { variant, m, t, p } = resolved;
-  const saltText = base64Stringify(salt, { padding: false });
-  const tagText = base64Stringify(tag, { padding: false });
+  const saltText = _encodeBase64(salt, "base64", false);
+  const tagText = _encodeBase64(tag, "base64", false);
   return `$${variant}$v=${_VERSION}$m=${m},t=${t},p=${p}$${saltText}$${tagText}`;
 }
 
@@ -686,7 +686,7 @@ export async function argon2Hash(
 /* @__NO_SIDE_EFFECTS__ */
 function _decodeField(field: string, source: string): Uint8Array<ArrayBuffer> {
   try {
-    return base64Parse(field, { returnAs: "bytes" });
+    return _decodeBase64(field, "base64", false, source);
   } catch (error) {
     if (error instanceof UnsecureError && error.code === "MALFORMED") {
       throw new UnsecureError("MALFORMED", `${source}: malformed PHC string.`, { cause: error });

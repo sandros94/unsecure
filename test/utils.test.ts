@@ -473,3 +473,13 @@ function b64Encode(data: string | Uint8Array): string {
   // @ts-ignore
   return Buffer.from(data).toString("base64");
 }
+
+describe("public surface", () => {
+  // Internal helpers are exported from their modules for other modules in the
+  // package; the barrels must not pass them on.
+  it("exports no underscore-prefixed name from either barrel", async () => {
+    for (const barrel of [await import("../src/utils/index.ts"), await import("../src/index.ts")]) {
+      expect(Object.keys(barrel).filter((name) => name.startsWith("_"))).toEqual([]);
+    }
+  });
+});

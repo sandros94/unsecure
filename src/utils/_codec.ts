@@ -22,13 +22,10 @@ const _fatalDecoder: TextDecoder = /* @__PURE__ */ new TextDecoder("utf-8", {
 });
 
 /**
- * Whether a TC39 `Uint8Array` encoder reads a view where it starts, probed
- * once at load by the codec that calls it. An implementation that reads from
- * the start of the backing buffer instead encodes the wrong bytes for any view
- * that does not span it, so on such a runtime {@link _wholeBuffer} copies the
- * view first. Telling the two apart per call would mean reading `.buffer`,
- * which on an array small enough to live on-heap materializes the buffer at
- * more than the encode costs; the probe pays that once.
+ * Probe once whether a TC39 encoder reads a view where it starts rather than
+ * from the start of its buffer; where it does not, {@link _wholeBuffer}
+ * copies the view. Per call this would read `.buffer`, which materializes
+ * the buffer of a small on-heap array at more than the encode costs.
  */
 /* @__NO_SIDE_EFFECTS__ */
 export function _honoursViews(encode: (view: Uint8Array) => string, expected: string): boolean {

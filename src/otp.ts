@@ -1,10 +1,10 @@
 import type { DigestAlgorithm } from "./hash.ts";
-import { hmac, importHmacKey } from "./hmac.ts";
+import { hmacSign, importHmacKey } from "./_internal/hmac.ts";
 import { normalizeAlgorithm } from "./_internal/algorithm.ts";
 import { type BytesSource, toCryptoBytes } from "./_internal/bytes.ts";
 import { assertHmacKey, isCryptoKey } from "./_internal/key.ts";
 import { assertInteger, showValue } from "./_internal/assert.ts";
-import { base32Parse, base32Stringify } from "./utils/index.ts";
+import { _base32Decode, _base32Encode } from "./utils/base32.ts";
 import { secureRandomBytes } from "./random.ts";
 import { secureCompare } from "./compare.ts";
 import { UnsecureError } from "./errors.ts";
@@ -163,7 +163,7 @@ function _baseOptions(
 function _resolveSecret(source: string, secret: string | BytesSource): Uint8Array<ArrayBuffer> {
   const bytes =
     typeof secret === "string"
-      ? base32Parse(secret, { loose: true, returnAs: "bytes" })
+      ? _base32Decode(secret, true, source)
       : toCryptoBytes(secret, source);
   if (bytes.length === 0) {
     throw new UnsecureError("OUT_OF_RANGE", `${source}: secret must not be empty.`);
@@ -196,9 +196,13 @@ async function _resolveKey(
 
 /** The counter → code core, run only once every input is known good. */
 /* @__NO_SIDE_EFFECTS__ */
-async function _code(key: CryptoKey, counter: number, digits: number): Promise<string> {
-  const mac = await hmac(key, _counterToBytes(counter), { returnAs: "uint8array" });
-  return _dynamicTruncate(mac, digits);
+async function _code(
+  source: string,
+  key: CryptoKey,
+  counter: number,
+  digits: number,
+): Promise<string> {
+  return _dynamicTruncate(await hmacSign(key, _counterToBytes(counter), source), digits);
 }
 
 /**
@@ -272,7 +276,7 @@ export async function hotp(
 ): Promise<string> {
   const { algorithm, digits } = _baseOptions("hotp", options);
   assertInteger("hotp", "counter", counter, 0);
-  return _code(await _resolveKey("hotp", secret, algorithm), counter, digits);
+  return _code("hotp", await _resolveKey("hotp", secret, algorithm), counter, digits);
 }
 
 /**
@@ -329,7 +333,7 @@ export async function hotpVerify(
   let valid = false;
   let delta = 0;
   for (let step = 0; step <= window; step++) {
-    const matched = secureCompare(await _code(key, counter + step, digits), otp);
+    const matched = secureCompare(await _code("hotpVerify", key, counter + step, digits), otp);
     if (matched && !valid) {
       valid = true;
       delta = step;
@@ -364,7 +368,7 @@ export async function totp(
   const { period = DEFAULT_PERIOD, time } = options;
   const { algorithm, digits } = _baseOptions("totp", options);
   const counter = _timeStep("totp", time, period);
-  return _code(await _resolveKey("totp", secret, algorithm), counter, digits);
+  return _code("totp", await _resolveKey("totp", secret, algorithm), counter, digits);
 }
 
 /**
@@ -432,7 +436,7 @@ export async function totpVerify(
   let delta = 0;
   for (const step of steps) {
     const candidate = counter + step;
-    const matched = secureCompare(await _code(key, candidate, digits), otp);
+    const matched = secureCompare(await _code("totpVerify", key, candidate, digits), otp);
     // A step at or before the last accepted one is spent. Its code is still
     // computed and compared so the call costs the same; it just cannot count.
     const fresh = lastAccepted === undefined || candidate > lastAccepted;
@@ -463,7 +467,7 @@ export async function totpVerify(
 /* @__NO_SIDE_EFFECTS__ */
 export function generateOTPSecret(length: number = 20): string {
   assertInteger("generateOTPSecret", "length", length, 1);
-  return base32Stringify(secureRandomBytes(length), { padding: false });
+  return _base32Encode(secureRandomBytes(length), false);
 }
 
 /**
@@ -515,7 +519,7 @@ export function otpauthURI(options: OTPAuthURIOptions): string {
   // Whatever shape the secret arrives in, the URI carries the canonical
   // unpadded base32 of the same bytes: scanners read the string literally, so
   // the grouped lowercase form a caller may be holding has to be normalized.
-  const secretB32 = base32Stringify(_resolveSecret("otpauthURI", secret), { padding: false });
+  const secretB32 = _base32Encode(_resolveSecret("otpauthURI", secret), false);
 
   const label =
     issuer === undefined

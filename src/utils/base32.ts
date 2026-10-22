@@ -157,6 +157,23 @@ function _decodeBase32(
   return _decodeSymbols(_symbols(body, table), body.length, 5);
 }
 
+/** RFC 4648 base32 text to bytes, strict unless `loose`, for internal callers with no alphabet to choose. */
+/* @__NO_SIDE_EFFECTS__ */
+export function _base32Decode(
+  text: string,
+  loose: boolean,
+  label: string,
+): Uint8Array<ArrayBuffer> {
+  const chars = _NAMED_ALPHABETS.get("base32")!;
+  return _decodeBase32(text, _decodeTable("base32", chars, loose), loose, label);
+}
+
+/** Bytes to RFC 4648 base32 text. */
+/* @__NO_SIDE_EFFECTS__ */
+export function _base32Encode(bytes: Uint8Array, padding: boolean): string {
+  return _encodeBase32(bytes, _NAMED_ALPHABETS.get("base32")!, padding);
+}
+
 export interface Base32Codec {
   /** See {@link base32Stringify}. */
   stringify: typeof base32Stringify;

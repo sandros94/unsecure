@@ -1,5 +1,4 @@
 import { sharedPool } from "./_internal/pool.ts";
-import { hexStringify } from "./utils/index.ts";
 import { UnsecureError } from "./errors.ts";
 
 /**
@@ -280,18 +279,33 @@ function _formatV7Counter(tsMs: number, counter: number): string {
   return _formatUUID(bytes);
 }
 
+/** Lowercase hex of every byte value. */
+const _HEX: readonly string[] = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) =>
+  (i + 0x100).toString(16).slice(1),
+);
+
 /* @__NO_SIDE_EFFECTS__ */
-function _formatUUID(bytes: Uint8Array<ArrayBuffer>): string {
-  const hex = hexStringify(bytes);
+function _formatUUID(b: Uint8Array<ArrayBuffer>): string {
   return (
-    hex.slice(0, 8) +
+    _HEX[b[0]!]! +
+    _HEX[b[1]!]! +
+    _HEX[b[2]!]! +
+    _HEX[b[3]!]! +
     "-" +
-    hex.slice(8, 12) +
+    _HEX[b[4]!]! +
+    _HEX[b[5]!]! +
     "-" +
-    hex.slice(12, 16) +
+    _HEX[b[6]!]! +
+    _HEX[b[7]!]! +
     "-" +
-    hex.slice(16, 20) +
+    _HEX[b[8]!]! +
+    _HEX[b[9]!]! +
     "-" +
-    hex.slice(20, 32)
+    _HEX[b[10]!]! +
+    _HEX[b[11]!]! +
+    _HEX[b[12]!]! +
+    _HEX[b[13]!]! +
+    _HEX[b[14]!]! +
+    _HEX[b[15]!]!
   );
 }
