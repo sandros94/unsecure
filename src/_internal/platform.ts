@@ -11,9 +11,9 @@ import { UnsecureError } from "../errors.ts";
  */
 /* @__NO_SIDE_EFFECTS__ */
 export async function viaWebCrypto<T>(
-  source: string,
-  operation: string,
   call: () => Promise<T>,
+  operation: string,
+  source: string,
 ): Promise<T> {
   try {
     return await call();

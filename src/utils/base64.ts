@@ -1,41 +1,14 @@
-import { _Buffer, _preferBuffer, _toBuffer } from "./_buffer.ts";
+import { type Base64Alphabet, base64ParseText, base64StringifyBytes } from "../_internal/base64.ts";
+import { type BytesSource, toBytes } from "../_internal/bytes.ts";
 import {
-  type _BlockShape,
-  type BytesSource,
-  type PaddedDecodeOptions,
   type DecodeReturnAs,
-  _assertData,
-  _decodeSymbols,
-  _honoursViews,
-  _looseCount,
-  _parseFinalize,
-  _parsePrep,
-  _strictBody,
-  _symbols,
-  _wholeBuffer,
-  toBytes,
-} from "./_codec.ts";
+  type PaddedDecodeOptions,
+  assertData,
+  parseFinalize,
+  parsePrep,
+} from "../_internal/codec.ts";
 
-interface _ToBase64 {
-  toBase64(options?: { alphabet?: string; omitPadding?: boolean }): string;
-}
-interface _FromBase64 {
-  fromBase64(
-    input: string,
-    options?: { alphabet?: string; lastChunkHandling?: string },
-  ): Uint8Array<ArrayBuffer>;
-}
-
-const _nativeToBase64: boolean = /* @__PURE__ */ (() =>
-  typeof (Uint8Array.prototype as Partial<_ToBase64>).toBase64 === "function")();
-const _nativeFromBase64: boolean = /* @__PURE__ */ (() =>
-  typeof (Uint8Array as Partial<_FromBase64>).fromBase64 === "function")();
-/** Whether `toBase64` honours a view; a runtime without it never reaches it. */
-const _base64Views: boolean = /* @__PURE__ */ (() =>
-  !_nativeToBase64 || _honoursViews((view) => (view as unknown as _ToBase64).toBase64(), "AQI="))();
-
-/** Standard (`+/`) or URL-safe (`-_`) alphabet. */
-export type Base64Alphabet = "base64" | "base64url";
+export type { Base64Alphabet };
 
 export interface Base64StringifyOptions {
   /**
@@ -57,115 +30,6 @@ export interface Base64ParseOptions extends PaddedDecodeOptions {
    * @default "base64"
    */
   alphabet?: Base64Alphabet;
-}
-
-const _B64_SHAPE: _BlockShape = { bits: 6, group: 4, name: "base64" };
-
-const _B64_DIGITS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-
-/** charCode → 6-bit value, `-1` for anything the alphabet does not carry. */
-/* @__NO_SIDE_EFFECTS__ */
-function _b64Table(pairs: string): Int16Array {
-  const t = new Int16Array(128).fill(-1);
-  for (let i = 0; i < 62; i++) t[_B64_DIGITS.charCodeAt(i)] = i;
-  for (let i = 0; i < pairs.length; i += 2) {
-    t[pairs.charCodeAt(i)] = 62;
-    t[pairs.charCodeAt(i + 1)] = 63;
-  }
-  return t;
-}
-
-const _B64_TABLE_STD: Int16Array = /* @__PURE__ */ _b64Table("+/");
-const _B64_TABLE_URL: Int16Array = /* @__PURE__ */ _b64Table("-_");
-
-/* @__NO_SIDE_EFFECTS__ */
-function _unpad(s: string): string {
-  let end = s.length;
-  while (end > 0 && s.charCodeAt(end - 1) === 61) end--;
-  return end === s.length ? s : s.slice(0, end);
-}
-
-/* @__NO_SIDE_EFFECTS__ */
-function _padTo4(s: string): string {
-  const rem = s.length % 4;
-  return rem === 0 ? s : s + "=".repeat(4 - rem);
-}
-
-/** Bytes to base64 text; internal callers that already hold bytes skip the option parsing. */
-/* @__NO_SIDE_EFFECTS__ */
-export function _encodeBase64(
-  bytes: Uint8Array,
-  alphabet: Base64Alphabet,
-  padding: boolean,
-): string {
-  const url = alphabet === "base64url";
-  if (_preferBuffer(bytes.length, _nativeToBase64)) {
-    // Node emits padded "base64" and unpadded "base64url".
-    const s = _toBuffer(bytes).toString(url ? "base64url" : "base64");
-    if (url) return padding ? _padTo4(s) : s;
-    return padding ? s : _unpad(s);
-  }
-  if (_nativeToBase64) {
-    return (_wholeBuffer(bytes, _base64Views) as unknown as _ToBase64).toBase64({
-      alphabet,
-      omitPadding: !padding,
-    });
-  }
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]!);
-  }
-  let s = btoa(binary);
-  if (url) s = s.replace(/\+/g, "-").replace(/\//g, "_");
-  return padding ? s : _unpad(s);
-}
-
-/**
- * Bulk-decode canonical, fully padded, standard-alphabet base64. Every backend
- * agrees on that input, which is why the contract is settled in JS before any
- * of them runs: native `fromBase64`'s own strict mode enforces a *different*
- * contract (padding mandatory, whitespace fatal), so it is never asked to
- * validate — only to decode.
- */
-/* @__NO_SIDE_EFFECTS__ */
-function _decodeCanonical(padded: string, symbols: number): Uint8Array<ArrayBuffer> {
-  if (_preferBuffer((symbols * 6) >>> 3, _nativeFromBase64)) {
-    return new Uint8Array(_Buffer!.from(padded, "base64"));
-  }
-  if (_nativeFromBase64) return (Uint8Array as unknown as _FromBase64).fromBase64(padded);
-  return _decodeSymbols(_symbols(padded, _B64_TABLE_STD), symbols, 6);
-}
-
-/** Base64 text to bytes, strict unless `loose`; the internal half of {@link base64Parse}. */
-/* @__NO_SIDE_EFFECTS__ */
-export function _decodeBase64(
-  text: string,
-  alphabet: Base64Alphabet,
-  loose: boolean,
-  label: string,
-  padding?: boolean,
-): Uint8Array<ArrayBuffer> {
-  const url = alphabet === "base64url";
-  let body: string;
-  if (loose) {
-    // Either alphabet is accepted; `-_` fold onto `+/` before the junk goes.
-    const clean = text
-      .replace(/-/g, "+")
-      .replace(/_/g, "/")
-      .replace(/[^A-Za-z0-9+/]/g, "");
-    body = clean.slice(0, _looseCount(clean.length, _B64_SHAPE));
-  } else {
-    const strict = _strictBody(
-      text,
-      url ? _B64_TABLE_URL : _B64_TABLE_STD,
-      _B64_SHAPE,
-      label,
-      padding,
-    );
-    body = url ? strict.replace(/-/g, "+").replace(/_/g, "/") : strict;
-  }
-  const rem = body.length % 4;
-  return _decodeCanonical(rem === 0 ? body : body + (rem === 2 ? "==" : "="), body.length);
 }
 
 export interface Base64Codec {
@@ -190,9 +54,7 @@ export function base64Stringify(
   data: string | BytesSource,
   options?: Base64StringifyOptions,
 ): string {
-  const alphabet = options?.alphabet ?? "base64";
-  const padding = options?.padding ?? alphabet !== "base64url";
-  return _encodeBase64(toBytes(data, "Base64.stringify"), alphabet, padding);
+  return base64StringifyBytes(toBytes(data, "Base64.stringify"), options);
 }
 
 /**
@@ -224,13 +86,12 @@ export function base64Parse(
   input: string | Uint8Array,
   options?: Base64ParseOptions,
 ): string | Uint8Array {
-  _assertData(input, "Base64.parse");
-  const { text, wantString } = _parsePrep(input, options);
+  assertData(input, "Base64.parse");
+  const { text, wantString } = parsePrep(input, options);
   if (!text) return wantString ? "" : new Uint8Array(0);
-  const alphabet = options?.alphabet ?? "base64";
   const loose = options?.loose ?? false;
-  const bytes = _decodeBase64(text, alphabet, loose, "Base64.parse", options?.padding);
-  return _parseFinalize(bytes, wantString, !loose, "Base64.parse");
+  const bytes = base64ParseText(text, "Base64.parse", options);
+  return parseFinalize(bytes, wantString, !loose, "Base64.parse");
 }
 
 /**

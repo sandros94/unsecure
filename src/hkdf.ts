@@ -35,8 +35,10 @@ const EMPTY: Uint8Array<ArrayBuffer> = /* @__PURE__ */ new Uint8Array(0);
 /* @__NO_SIDE_EFFECTS__ */
 export async function importHkdfKey(ikm: string | BytesSource): Promise<CryptoKey> {
   const ikmBytes = toCryptoBytes(ikm, "hkdf");
-  return viaWebCrypto("hkdf", "importKey", () =>
-    crypto.subtle.importKey("raw", ikmBytes, "HKDF", false, ["deriveBits"]),
+  return viaWebCrypto(
+    () => crypto.subtle.importKey("raw", ikmBytes, "HKDF", false, ["deriveBits"]),
+    "importKey",
+    "hkdf",
   );
 }
 
@@ -160,7 +162,7 @@ export async function hkdf(
 
   // RFC 5869 caps one derivation at 255 * HashLen bytes; both ends of the
   // range are the same check, so the message reads like every other one.
-  assertInteger("hkdf", "length", length, 1, 255 * HASH_LENGTH[algorithm]);
+  assertInteger(length, "length", "hkdf", 1, 255 * HASH_LENGTH[algorithm]);
 
   const isBufferInput = typeof ikm !== "string";
   // A key the caller already holds is used as-is: that is the whole point of
@@ -170,17 +172,20 @@ export async function hkdf(
   const saltBytes = salt === undefined ? EMPTY : toCryptoBytes(salt, "hkdf");
   const infoBytes = info === undefined ? EMPTY : toCryptoBytes(info, "hkdf");
 
-  const derivedBits = await viaWebCrypto("hkdf", "deriveBits", () =>
-    crypto.subtle.deriveBits(
-      {
-        name: "HKDF",
-        hash: algorithm,
-        salt: saltBytes,
-        info: infoBytes,
-      },
-      cryptoKey,
-      length * 8,
-    ),
+  const derivedBits = await viaWebCrypto(
+    () =>
+      crypto.subtle.deriveBits(
+        {
+          name: "HKDF",
+          hash: algorithm,
+          salt: saltBytes,
+          info: infoBytes,
+        },
+        cryptoKey,
+        length * 8,
+      ),
+    "deriveBits",
+    "hkdf",
   );
 
   const bytes = new Uint8Array(derivedBits);

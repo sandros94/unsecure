@@ -86,7 +86,7 @@ export function secureGenerate(options?: SecureGenerateOptions): string {
     timestamp,
   } = options ?? {};
 
-  assertInteger("secureGenerate", "length", length, 1);
+  assertInteger(length, "length", "secureGenerate", 1);
 
   const timestampStr = _timestampPrefix(timestamp);
   if (timestampStr && length <= timestampStr.length) {

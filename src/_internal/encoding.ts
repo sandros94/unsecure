@@ -1,5 +1,5 @@
-import { base64Parse, base64Stringify } from "../utils/base64.ts";
-import { hexParse, hexStringify } from "../utils/hex.ts";
+import { base64ParseText, base64StringifyBytes } from "./base64.ts";
+import { hexParseText, hexStringifyBytes } from "./hex.ts";
 import type { DigestReturnAs } from "../hash.ts";
 import { UnsecureError } from "../errors.ts";
 
@@ -61,13 +61,13 @@ export function encodeBytes(
       return bytes;
     }
     case "hex": {
-      return hexStringify(bytes);
+      return hexStringifyBytes(bytes);
     }
     case "base64": {
-      return base64Stringify(bytes);
+      return base64StringifyBytes(bytes);
     }
     case "base64url": {
-      return base64Stringify(bytes, { alphabet: "base64url" });
+      return base64StringifyBytes(bytes, { alphabet: "base64url" });
     }
   }
 }
@@ -88,13 +88,13 @@ export function decodeBytes(
   switch (returnAs === undefined ? "hex" : _formOf(returnAs, source)) {
     case "raw":
     case "hex": {
-      return hexParse(text, { returnAs: "bytes" });
+      return hexParseText(text, source);
     }
     case "base64": {
-      return base64Parse(text, { returnAs: "bytes" });
+      return base64ParseText(text, source);
     }
     case "base64url": {
-      return base64Parse(text, { alphabet: "base64url", returnAs: "bytes" });
+      return base64ParseText(text, source, { alphabet: "base64url" });
     }
   }
 }

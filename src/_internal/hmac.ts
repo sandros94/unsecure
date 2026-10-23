@@ -41,8 +41,11 @@ export async function importHmacKey(
   if (keyBytes.length === 0) {
     throw new UnsecureError("OUT_OF_RANGE", "hmac: secret must not be empty.");
   }
-  return viaWebCrypto("hmac", "importKey", () =>
-    crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: algorithm }, false, ["sign"]),
+  return viaWebCrypto(
+    () =>
+      crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: algorithm }, false, ["sign"]),
+    "importKey",
+    "hmac",
   );
 }
 
@@ -54,6 +57,6 @@ export async function hmacSign(
   source: string,
 ): Promise<Uint8Array<ArrayBuffer>> {
   return new Uint8Array(
-    await viaWebCrypto(source, "sign", () => crypto.subtle.sign("HMAC", key, data)),
+    await viaWebCrypto(() => crypto.subtle.sign("HMAC", key, data), "sign", source),
   );
 }

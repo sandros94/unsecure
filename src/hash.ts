@@ -91,7 +91,7 @@ export async function hash(
   const dataBytes = toCryptoBytes(data, "hash");
 
   const hashBytes = new Uint8Array(
-    await viaWebCrypto("hash", "digest", () => crypto.subtle.digest(algorithm, dataBytes)),
+    await viaWebCrypto(() => crypto.subtle.digest(algorithm, dataBytes), "digest", "hash"),
   );
 
   const effectiveReturnAs = returnAs ?? (isBufferInput ? "uint8array" : "hex");

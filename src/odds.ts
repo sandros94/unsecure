@@ -1,5 +1,5 @@
 import { assertInteger, showValue } from "./_internal/assert.ts";
-import { _drawInPlace } from "./_internal/shuffle.ts";
+import { drawInPlace } from "./_internal/shuffle.ts";
 import { UnsecureError } from "./errors.ts";
 import { type SecureRandomGenerator, secureRandomNumber } from "./random.ts";
 
@@ -219,7 +219,7 @@ export function createDeck<T, F>(
   let cards: Array<T | F> = expanded;
   if (hasSize) {
     const { size, fill } = options as PaddedDeckOptions<F>;
-    assertInteger(_DECK, "size", size, expanded.length);
+    assertInteger(size, "size", _DECK, expanded.length);
     cards = cards.concat(Array.from({ length: size - expanded.length }, () => fill));
   }
   return _deck(cards, options, _DECK);
@@ -325,7 +325,7 @@ function _expand<T>(items: DeckItems<T>): T[] {
   } else if (items instanceof Map) {
     cards = [];
     for (const [card, count] of items as ReadonlyMap<T, number>) {
-      assertInteger(_DECK, "count", count, 1);
+      assertInteger(count, "count", _DECK, 1);
       for (let i = 0; i < count; i++) cards.push(card);
     }
   } else {
@@ -344,7 +344,7 @@ function _expand<T>(items: DeckItems<T>): T[] {
 function _deck<T>(cards: readonly T[], options: DeckOptions, source: string): Deck<T> {
   const size = cards.length;
   const reshuffleAt = options.reshuffleAt ?? 0;
-  assertInteger(source, "reshuffleAt", reshuffleAt, 0, size - 1);
+  assertInteger(reshuffleAt, "reshuffleAt", source, 0, size - 1);
   const next = _next(options.generator);
 
   let order: number[];
@@ -359,7 +359,7 @@ function _deck<T>(cards: readonly T[], options: DeckOptions, source: string): De
   return {
     draw(): T {
       if (size - cursor <= reshuffleAt) cursor = 0;
-      return cards[_drawInPlace(order, cursor++, size, next)]!;
+      return cards[drawInPlace(order, cursor++, size, next)]!;
     },
     get remaining(): number {
       return size - cursor;
@@ -400,7 +400,7 @@ function _deckState(state: DeckState, size: number, source: string): DeckState {
     }
     seen.add(index);
   }
-  assertInteger(source, "state.cursor", cursor as number, 0, size);
+  assertInteger(cursor as number, "state.cursor", source, 0, size);
   return { order: order.slice(), cursor: cursor as number };
 }
 
@@ -498,7 +498,7 @@ function _streak(
   let misses = 0;
   if (options.state !== undefined) {
     const saved = (options.state as Partial<{ misses: number }> | null)?.misses;
-    assertInteger(_CHANCE, "state.misses", saved as number, 0);
+    assertInteger(saved as number, "state.misses", _CHANCE, 0);
     misses = saved as number;
   }
   return {
@@ -558,9 +558,9 @@ function _prdRate(c: number): number {
 /* @__NO_SIDE_EFFECTS__ */
 function _pityChance(p: number, options: PityChanceOptions): PityChance {
   const hard = options.hard;
-  assertInteger(_CHANCE, "hard", hard, 1);
+  assertInteger(hard, "hard", _CHANCE, 1);
   const soft = options.soft ?? hard;
-  assertInteger(_CHANCE, "soft", soft, 0, hard);
+  assertInteger(soft, "soft", _CHANCE, 0, hard);
   // Flat until `soft` rolls, a straight climb after, certain at `hard`.
   const odds = (n: number): number =>
     n >= hard ? 1 : n <= soft ? p : p + ((1 - p) * (n - soft)) / (hard - soft);

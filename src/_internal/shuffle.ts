@@ -4,7 +4,7 @@
  * the whole array; run once per call it draws one card and leaves the rest
  * undrawn, which is what a deck needs.
  */
-export function _drawInPlace<T>(
+export function drawInPlace<T>(
   array: T[],
   start: number,
   end: number,

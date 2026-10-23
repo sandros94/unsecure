@@ -1,6 +1,6 @@
 import { assertInteger, showValue } from "./_internal/assert.ts";
 import { type EntropyPool, createEntropyPool, sharedPool } from "./_internal/pool.ts";
-import { _drawInPlace } from "./_internal/shuffle.ts";
+import { drawInPlace } from "./_internal/shuffle.ts";
 import { UnsecureError } from "./errors.ts";
 
 /**
@@ -255,7 +255,7 @@ export function resetEntropy(options?: ResetEntropyOptions): void {
  */
 /* @__NO_SIDE_EFFECTS__ */
 export function secureRandomBytes(length: number): Uint8Array<ArrayBuffer> {
-  assertInteger("secureRandomBytes", "length", length, 0, MAX_RANDOM_BYTES);
+  assertInteger(length, "length", "secureRandomBytes", 0, MAX_RANDOM_BYTES);
   return sharedPool.fill(new Uint8Array(length));
 }
 
@@ -273,7 +273,7 @@ export function secureShuffle<T>(array: Array<T>, generator?: SecureRandomGenera
   const gen = generator ?? _sharedGenerator;
   const next = (max: number): number => gen.next(max);
   for (let i = 0; i < array.length - 1; i++) {
-    _drawInPlace(array, i, array.length, next);
+    drawInPlace(array, i, array.length, next);
   }
   return array;
 }
@@ -305,8 +305,8 @@ export function randomJitter(minOrMax?: number, maxMs?: number): Promise<void> {
   const min = oneArgument || minOrMax === undefined ? 0 : minOrMax;
   const max = oneArgument ? (minOrMax === undefined ? 100 : minOrMax) : maxMs;
 
-  assertInteger("randomJitter", "minMs", min, 0);
-  assertInteger("randomJitter", "maxMs", max, 0);
+  assertInteger(min, "minMs", "randomJitter", 0);
+  assertInteger(max, "maxMs", "randomJitter", 0);
   if (max < min) {
     throw new UnsecureError(
       "OUT_OF_RANGE",

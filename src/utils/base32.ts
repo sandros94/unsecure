@@ -1,32 +1,19 @@
 import {
-  type _BlockShape,
-  type BytesSource,
-  type PaddedDecodeOptions,
+  type Base32Alphabet,
+  base32Chars,
+  base32ParseText,
+  base32StringifyBytes,
+} from "../_internal/base32.ts";
+import { type BytesSource, toBytes } from "../_internal/bytes.ts";
+import {
   type DecodeReturnAs,
-  _assertData,
-  _badOption,
-  _decodeSymbols,
-  _looseCount,
-  _parseFinalize,
-  _parsePrep,
-  _strictBody,
-  _symbols,
-  toBytes,
-} from "./_codec.ts";
+  type PaddedDecodeOptions,
+  assertData,
+  parseFinalize,
+  parsePrep,
+} from "../_internal/codec.ts";
 
-const _B32_SHAPE: _BlockShape = { bits: 5, group: 8, name: "base32" };
-
-// A Map, not an object: the key comes from the caller, and `"constructor"`
-// must be an unknown alphabet rather than something off a prototype.
-const _NAMED_ALPHABETS: ReadonlyMap<string, string> = /* @__PURE__ */ new Map([
-  ["base32", "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"], // RFC 4648 §6
-  ["base32hex", "0123456789ABCDEFGHIJKLMNOPQRSTUV"], // RFC 4648 §7
-  ["crockford", "0123456789ABCDEFGHJKMNPQRSTVWXYZ"], // excludes I, L, O, U
-]);
-
-/** A named variant, or a custom 32-character alphabet string. */
-// oxlint-disable-next-line typescript/no-redundant-type-constituents
-export type Base32Alphabet = "base32" | "base32hex" | "crockford" | (string & {});
+export type { Base32Alphabet };
 
 export interface Base32StringifyOptions {
   /**
@@ -47,131 +34,6 @@ export interface Base32ParseOptions extends PaddedDecodeOptions {
    * @default "base32"
    */
   alphabet?: Base32Alphabet;
-}
-
-/**
- * Resolve a named variant, or check that a custom alphabet can actually name
- * 32 distinct symbols: ASCII only (the decode table is indexed by code unit),
- * no `=` (it would be indistinguishable from padding) and no whitespace (which
- * every codec here drops or rejects rather than decodes).
- */
-/* @__NO_SIDE_EFFECTS__ */
-function _resolveChars(alphabet: Base32Alphabet, label: string): string {
-  const named = _NAMED_ALPHABETS.get(alphabet);
-  if (named !== undefined) return named;
-  if (alphabet.length !== 32) {
-    throw _badOption(label, `alphabet must be exactly 32 characters (got ${alphabet.length}).`);
-  }
-  const seen = new Set<string>();
-  for (let i = 0; i < 32; i++) {
-    const char = alphabet[i]!;
-    const code = alphabet.charCodeAt(i);
-    if (code > 127) {
-      throw _badOption(label, `alphabet character ${JSON.stringify(char)} is not ASCII.`);
-    }
-    if (code === 61) throw _badOption(label, `alphabet must not contain the padding "=".`);
-    if (code === 32 || (code >= 9 && code <= 13)) {
-      throw _badOption(label, `alphabet must not contain whitespace (at index ${i}).`);
-    }
-    if (seen.has(char)) throw _badOption(label, `alphabet repeats ${JSON.stringify(char)}.`);
-    seen.add(char);
-  }
-  return alphabet;
-}
-
-// charCode → 5-bit value; `-1` marks invalid. Cached for the named variants
-// only — a custom alphabet builds its table per call rather than growing an
-// unbounded cache keyed by caller input.
-const _tables: Map<string, Int16Array> = /* @__PURE__ */ new Map<string, Int16Array>();
-
-/* @__NO_SIDE_EFFECTS__ */
-function _buildTable(alphabet: Base32Alphabet, chars: string, loose: boolean): Int16Array {
-  const table = new Int16Array(128).fill(-1);
-  // Crockford's own spec decodes case-insensitively; the RFC alphabets are
-  // uppercase and fold only under `loose`. A custom alphabet is taken
-  // literally either way — its case may carry meaning.
-  const fold = alphabet === "crockford" || (loose && _NAMED_ALPHABETS.has(alphabet));
-  for (let i = 0; i < 32; i++) {
-    table[chars.charCodeAt(i)] = i;
-    if (fold) {
-      table[chars[i]!.toLowerCase().charCodeAt(0)] = i;
-      table[chars[i]!.toUpperCase().charCodeAt(0)] = i;
-    }
-  }
-  if (alphabet === "crockford") {
-    // Crockford decode aliases: O→0, I/L→1 (case-insensitive).
-    table[79] = table[111] = 0;
-    table[73] = table[105] = table[76] = table[108] = 1;
-  }
-  return table;
-}
-
-/* @__NO_SIDE_EFFECTS__ */
-function _decodeTable(alphabet: Base32Alphabet, chars: string, loose: boolean): Int16Array {
-  if (!_NAMED_ALPHABETS.has(alphabet)) return _buildTable(alphabet, chars, loose);
-  const key = loose ? `${alphabet}/loose` : alphabet;
-  let table = _tables.get(key);
-  if (!table) {
-    table = _buildTable(alphabet, chars, loose);
-    _tables.set(key, table);
-  }
-  return table;
-}
-
-/* @__NO_SIDE_EFFECTS__ */
-function _encodeBase32(bytes: Uint8Array, chars: string, padding: boolean): string {
-  if (bytes.length === 0) return "";
-  let result = "";
-  let bits = 0;
-  let value = 0;
-  for (let i = 0; i < bytes.length; i++) {
-    value = (value << 8) | bytes[i]!;
-    bits += 8;
-    while (bits >= 5) {
-      bits -= 5;
-      result += chars[(value >>> bits) & 0x1f];
-    }
-  }
-  if (bits > 0) {
-    result += chars[(value << (5 - bits)) & 0x1f];
-  }
-  if (padding) {
-    while (result.length % 8) result += "=";
-  }
-  return result;
-}
-
-/* @__NO_SIDE_EFFECTS__ */
-function _decodeBase32(
-  text: string,
-  table: Int16Array,
-  loose: boolean,
-  label: string,
-  padding?: boolean,
-): Uint8Array<ArrayBuffer> {
-  if (loose) {
-    const values = _symbols(text, table);
-    return _decodeSymbols(values, _looseCount(values.length, _B32_SHAPE), 5);
-  }
-  const body = _strictBody(text, table, _B32_SHAPE, label, padding);
-  return _decodeSymbols(_symbols(body, table), body.length, 5);
-}
-
-/** RFC 4648 base32 text to bytes, strict unless `loose`, for internal callers with no alphabet to choose. */
-/* @__NO_SIDE_EFFECTS__ */
-export function _base32Decode(
-  text: string,
-  loose: boolean,
-  label: string,
-): Uint8Array<ArrayBuffer> {
-  const chars = _NAMED_ALPHABETS.get("base32")!;
-  return _decodeBase32(text, _decodeTable("base32", chars, loose), loose, label);
-}
-
-/** Bytes to RFC 4648 base32 text. */
-/* @__NO_SIDE_EFFECTS__ */
-export function _base32Encode(bytes: Uint8Array, padding: boolean): string {
-  return _encodeBase32(bytes, _NAMED_ALPHABETS.get("base32")!, padding);
 }
 
 export interface Base32Codec {
@@ -197,10 +59,7 @@ export function base32Stringify(
   data: string | BytesSource,
   options?: Base32StringifyOptions,
 ): string {
-  const alphabet = options?.alphabet ?? "base32";
-  const chars = _resolveChars(alphabet, "Base32.stringify");
-  const padding = options?.padding ?? alphabet !== "crockford";
-  return _encodeBase32(toBytes(data, "Base32.stringify"), chars, padding);
+  return base32StringifyBytes(toBytes(data, "Base32.stringify"), "Base32.stringify", options);
 }
 
 /**
@@ -234,15 +93,14 @@ export function base32Parse(
   input: string | Uint8Array,
   options?: Base32ParseOptions,
 ): string | Uint8Array {
-  _assertData(input, "Base32.parse");
-  const alphabet = options?.alphabet ?? "base32";
-  const chars = _resolveChars(alphabet, "Base32.parse");
+  assertData(input, "Base32.parse");
+  // Refused before the empty-input return, so an unusable alphabet never passes silently.
+  base32Chars(options?.alphabet ?? "base32", "Base32.parse");
   const loose = options?.loose ?? false;
-  const { text, wantString } = _parsePrep(input, options);
+  const { text, wantString } = parsePrep(input, options);
   if (!text) return wantString ? "" : new Uint8Array(0);
-  const table = _decodeTable(alphabet, chars, loose);
-  const bytes = _decodeBase32(text, table, loose, "Base32.parse", options?.padding);
-  return _parseFinalize(bytes, wantString, !loose, "Base32.parse");
+  const bytes = base32ParseText(text, "Base32.parse", options);
+  return parseFinalize(bytes, wantString, !loose, "Base32.parse");
 }
 
 /**

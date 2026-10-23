@@ -21,9 +21,9 @@ export function showValue(value: unknown): string {
  * is the safe-integer range.
  */
 export function assertInteger(
-  source: string,
-  name: string,
   value: number,
+  name: string,
+  source: string,
   min: number,
   max: number = Number.MAX_SAFE_INTEGER,
 ): void {

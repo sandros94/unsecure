@@ -20,7 +20,7 @@ interface _BufferCtor {
  */
 const _ON_HEAP_MAX = 64;
 
-export const _Buffer: _BufferCtor | undefined = /* @__PURE__ */ (() => {
+export const nodeBuffer: _BufferCtor | undefined = /* @__PURE__ */ (() => {
   try {
     return (globalThis as { Buffer?: _BufferCtor }).Buffer;
   } catch {
@@ -28,13 +28,13 @@ export const _Buffer: _BufferCtor | undefined = /* @__PURE__ */ (() => {
   }
 })();
 
-export const _hasBuffer: boolean = /* @__PURE__ */ (() => typeof _Buffer?.from === "function")();
+export const hasBuffer: boolean = /* @__PURE__ */ (() => typeof nodeBuffer?.from === "function")();
 
 /* @__NO_SIDE_EFFECTS__ */
-export function _toBuffer(bytes: Uint8Array): _BufferLike {
+export function toBuffer(bytes: Uint8Array): _BufferLike {
   return bytes.byteLength <= _ON_HEAP_MAX
-    ? _Buffer!.from(bytes)
-    : _Buffer!.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    ? nodeBuffer!.from(bytes)
+    : nodeBuffer!.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 }
 
 /**
@@ -43,6 +43,6 @@ export function _toBuffer(bytes: Uint8Array): _BufferLike {
  * on-heap array in place where `Buffer` would copy it first.
  */
 /* @__NO_SIDE_EFFECTS__ */
-export function _preferBuffer(byteLength: number, native: boolean): boolean {
-  return _hasBuffer && !(native && byteLength <= _ON_HEAP_MAX);
+export function preferBuffer(byteLength: number, native: boolean): boolean {
+  return hasBuffer && !(native && byteLength <= _ON_HEAP_MAX);
 }

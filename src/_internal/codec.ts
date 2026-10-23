@@ -1,10 +1,5 @@
-import { describeValue } from "../_internal/bytes.ts";
+import { describeValue } from "./bytes.ts";
 import { UnsecureError } from "../errors.ts";
-
-export { type BytesSource, toBytes } from "../_internal/bytes.ts";
-
-/** Shared UTF-8 `TextEncoder` instance. */
-export { textEncoder } from "../_internal/bytes.ts";
 
 /**
  * Shared UTF-8 `TextDecoder` instance. `ignoreBOM` keeps a leading U+FEFF in
@@ -23,12 +18,12 @@ const _fatalDecoder: TextDecoder = /* @__PURE__ */ new TextDecoder("utf-8", {
 
 /**
  * Probe once whether a TC39 encoder reads a view where it starts rather than
- * from the start of its buffer; where it does not, {@link _wholeBuffer}
+ * from the start of its buffer; where it does not, {@link wholeBuffer}
  * copies the view. Per call this would read `.buffer`, which materializes
  * the buffer of a small on-heap array at more than the encode costs.
  */
 /* @__NO_SIDE_EFFECTS__ */
-export function _honoursViews(encode: (view: Uint8Array) => string, expected: string): boolean {
+export function honoursViews(encode: (view: Uint8Array) => string, expected: string): boolean {
   try {
     return encode(Uint8Array.of(0, 1, 2, 3).subarray(1, 3)) === expected;
   } catch {
@@ -38,7 +33,7 @@ export function _honoursViews(encode: (view: Uint8Array) => string, expected: st
 
 /** Bytes a native encoder can be trusted with: the view itself where `honoured`, else a copy. */
 /* @__NO_SIDE_EFFECTS__ */
-export function _wholeBuffer(bytes: Uint8Array, honoured: boolean): Uint8Array {
+export function wholeBuffer(bytes: Uint8Array, honoured: boolean): Uint8Array {
   if (honoured) return bytes;
   return bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
     ? bytes
@@ -97,11 +92,11 @@ export interface PaddedDecodeOptions extends DecodeOptions {
  * else — a number, a plain object, an `ArrayBuffer` — is a caller mistake, not
  * something to coerce into text and then complain about.
  */
-export function _assertData(input: unknown, label: string): asserts input is string | Uint8Array {
+export function assertData(input: unknown, source: string): asserts input is string | Uint8Array {
   if (typeof input !== "string" && !_isBytes(input)) {
     throw new UnsecureError(
       "INVALID_TYPE",
-      `${label}: expected a string or Uint8Array, got ${describeValue(input)}.`,
+      `${source}: expected a string or Uint8Array, got ${describeValue(input)}.`,
     );
   }
 }
@@ -118,7 +113,7 @@ function _isBytes(input: unknown): input is Uint8Array {
 
 /** `Uint8Array` input is treated as the ASCII bytes of the encoded text. */
 /* @__NO_SIDE_EFFECTS__ */
-export function _parsePrep(
+export function parsePrep(
   input: string | Uint8Array,
   options: DecodeOptions | undefined,
 ): { text: string; wantString: boolean } {
@@ -131,25 +126,25 @@ export function _parsePrep(
 }
 
 /* @__NO_SIDE_EFFECTS__ */
-export function _parseFinalize(
+export function parseFinalize(
   bytes: Uint8Array,
   wantString: boolean,
   strict: boolean,
-  label: string,
+  source: string,
 ): string | Uint8Array {
   if (!wantString) return bytes;
   if (!strict) return textDecoder.decode(bytes);
   try {
     return _fatalDecoder.decode(bytes);
   } catch {
-    throw _malformed(label, "decoded bytes are not valid UTF-8.");
+    throw malformed("decoded bytes are not valid UTF-8.", source);
   }
 }
 
 /** Encoded text that is not the canonical encoding of any byte string. */
 /* @__NO_SIDE_EFFECTS__ */
-export function _malformed(label: string, detail: string): UnsecureError {
-  return new UnsecureError("MALFORMED", `${label}: ${detail}`);
+export function malformed(detail: string, source: string): UnsecureError {
+  return new UnsecureError("MALFORMED", `${source}: ${detail}`);
 }
 
 /**
@@ -157,15 +152,15 @@ export function _malformed(label: string, detail: string): UnsecureError {
  * caller's `alphabet` is configuration, so however it fails it is a value
  * outside its documented domain rather than malformed text.
  */
-export function _badOption(label: string, detail: string): UnsecureError {
-  return new UnsecureError("OUT_OF_RANGE", `${label}: ${detail}`);
+export function badOption(detail: string, source: string): UnsecureError {
+  return new UnsecureError("OUT_OF_RANGE", `${source}: ${detail}`);
 }
 
 /**
  * Geometry of a padded block codec: `bits` carried by one symbol, `group`
  * symbols per whole block, and the codec name used in error text.
  */
-export interface _BlockShape {
+export interface BlockShape {
   bits: number;
   group: number;
   name: string;
@@ -177,7 +172,7 @@ export interface _BlockShape {
  * that remainder — those symbols would waste a whole symbol's worth of bits.
  */
 /* @__NO_SIDE_EFFECTS__ */
-export function _tailBits(rem: number, bits: number): number {
+export function tailBits(rem: number, bits: number): number {
   if (rem === 0) return 0;
   const leftover = (rem * bits) % 8;
   return leftover >= bits ? -1 : leftover;
@@ -194,11 +189,11 @@ export function _tailBits(rem: number, bits: number): number {
  * `false` makes any `=` malformed.
  */
 /* @__NO_SIDE_EFFECTS__ */
-export function _strictBody(
+export function strictBody(
   text: string,
   table: Int16Array,
-  shape: _BlockShape,
-  label: string,
+  shape: BlockShape,
+  source: string,
   padding?: boolean,
 ): string {
   let end = text.length;
@@ -208,33 +203,33 @@ export function _strictBody(
   for (let i = 0; i < end; i++) {
     const c = text.charCodeAt(i);
     if ((c < 128 ? table[c]! : -1) < 0) {
-      throw _malformed(
-        label,
+      throw malformed(
         `invalid ${shape.name} character ${JSON.stringify(text[i])} at index ${i}.`,
+        source,
       );
     }
   }
 
   const rem = end % shape.group;
-  const tail = _tailBits(rem, shape.bits);
+  const tail = tailBits(rem, shape.bits);
   if (tail < 0) {
-    throw _malformed(label, `${end} ${shape.name} symbols cannot encode whole bytes.`);
+    throw malformed(`${end} ${shape.name} symbols cannot encode whole bytes.`, source);
   }
 
   const padNeeded = rem === 0 ? 0 : shape.group - rem;
   if (padFound > 0) {
     if (padNeeded === 0 || padding === false) {
-      throw _malformed(label, `unexpected "=" padding.`);
+      throw malformed(`unexpected "=" padding.`, source);
     }
     if (padFound !== padNeeded) {
-      throw _malformed(label, `expected ${padNeeded} "=" padding characters, found ${padFound}.`);
+      throw malformed(`expected ${padNeeded} "=" padding characters, found ${padFound}.`, source);
     }
   } else if (padding === true && padNeeded > 0) {
-    throw _malformed(label, `expected ${padNeeded} "=" padding characters, found 0.`);
+    throw malformed(`expected ${padNeeded} "=" padding characters, found 0.`, source);
   }
 
   if (tail > 0 && (table[text.charCodeAt(end - 1)]! & ((1 << tail) - 1)) !== 0) {
-    throw _malformed(label, `the last ${shape.name} symbol sets bits past the final byte.`);
+    throw malformed(`the last ${shape.name} symbol sets bits past the final byte.`, source);
   }
 
   return end === text.length ? text : text.slice(0, end);
@@ -242,7 +237,7 @@ export function _strictBody(
 
 /** Symbol values read out of `text`; anything outside `table` is dropped. */
 /* @__NO_SIDE_EFFECTS__ */
-export function _symbols(text: string, table: Int16Array): Uint8Array {
+export function symbols(text: string, table: Int16Array): Uint8Array {
   const values = new Uint8Array(text.length);
   let n = 0;
   for (let i = 0; i < text.length; i++) {
@@ -255,9 +250,9 @@ export function _symbols(text: string, table: Int16Array): Uint8Array {
 
 /** Longest prefix of `n` symbols that still encodes whole bytes. */
 /* @__NO_SIDE_EFFECTS__ */
-export function _looseCount(n: number, shape: _BlockShape): number {
+export function looseCount(n: number, shape: BlockShape): number {
   let count = n;
-  while (count > 0 && _tailBits(count % shape.group, shape.bits) < 0) count--;
+  while (count > 0 && tailBits(count % shape.group, shape.bits) < 0) count--;
   return count;
 }
 
@@ -266,7 +261,7 @@ export function _looseCount(n: number, shape: _BlockShape): number {
  * the last whole byte. The result owns its buffer at exactly its own length.
  */
 /* @__NO_SIDE_EFFECTS__ */
-export function _decodeSymbols(
+export function decodeSymbols(
   values: Uint8Array,
   count: number,
   bits: number,

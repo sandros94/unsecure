@@ -6,7 +6,7 @@ import { assertReturnAs, encodeBytes } from "./_internal/encoding.ts";
 import { secureCompare } from "./compare.ts";
 import { UnsecureError } from "./errors.ts";
 import { secureRandomBytes } from "./random.ts";
-import { _decodeBase64, _encodeBase64 } from "./utils/base64.ts";
+import { base64ParseText, base64StringifyBytes } from "./_internal/base64.ts";
 
 // #region Types
 
@@ -106,7 +106,7 @@ function _isVariant(value: string): value is Argon2Variant {
 }
 
 /** The one wording for a flavour this module does not implement, wherever the name came from. */
-function _unsupportedVariant(source: string, variant: string): UnsecureError {
+function _unsupportedVariant(variant: string, source: string): UnsecureError {
   return new UnsecureError(
     "UNSUPPORTED",
     `${source}: unsupported argon2 variant ${JSON.stringify(variant)}.`,
@@ -400,12 +400,12 @@ function _resolve(parameters: Argon2Parameters): _Resolved {
     data,
   } = parameters;
 
-  if (!_isVariant(variant)) throw _unsupportedVariant("argon2", variant);
+  if (!_isVariant(variant)) throw _unsupportedVariant(variant, "argon2");
   // `p` is checked first because it is what makes the lower bound on `m` a number.
-  assertInteger("argon2", "p (parallelism)", p, 1, _MAX_UINT24);
-  assertInteger("argon2", "m (memory, KiB)", m, 8 * p, _MAX_UINT32);
-  assertInteger("argon2", "t (iterations)", t, 1, _MAX_UINT32);
-  assertInteger("argon2", "length", length, 4, _MAX_UINT32);
+  assertInteger(p, "p (parallelism)", "argon2", 1, _MAX_UINT24);
+  assertInteger(m, "m (memory, KiB)", "argon2", 8 * p, _MAX_UINT32);
+  assertInteger(t, "t (iterations)", "argon2", 1, _MAX_UINT32);
+  assertInteger(length, "length", "argon2", 4, _MAX_UINT32);
 
   return {
     variant,
@@ -436,7 +436,7 @@ function _derive(
     ["data", data, 0],
   ] as const;
   for (const [name, value, minimum] of inputs) {
-    assertInteger("argon2", `${name} length`, value.length, minimum, _MAX_UINT32);
+    assertInteger(value.length, `${name} length`, "argon2", minimum, _MAX_UINT32);
   }
 
   // H_0 = BLAKE2b-512(LE32(p) || LE32(T) || LE32(m) || LE32(t) || LE32(v) || LE32(y) ||
@@ -669,8 +669,8 @@ export async function argon2Hash(
   const tag = _derive(toBytes(password, "argon2"), salt, resolved);
 
   const { variant, m, t, p } = resolved;
-  const saltText = _encodeBase64(salt, "base64", false);
-  const tagText = _encodeBase64(tag, "base64", false);
+  const saltText = base64StringifyBytes(salt, { padding: false });
+  const tagText = base64StringifyBytes(tag, { padding: false });
   return `$${variant}$v=${_VERSION}$m=${m},t=${t},p=${p}$${saltText}$${tagText}`;
 }
 
@@ -686,7 +686,7 @@ export async function argon2Hash(
 /* @__NO_SIDE_EFFECTS__ */
 function _decodeField(field: string, source: string): Uint8Array<ArrayBuffer> {
   try {
-    return _decodeBase64(field, "base64", false, source);
+    return base64ParseText(field, source);
   } catch (error) {
     if (error instanceof UnsecureError && error.code === "MALFORMED") {
       throw new UnsecureError("MALFORMED", `${source}: malformed PHC string.`, { cause: error });
@@ -736,7 +736,7 @@ function _parsePhc(phc: string, source: string): _Stored {
   const [, variant, , m, t, p, salt, tag] = parsed;
   // An unmatched optional group is `undefined` at runtime whatever the array type says.
   const versionField: string | undefined = parsed[2];
-  if (!_isVariant(variant)) throw _unsupportedVariant(source, variant);
+  if (!_isVariant(variant)) throw _unsupportedVariant(variant, source);
 
   return {
     variant,

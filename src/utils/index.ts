@@ -18,11 +18,10 @@ export {
 } from "./base64.ts";
 export { type HexCodec, Hex, hexParse, hexStringify } from "./hex.ts";
 
+export { type BytesSource, textEncoder } from "../_internal/bytes.ts";
 export {
-  type BytesSource,
   type DecodeReturnAs,
   type DecodeOptions,
   type PaddedDecodeOptions,
-  textEncoder,
   textDecoder,
-} from "./_codec.ts";
+} from "../_internal/codec.ts";

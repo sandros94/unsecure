@@ -30,7 +30,7 @@ function encodeChunked(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-/** Byte-by-byte + btoa — what `_encodeBase64` ships. Fastest on V8 at ≤64 KiB. No arg-count ceiling. */
+/** Byte-by-byte + btoa — what `base64StringifyBytes` ships. Fastest on V8 at ≤64 KiB. No arg-count ceiling. */
 function encodeByteByByte(bytes: Uint8Array): string {
   let binary = "";
   for (let i = 0; i < bytes.length; i++) {

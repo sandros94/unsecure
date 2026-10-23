@@ -4,7 +4,7 @@ import { normalizeAlgorithm } from "./_internal/algorithm.ts";
 import { type BytesSource, toCryptoBytes } from "./_internal/bytes.ts";
 import { assertHmacKey, isCryptoKey } from "./_internal/key.ts";
 import { assertInteger, showValue } from "./_internal/assert.ts";
-import { _base32Decode, _base32Encode } from "./utils/base32.ts";
+import { base32ParseText, base32StringifyBytes } from "./_internal/base32.ts";
 import { secureRandomBytes } from "./random.ts";
 import { secureCompare } from "./compare.ts";
 import { UnsecureError } from "./errors.ts";
@@ -144,11 +144,11 @@ function _dynamicTruncate(hmacResult: Uint8Array, digits: number): string {
  */
 /* @__NO_SIDE_EFFECTS__ */
 function _baseOptions(
-  source: string,
   options: HOTPOptions,
+  source: string,
 ): { algorithm: DigestAlgorithm; digits: number } {
   const { algorithm = DEFAULT_ALGORITHM, digits = DEFAULT_DIGITS } = options;
-  assertInteger(source, "digits", digits, 6, 8);
+  assertInteger(digits, "digits", source, 6, 8);
   return { algorithm: normalizeAlgorithm(algorithm, source), digits };
 }
 
@@ -160,10 +160,10 @@ function _baseOptions(
  * caller passes its own name, so the error names the call the caller wrote.
  */
 /* @__NO_SIDE_EFFECTS__ */
-function _resolveSecret(source: string, secret: string | BytesSource): Uint8Array<ArrayBuffer> {
+function _resolveSecret(secret: string | BytesSource, source: string): Uint8Array<ArrayBuffer> {
   const bytes =
     typeof secret === "string"
-      ? _base32Decode(secret, true, source)
+      ? base32ParseText(secret, source, { loose: true })
       : toCryptoBytes(secret, source);
   if (bytes.length === 0) {
     throw new UnsecureError("OUT_OF_RANGE", `${source}: secret must not be empty.`);
@@ -183,24 +183,24 @@ function _resolveSecret(source: string, secret: string | BytesSource): Uint8Arra
  */
 /* @__NO_SIDE_EFFECTS__ */
 async function _resolveKey(
-  source: string,
   secret: string | BytesSource | CryptoKey,
   algorithm: DigestAlgorithm,
+  source: string,
 ): Promise<CryptoKey> {
   if (isCryptoKey(secret)) {
     assertHmacKey(secret, algorithm, source);
     return secret;
   }
-  return importHmacKey(_resolveSecret(source, secret), { algorithm });
+  return importHmacKey(_resolveSecret(secret, source), { algorithm });
 }
 
 /** The counter → code core, run only once every input is known good. */
 /* @__NO_SIDE_EFFECTS__ */
 async function _code(
-  source: string,
   key: CryptoKey,
   counter: number,
   digits: number,
+  source: string,
 ): Promise<string> {
   return _dynamicTruncate(await hmacSign(key, _counterToBytes(counter), source), digits);
 }
@@ -212,8 +212,8 @@ async function _code(
  * generate and the verify side.
  */
 /* @__NO_SIDE_EFFECTS__ */
-function _timeStep(source: string, time: number | undefined, period: number): number {
-  assertInteger(source, "period", period, 1);
+function _timeStep(time: number | undefined, period: number, source: string): number {
+  assertInteger(period, "period", source, 1);
   // Only an absent `time` means "now": `null` is a value the caller passed,
   // and defaulting on it would silently generate a code for another instant.
   const seconds = time === undefined ? Math.floor(Date.now() / 1000) : time;
@@ -231,7 +231,7 @@ function _timeStep(source: string, time: number | undefined, period: number): nu
  * anything into a string — an object would be provisioned as "[object Object]"
  * and a missing account as "undefined", both of which scan.
  */
-function _assertLabelText(name: string, value: unknown): asserts value is string {
+function _assertLabelText(value: unknown, name: string): asserts value is string {
   if (typeof value !== "string") {
     throw new UnsecureError(
       "INVALID_TYPE",
@@ -274,9 +274,9 @@ export async function hotp(
   counter: number,
   options: HOTPOptions = {},
 ): Promise<string> {
-  const { algorithm, digits } = _baseOptions("hotp", options);
-  assertInteger("hotp", "counter", counter, 0);
-  return _code("hotp", await _resolveKey("hotp", secret, algorithm), counter, digits);
+  const { algorithm, digits } = _baseOptions(options, "hotp");
+  assertInteger(counter, "counter", "hotp", 0);
+  return _code(await _resolveKey(secret, algorithm, "hotp"), counter, digits, "hotp");
 }
 
 /**
@@ -317,14 +317,14 @@ export async function hotpVerify(
   options: HOTPVerifyOptions = {},
 ): Promise<HOTPVerifyResult> {
   const { window = 0 } = options;
-  const { algorithm, digits } = _baseOptions("hotpVerify", options);
-  assertInteger("hotpVerify", "window", window, 0);
+  const { algorithm, digits } = _baseOptions(options, "hotpVerify");
+  assertInteger(window, "window", "hotpVerify", 0);
   // The window is walked by adding to the counter, so the far end of it has to
   // stay a safe integer too — past that, candidates lose precision and silently
   // repeat one another.
-  assertInteger("hotpVerify", "counter", counter, 0, Number.MAX_SAFE_INTEGER - window);
+  assertInteger(counter, "counter", "hotpVerify", 0, Number.MAX_SAFE_INTEGER - window);
 
-  const key = await _resolveKey("hotpVerify", secret, algorithm);
+  const key = await _resolveKey(secret, algorithm, "hotpVerify");
 
   // Every candidate is computed and compared on every call. Returning at the
   // first match would make the number of HMACs — and so how long the call
@@ -333,7 +333,7 @@ export async function hotpVerify(
   let valid = false;
   let delta = 0;
   for (let step = 0; step <= window; step++) {
-    const matched = secureCompare(await _code("hotpVerify", key, counter + step, digits), otp);
+    const matched = secureCompare(await _code(key, counter + step, digits, "hotpVerify"), otp);
     if (matched && !valid) {
       valid = true;
       delta = step;
@@ -366,9 +366,9 @@ export async function totp(
   options: TOTPOptions = {},
 ): Promise<string> {
   const { period = DEFAULT_PERIOD, time } = options;
-  const { algorithm, digits } = _baseOptions("totp", options);
-  const counter = _timeStep("totp", time, period);
-  return _code("totp", await _resolveKey("totp", secret, algorithm), counter, digits);
+  const { algorithm, digits } = _baseOptions(options, "totp");
+  const counter = _timeStep(time, period, "totp");
+  return _code(await _resolveKey(secret, algorithm, "totp"), counter, digits, "totp");
 }
 
 /**
@@ -410,10 +410,10 @@ export async function totpVerify(
   options: TOTPVerifyOptions = {},
 ): Promise<TOTPVerifyResult> {
   const { window = 1, period = DEFAULT_PERIOD, time, lastAccepted } = options;
-  const { algorithm, digits } = _baseOptions("totpVerify", options);
-  assertInteger("totpVerify", "window", window, 0);
-  if (lastAccepted !== undefined) assertInteger("totpVerify", "lastAccepted", lastAccepted, 0);
-  const counter = _timeStep("totpVerify", time, period);
+  const { algorithm, digits } = _baseOptions(options, "totpVerify");
+  assertInteger(window, "window", "totpVerify", 0);
+  if (lastAccepted !== undefined) assertInteger(lastAccepted, "lastAccepted", "totpVerify", 0);
+  const counter = _timeStep(time, period, "totpVerify");
   // The window is walked by adding to the derived step, so both ends of it
   // have to stay safe integers — past that, candidates lose precision and
   // silently repeat one another.
@@ -424,7 +424,7 @@ export async function totpVerify(
     );
   }
 
-  const key = await _resolveKey("totpVerify", secret, algorithm);
+  const key = await _resolveKey(secret, algorithm, "totpVerify");
 
   // Nearest step first, the past ahead of the future at equal distance, so a
   // code that matches more than one step reports the closest one. As in
@@ -436,7 +436,7 @@ export async function totpVerify(
   let delta = 0;
   for (const step of steps) {
     const candidate = counter + step;
-    const matched = secureCompare(await _code("totpVerify", key, candidate, digits), otp);
+    const matched = secureCompare(await _code(key, candidate, digits, "totpVerify"), otp);
     // A step at or before the last accepted one is spent. Its code is still
     // computed and compared so the call costs the same; it just cannot count.
     const fresh = lastAccepted === undefined || candidate > lastAccepted;
@@ -466,8 +466,8 @@ export async function totpVerify(
  */
 /* @__NO_SIDE_EFFECTS__ */
 export function generateOTPSecret(length: number = 20): string {
-  assertInteger("generateOTPSecret", "length", length, 1);
-  return _base32Encode(secureRandomBytes(length), false);
+  assertInteger(length, "length", "generateOTPSecret", 1);
+  return base32StringifyBytes(secureRandomBytes(length), "generateOTPSecret", { padding: false });
 }
 
 /**
@@ -501,12 +501,12 @@ export function otpauthURI(options: OTPAuthURIOptions): string {
       `otpauthURI: type must be "hotp" or "totp", got ${showValue(type)}.`,
     );
   }
-  _assertLabelText("account", account);
+  _assertLabelText(account, "account");
   if (account.length === 0) {
     throw new UnsecureError("OUT_OF_RANGE", "otpauthURI: account must not be empty.");
   }
   if (issuer !== undefined) {
-    _assertLabelText("issuer", issuer);
+    _assertLabelText(issuer, "issuer");
     // "" is not "no issuer": it would be dropped from both the label and the
     // query, provisioning a token under a name the caller never chose.
     // `undefined` is how a caller says there is none.
@@ -514,12 +514,14 @@ export function otpauthURI(options: OTPAuthURIOptions): string {
       throw new UnsecureError("OUT_OF_RANGE", "otpauthURI: issuer must not be empty.");
     }
   }
-  const { algorithm, digits } = _baseOptions("otpauthURI", options);
+  const { algorithm, digits } = _baseOptions(options, "otpauthURI");
 
   // Whatever shape the secret arrives in, the URI carries the canonical
   // unpadded base32 of the same bytes: scanners read the string literally, so
   // the grouped lowercase form a caller may be holding has to be normalized.
-  const secretB32 = _base32Encode(_resolveSecret("otpauthURI", secret), false);
+  const secretB32 = base32StringifyBytes(_resolveSecret(secret, "otpauthURI"), "otpauthURI", {
+    padding: false,
+  });
 
   const label =
     issuer === undefined
@@ -537,10 +539,10 @@ export function otpauthURI(options: OTPAuthURIOptions): string {
     if (counter === undefined) {
       throw new UnsecureError("OUT_OF_RANGE", "otpauthURI: counter is required for HOTP URIs.");
     }
-    assertInteger("otpauthURI", "counter", counter, 0);
+    assertInteger(counter, "counter", "otpauthURI", 0);
     params.push(`counter=${counter}`);
   } else {
-    assertInteger("otpauthURI", "period", period, 1);
+    assertInteger(period, "period", "otpauthURI", 1);
     params.push(`period=${period}`);
   }
 
