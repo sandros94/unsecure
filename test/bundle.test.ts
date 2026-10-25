@@ -127,7 +127,7 @@ const ENTRIES: ReadonlyArray<Entry> = [
   {
     name: "hkdf",
     module: "hkdf.ts",
-    measured: 5534,
+    measured: 5549,
     absent: [...BASE32, MARKERS.randomBuffer, MARKERS.randomBytes, MARKERS.digest],
   },
   {
@@ -202,20 +202,20 @@ const ENTRIES: ReadonlyArray<Entry> = [
   {
     name: "hexParse",
     module: "utils/index.ts",
-    measured: 2932,
+    measured: 2979,
     absent: [...BASE32, ...BASE64, MARKERS.randomBytes],
   },
   // parse only, so even the encoder half stays behind
   {
     name: "base64Parse",
     module: "utils/index.ts",
-    measured: 4348,
+    measured: 4395,
     absent: [...BASE32, ...HEX, MARKERS.base64Encode, MARKERS.randomBytes],
   },
   {
     name: "base32Parse",
     module: "utils/index.ts",
-    measured: 4985,
+    measured: 5032,
     absent: [...BASE64, ...HEX, MARKERS.randomBytes],
   },
   // the error class on its own is a constructor and a field

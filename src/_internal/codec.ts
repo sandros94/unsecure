@@ -1,20 +1,22 @@
 import { describeValue } from "./bytes.ts";
 import { UnsecureError } from "../errors.ts";
+import { own } from "./options.ts";
 
 /**
  * Shared UTF-8 `TextDecoder` instance. `ignoreBOM` keeps a leading U+FEFF in
  * the output: what the codecs decode is a byte string, and a BOM inside it is
  * payload, not a signature to swallow.
  */
-export const textDecoder: TextDecoder = /* @__PURE__ */ new TextDecoder("utf-8", {
-  ignoreBOM: true,
-});
+export const textDecoder: TextDecoder = /* @__PURE__ */ new TextDecoder(
+  "utf-8",
+  /* @__PURE__ */ own({ ignoreBOM: true, fatal: false }),
+);
 
 /** Strict output decoder: invalid UTF-8 throws rather than yielding U+FFFD. */
-const _fatalDecoder: TextDecoder = /* @__PURE__ */ new TextDecoder("utf-8", {
-  ignoreBOM: true,
-  fatal: true,
-});
+const _fatalDecoder: TextDecoder = /* @__PURE__ */ new TextDecoder(
+  "utf-8",
+  /* @__PURE__ */ own({ ignoreBOM: true, fatal: true }),
+);
 
 /**
  * Probe once whether a TC39 encoder reads a view where it starts rather than

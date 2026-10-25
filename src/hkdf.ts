@@ -174,18 +174,16 @@ export async function hkdf(
   const saltBytes = salt === undefined ? EMPTY : toCryptoBytes(salt, "hkdf");
   const infoBytes = info === undefined ? EMPTY : toCryptoBytes(info, "hkdf");
 
+  // Every member of the dictionary set as an own property, like every bag
+  // handed to Web Crypto: nothing is left for a runtime to look up elsewhere.
+  const params: HkdfParams = own({
+    name: "HKDF",
+    hash: algorithm,
+    salt: saltBytes,
+    info: infoBytes,
+  });
   const derivedBits = await viaWebCrypto(
-    () =>
-      crypto.subtle.deriveBits(
-        {
-          name: "HKDF",
-          hash: algorithm,
-          salt: saltBytes,
-          info: infoBytes,
-        },
-        cryptoKey,
-        length * 8,
-      ),
+    () => crypto.subtle.deriveBits(params, cryptoKey, length * 8),
     "deriveBits",
     "hkdf",
   );
