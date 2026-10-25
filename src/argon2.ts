@@ -7,6 +7,7 @@ import { secureCompare } from "./compare.ts";
 import { UnsecureError } from "./errors.ts";
 import { secureRandomBytes } from "./random.ts";
 import { base64ParseText, base64StringifyBytes } from "./_internal/base64.ts";
+import { own } from "./_internal/options.ts";
 
 // #region Types
 
@@ -621,8 +622,9 @@ export async function argon2(
 export async function argon2(
   password: string | BytesSource,
   salt: string | BytesSource,
-  options: Argon2Options = {},
+  input?: Argon2Options,
 ): Promise<Uint8Array<ArrayBuffer> | string> {
+  const options = own(input);
   const { returnAs } = options;
   // Before the derivation, not after it: an unknown `returnAs` is a caller mistake, and
   // reporting it should not cost a full hash first.
@@ -659,8 +661,9 @@ export async function argon2(
 /* @__NO_SIDE_EFFECTS__ */
 export async function argon2Hash(
   password: string | BytesSource,
-  options: Argon2HashOptions = {},
+  input?: Argon2HashOptions,
 ): Promise<string> {
+  const options = own(input);
   const resolved = _resolve(options);
   const salt =
     options.salt === undefined
@@ -781,8 +784,9 @@ function _parsePhc(phc: string, source: string): _Stored {
 export async function argon2Verify(
   phc: string,
   password: string | BytesSource,
-  options: Argon2VerifyOptions = {},
+  input?: Argon2VerifyOptions,
 ): Promise<boolean> {
+  const options = own(input);
   const { variant, version, versionField, m, t, p, salt, tag } = _parsePhc(phc, "argon2Verify");
   // A string with no `v=` field predates version 0x13, so it is refused by version rather than
   // by shape. Reproducing a tag under a version this module does not implement is not possible;
@@ -843,7 +847,8 @@ export async function argon2Verify(
  * }
  */
 /* @__NO_SIDE_EFFECTS__ */
-export function argon2NeedsRehash(phc: string, parameters: Argon2Parameters = {}): boolean {
+export function argon2NeedsRehash(phc: string, input?: Argon2Parameters): boolean {
+  const parameters = own(input);
   const stored = _parsePhc(phc, "argon2NeedsRehash");
   if (stored.version !== _VERSION) return true;
 

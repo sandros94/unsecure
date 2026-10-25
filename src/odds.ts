@@ -2,6 +2,7 @@ import { assertInteger, showValue } from "./_internal/assert.ts";
 import { drawInPlace } from "./_internal/shuffle.ts";
 import { UnsecureError } from "./errors.ts";
 import { type SecureRandomGenerator, secureRandomNumber } from "./random.ts";
+import { own } from "./_internal/options.ts";
 
 const _DECK = "createDeck";
 const _CHANCE = "createChance";
@@ -126,8 +127,9 @@ export function createChance(
 export function createChance(
   model: ChanceModel,
   probability: Probability,
-  options: DeckChanceOptions | PRDChanceOptions | PityChanceOptions = {} as PRDChanceOptions,
+  input?: DeckChanceOptions | PRDChanceOptions | PityChanceOptions,
 ): DeckChance | PRDChance | PityChance {
+  const options = own(input ?? ({} as PRDChanceOptions));
   if (typeof model !== "string") {
     throw new UnsecureError(
       "INVALID_TYPE",
@@ -205,8 +207,9 @@ export function createDeck<T, F>(items: DeckItems<T>, options: PaddedDeckOptions
 /* @__NO_SIDE_EFFECTS__ */
 export function createDeck<T, F>(
   items: DeckItems<T>,
-  options: DeckOptions | PaddedDeckOptions<F> = {},
+  input?: DeckOptions | PaddedDeckOptions<F>,
 ): Deck<T | F> {
+  const options = own(input ?? ({} as DeckOptions));
   const expanded = _expand(items);
   const hasSize = "size" in options && options.size !== undefined;
   const hasFill = "fill" in options;

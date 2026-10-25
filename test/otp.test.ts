@@ -923,3 +923,20 @@ describe("OTP imports the secret once per call", () => {
     expect(sign).toHaveBeenCalledTimes(11);
   });
 });
+
+describe("otpauthURI label text", () => {
+  it("refuses a lone surrogate with MALFORMED rather than a native URIError", () => {
+    const account = JSON.parse('"user\\ud800"') as string;
+    expectUnsecureError(
+      () => otpauthURI({ type: "totp", secret: "JBSWY3DPEHPK3PXP", account }),
+      "MALFORMED",
+      "otpauthURI: account is not well-formed text.",
+    );
+    expectUnsecureError(
+      () =>
+        otpauthURI({ type: "totp", secret: "JBSWY3DPEHPK3PXP", account: "u", issuer: "\udfff" }),
+      "MALFORMED",
+      "issuer",
+    );
+  });
+});

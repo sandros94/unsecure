@@ -3,6 +3,7 @@ import { type BytesSource, toCryptoBytes } from "./bytes.ts";
 import { viaWebCrypto } from "./platform.ts";
 import { UnsecureError } from "../errors.ts";
 import type { DigestAlgorithm } from "../hash.ts";
+import { own } from "./options.ts";
 
 /**
  * Import a secret once, as an HMAC signing key.
@@ -32,18 +33,20 @@ import type { DigestAlgorithm } from "../hash.ts";
 /* @__NO_SIDE_EFFECTS__ */
 export async function importHmacKey(
   secret: string | BytesSource,
-  options: { algorithm?: DigestAlgorithm } = {},
+  input?: { algorithm?: DigestAlgorithm },
 ): Promise<CryptoKey> {
-  const algorithm = normalizeAlgorithm(options.algorithm ?? "SHA-256", "hmac");
+  const algorithm = normalizeAlgorithm(own(input).algorithm ?? "SHA-256", "hmac");
   const keyBytes = toCryptoBytes(secret, "hmac");
   // A secret that failed to load is a deployment bug, not a wrong signature:
   // it must fail loudly here rather than silently key every MAC with nothing.
   if (keyBytes.length === 0) {
     throw new UnsecureError("OUT_OF_RANGE", "hmac: secret must not be empty.");
   }
+  // Web Crypto reads a dictionary through its prototype chain, so an ordinary
+  // literal would hand it an inherited optional `length` and truncate the key.
+  const params: HmacImportParams = own({ name: "HMAC", hash: algorithm });
   return viaWebCrypto(
-    () =>
-      crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: algorithm }, false, ["sign"]),
+    () => crypto.subtle.importKey("raw", keyBytes, params, false, ["sign"]),
     "importKey",
     "hmac",
   );

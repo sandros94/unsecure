@@ -1,3 +1,6 @@
+import { describeValue } from "./bytes.ts";
+import { NONE } from "./options.ts";
+import { UnsecureError } from "../errors.ts";
 import {
   type BlockShape,
   badOption,
@@ -29,6 +32,12 @@ export type Base32Alphabet = "base32" | "base32hex" | "crockford" | (string & {}
  */
 /* @__NO_SIDE_EFFECTS__ */
 export function base32Chars(alphabet: Base32Alphabet, source: string): string {
+  if (typeof alphabet !== "string") {
+    throw new UnsecureError(
+      "INVALID_TYPE",
+      `${source}: alphabet must be a string, got ${describeValue(alphabet)}.`,
+    );
+  }
   const named = _NAMED.get(alphabet);
   if (named !== undefined) return named;
   if (alphabet.length !== 32) {
@@ -92,7 +101,7 @@ function _decodeTable(alphabet: Base32Alphabet, chars: string, loose: boolean): 
 export function base32StringifyBytes(
   bytes: Uint8Array,
   source: string,
-  options: { alphabet?: Base32Alphabet; padding?: boolean } = {},
+  options: { alphabet?: Base32Alphabet; padding?: boolean } = NONE,
 ): string {
   const alphabet = options.alphabet ?? "base32";
   const chars = base32Chars(alphabet, source);
@@ -128,7 +137,7 @@ export function base32StringifyBytes(
 export function base32ParseText(
   text: string,
   source: string,
-  options: { alphabet?: Base32Alphabet; loose?: boolean; padding?: boolean } = {},
+  options: { alphabet?: Base32Alphabet; loose?: boolean; padding?: boolean } = NONE,
 ): Uint8Array<ArrayBuffer> {
   const alphabet = options.alphabet ?? "base32";
   const loose = options.loose ?? false;

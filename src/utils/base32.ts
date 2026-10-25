@@ -12,6 +12,7 @@ import {
   parseFinalize,
   parsePrep,
 } from "../_internal/codec.ts";
+import { own } from "../_internal/options.ts";
 
 export type { Base32Alphabet };
 
@@ -59,7 +60,7 @@ export function base32Stringify(
   data: string | BytesSource,
   options?: Base32StringifyOptions,
 ): string {
-  return base32StringifyBytes(toBytes(data, "Base32.stringify"), "Base32.stringify", options);
+  return base32StringifyBytes(toBytes(data, "Base32.stringify"), "Base32.stringify", own(options));
 }
 
 /**
@@ -91,12 +92,13 @@ export function base32Parse(
 /* @__NO_SIDE_EFFECTS__ */
 export function base32Parse(
   input: string | Uint8Array,
-  options?: Base32ParseOptions,
+  input_?: Base32ParseOptions,
 ): string | Uint8Array {
   assertData(input, "Base32.parse");
+  const options = own(input_);
   // Refused before the empty-input return, so an unusable alphabet never passes silently.
-  base32Chars(options?.alphabet ?? "base32", "Base32.parse");
-  const loose = options?.loose ?? false;
+  base32Chars(options.alphabet ?? "base32", "Base32.parse");
+  const loose = options.loose ?? false;
   const { text, wantString } = parsePrep(input, options);
   if (!text) return wantString ? "" : new Uint8Array(0);
   const bytes = base32ParseText(text, "Base32.parse", options);

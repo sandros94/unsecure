@@ -8,6 +8,7 @@ import { base32ParseText, base32StringifyBytes } from "./_internal/base32.ts";
 import { secureRandomBytes } from "./random.ts";
 import { secureCompare } from "./compare.ts";
 import { UnsecureError } from "./errors.ts";
+import { own } from "./_internal/options.ts";
 
 // #region Types
 
@@ -163,7 +164,7 @@ function _baseOptions(
 function _resolveSecret(secret: string | BytesSource, source: string): Uint8Array<ArrayBuffer> {
   const bytes =
     typeof secret === "string"
-      ? base32ParseText(secret, source, { loose: true })
+      ? base32ParseText(secret, source, _LOOSE)
       : toCryptoBytes(secret, source);
   if (bytes.length === 0) {
     throw new UnsecureError("OUT_OF_RANGE", `${source}: secret must not be empty.`);
@@ -238,7 +239,16 @@ function _assertLabelText(value: unknown, name: string): asserts value is string
       `otpauthURI: ${name} must be a string, got ${showValue(value)}.`,
     );
   }
+  // A lone surrogate is not text: `encodeURIComponent` would throw the
+  // engine's `URIError` for it, and the value may well come off the wire.
+  if (!value.isWellFormed()) {
+    throw new UnsecureError("MALFORMED", `otpauthURI: ${name} is not well-formed text.`);
+  }
 }
+
+/** The bags this module hands its codec, built like a caller's would be. */
+const _LOOSE: { loose: true } = /* @__PURE__ */ own({ loose: true });
+const _UNPADDED: { padding: false } = /* @__PURE__ */ own({ padding: false });
 
 /** Algorithm name mapping for otpauth URIs (no hyphens). */
 const _URI_ALGORITHM_MAP: Record<DigestAlgorithm, string> = {
@@ -272,9 +282,9 @@ const _URI_ALGORITHM_MAP: Record<DigestAlgorithm, string> = {
 export async function hotp(
   secret: string | BytesSource | CryptoKey,
   counter: number,
-  options: HOTPOptions = {},
+  input?: HOTPOptions,
 ): Promise<string> {
-  const { algorithm, digits } = _baseOptions(options, "hotp");
+  const { algorithm, digits } = _baseOptions(own(input), "hotp");
   assertInteger(counter, "counter", "hotp", 0);
   return _code(await _resolveKey(secret, algorithm, "hotp"), counter, digits, "hotp");
 }
@@ -314,8 +324,9 @@ export async function hotpVerify(
   secret: string | BytesSource | CryptoKey,
   otp: string | null | undefined,
   counter: number,
-  options: HOTPVerifyOptions = {},
+  input?: HOTPVerifyOptions,
 ): Promise<HOTPVerifyResult> {
+  const options = own(input);
   const { window = 0 } = options;
   const { algorithm, digits } = _baseOptions(options, "hotpVerify");
   assertInteger(window, "window", "hotpVerify", 0);
@@ -363,8 +374,9 @@ export async function hotpVerify(
 /* @__NO_SIDE_EFFECTS__ */
 export async function totp(
   secret: string | BytesSource | CryptoKey,
-  options: TOTPOptions = {},
+  input?: TOTPOptions,
 ): Promise<string> {
+  const options = own(input);
   const { period = DEFAULT_PERIOD, time } = options;
   const { algorithm, digits } = _baseOptions(options, "totp");
   const counter = _timeStep(time, period, "totp");
@@ -407,8 +419,9 @@ export async function totp(
 export async function totpVerify(
   secret: string | BytesSource | CryptoKey,
   otp: string | null | undefined,
-  options: TOTPVerifyOptions = {},
+  input?: TOTPVerifyOptions,
 ): Promise<TOTPVerifyResult> {
+  const options = own(input);
   const { window = 1, period = DEFAULT_PERIOD, time, lastAccepted } = options;
   const { algorithm, digits } = _baseOptions(options, "totpVerify");
   assertInteger(window, "window", "totpVerify", 0);
@@ -467,7 +480,7 @@ export async function totpVerify(
 /* @__NO_SIDE_EFFECTS__ */
 export function generateOTPSecret(length: number = 20): string {
   assertInteger(length, "length", "generateOTPSecret", 1);
-  return base32StringifyBytes(secureRandomBytes(length), "generateOTPSecret", { padding: false });
+  return base32StringifyBytes(secureRandomBytes(length), "generateOTPSecret", _UNPADDED);
 }
 
 /**
@@ -491,7 +504,8 @@ export function generateOTPSecret(length: number = 20): string {
  * });
  */
 /* @__NO_SIDE_EFFECTS__ */
-export function otpauthURI(options: OTPAuthURIOptions): string {
+export function otpauthURI(input: OTPAuthURIOptions): string {
+  const options = own(input);
   const { type, secret, account, issuer, counter, period = DEFAULT_PERIOD } = options;
   if (type !== "hotp" && type !== "totp") {
     // A string the library does not know is a name outside the supported set;
@@ -519,9 +533,11 @@ export function otpauthURI(options: OTPAuthURIOptions): string {
   // Whatever shape the secret arrives in, the URI carries the canonical
   // unpadded base32 of the same bytes: scanners read the string literally, so
   // the grouped lowercase form a caller may be holding has to be normalized.
-  const secretB32 = base32StringifyBytes(_resolveSecret(secret, "otpauthURI"), "otpauthURI", {
-    padding: false,
-  });
+  const secretB32 = base32StringifyBytes(
+    _resolveSecret(secret, "otpauthURI"),
+    "otpauthURI",
+    _UNPADDED,
+  );
 
   const label =
     issuer === undefined

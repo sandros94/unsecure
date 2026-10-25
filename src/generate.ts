@@ -1,6 +1,7 @@
 import { secureRandomNumber, secureShuffle } from "./random.ts";
 import { assertInteger, showValue } from "./_internal/assert.ts";
 import { UnsecureError } from "./errors.ts";
+import { own } from "./_internal/options.ts";
 
 export interface SecureGenerateOptions {
   /**
@@ -84,7 +85,7 @@ export function secureGenerate(options?: SecureGenerateOptions): string {
     numbers = true,
     specials = true,
     timestamp,
-  } = options ?? {};
+  } = own(options);
 
   assertInteger(length, "length", "secureGenerate", 1);
 

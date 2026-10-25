@@ -5,6 +5,7 @@ import { assertInteger } from "./_internal/assert.ts";
 import { type BytesSource, toCryptoBytes } from "./_internal/bytes.ts";
 import { assertHkdfKey, isCryptoKey } from "./_internal/key.ts";
 import { viaWebCrypto } from "./_internal/platform.ts";
+import { own } from "./_internal/options.ts";
 
 /** RFC 5869 treats an absent salt or info as a zero-length one. */
 const EMPTY: Uint8Array<ArrayBuffer> = /* @__PURE__ */ new Uint8Array(0);
@@ -154,8 +155,9 @@ export async function hkdf(
 /* @__NO_SIDE_EFFECTS__ */
 export async function hkdf(
   ikm: string | BytesSource | CryptoKey,
-  options: HKDFOptions = {},
+  input?: HKDFOptions,
 ): Promise<Uint8Array<ArrayBuffer> | string> {
+  const options = own(input);
   const { length = 32, salt, info, returnAs } = options;
   assertReturnAs(returnAs, "hkdf");
   const algorithm = normalizeAlgorithm(options.algorithm ?? "SHA-256", "hkdf");

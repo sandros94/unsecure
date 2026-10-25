@@ -1,3 +1,4 @@
+import { NONE } from "./options.ts";
 import { nodeBuffer, preferBuffer, toBuffer } from "./buffer.ts";
 import {
   type BlockShape,
@@ -66,7 +67,7 @@ function _padTo4(s: string): string {
 /* @__NO_SIDE_EFFECTS__ */
 export function base64StringifyBytes(
   bytes: Uint8Array,
-  options: { alphabet?: Base64Alphabet; padding?: boolean } = {},
+  options: { alphabet?: Base64Alphabet; padding?: boolean } = NONE,
 ): string {
   const alphabet = options.alphabet ?? "base64";
   const padding = options.padding ?? alphabet !== "base64url";
@@ -101,7 +102,7 @@ export function base64StringifyBytes(
 export function base64ParseText(
   text: string,
   source: string,
-  options: { alphabet?: Base64Alphabet; loose?: boolean; padding?: boolean } = {},
+  options: { alphabet?: Base64Alphabet; loose?: boolean; padding?: boolean } = NONE,
 ): Uint8Array<ArrayBuffer> {
   const url = (options.alphabet ?? "base64") === "base64url";
   let body: string;

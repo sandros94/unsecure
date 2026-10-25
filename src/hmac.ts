@@ -5,6 +5,7 @@ import { hmacSign, importHmacKey } from "./_internal/hmac.ts";
 import { assertHmacKey, isCryptoKey } from "./_internal/key.ts";
 import { secureCompare } from "./compare.ts";
 import { UnsecureError } from "./errors.ts";
+import { own } from "./_internal/options.ts";
 
 export { importHmacKey };
 
@@ -73,8 +74,9 @@ export async function hmac(
 export async function hmac(
   secret: string | BytesSource | CryptoKey,
   data: string | BytesSource,
-  options: HMACOptions = {},
+  input?: HMACOptions,
 ): Promise<Uint8Array<ArrayBuffer> | string> {
+  const options = own(input);
   const { returnAs } = options;
   assertReturnAs(returnAs, "hmac");
 
@@ -136,17 +138,20 @@ export async function hmacVerify(
   secret: string | BytesSource | CryptoKey,
   data: string | BytesSource,
   signature: string | BytesSource | null | undefined,
-  options?: HMACOptions,
+  input?: HMACOptions,
 ): Promise<boolean> {
+  const options = own(input);
   // Checked here, not only on the path that decodes text: a `returnAs` the
   // library does not know is a caller mistake whatever the signature is.
-  assertReturnAs(options?.returnAs, "hmac");
-  const computed = await hmac(secret, data, { ...options, returnAs: "uint8array" });
+  assertReturnAs(options.returnAs, "hmac");
+  const bytesOptions: HMACOptions = own(options);
+  bytesOptions.returnAs = "uint8array";
+  const computed = await hmac(secret, data, bytesOptions);
 
   let received: string | BytesSource | null | undefined = signature;
   if (typeof signature === "string") {
     try {
-      received = decodeBytes(signature, options?.returnAs, "hmac");
+      received = decodeBytes(signature, options.returnAs, "hmac");
     } catch (error) {
       // Malformed text is a failed verification; a `returnAs` the library does
       // not know is a caller mistake and keeps its usual error.

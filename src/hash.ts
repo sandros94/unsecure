@@ -2,6 +2,7 @@ import { assertReturnAs, encodeBytes } from "./_internal/encoding.ts";
 import { normalizeAlgorithm } from "./_internal/algorithm.ts";
 import { type BytesSource, toCryptoBytes } from "./_internal/bytes.ts";
 import { viaWebCrypto } from "./_internal/platform.ts";
+import { own } from "./_internal/options.ts";
 
 export type DigestAlgorithm = "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512";
 export type DigestReturnAs =
@@ -81,8 +82,9 @@ export async function hash(
 /* @__NO_SIDE_EFFECTS__ */
 export async function hash(
   data: string | BytesSource,
-  options: DigestOptions = {},
+  input?: DigestOptions,
 ): Promise<Uint8Array<ArrayBuffer> | string> {
+  const options = own(input);
   const { returnAs } = options;
   assertReturnAs(returnAs, "hash");
   const algorithm = normalizeAlgorithm(options.algorithm ?? "SHA-256", "hash");

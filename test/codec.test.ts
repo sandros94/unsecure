@@ -486,3 +486,14 @@ describe.concurrent("Text handling is byte-faithful", () => {
     }
   });
 });
+
+describe("base32 alphabet option type", () => {
+  it("refuses a non-string alphabet with INVALID_TYPE rather than a native TypeError", () => {
+    const alphabet = Array.from("ABCDEFGHIJKLMNOPQRSTUVWXYZ234567") as unknown as string;
+    expectUnsecureError(
+      () => base32Parse("NBUQ", { alphabet }),
+      "INVALID_TYPE",
+      "alphabet must be a string, got Array.",
+    );
+  });
+});

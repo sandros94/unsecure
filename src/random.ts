@@ -2,6 +2,7 @@ import { assertInteger, showValue } from "./_internal/assert.ts";
 import { type EntropyPool, createEntropyPool, sharedPool } from "./_internal/pool.ts";
 import { drawInPlace } from "./_internal/shuffle.ts";
 import { UnsecureError } from "./errors.ts";
+import { own } from "./_internal/options.ts";
 
 /**
  * Defines the interface for a secure random number generator.
@@ -236,7 +237,7 @@ const MAX_RANDOM_BYTES = 2 ** 31 - 1;
  * resetEntropy({ refill: true });
  */
 export function resetEntropy(options?: ResetEntropyOptions): void {
-  sharedPool.reset(options?.refill === true);
+  sharedPool.reset(own(options).refill === true);
 }
 
 /**
