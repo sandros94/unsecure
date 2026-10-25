@@ -1,4 +1,4 @@
-import { NONE } from "./options.ts";
+import { NO_OPTIONS } from "./options.ts";
 import { nodeBuffer, preferBuffer, toBuffer } from "./buffer.ts";
 import { honoursViews, malformed, wholeBuffer } from "./codec.ts";
 
@@ -37,7 +37,7 @@ export function hexStringifyBytes(bytes: Uint8Array): string {
 export function hexParseText(
   text: string,
   source: string,
-  options: { loose?: boolean } = NONE,
+  options: { loose?: boolean } = NO_OPTIONS,
 ): Uint8Array<ArrayBuffer> {
   return _bulk(_body(text, options.loose ?? false, source));
 }

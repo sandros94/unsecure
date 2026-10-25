@@ -8,7 +8,7 @@ import { base32ParseText, base32StringifyBytes } from "./_internal/base32.ts";
 import { secureRandomBytes } from "./random.ts";
 import { secureCompare } from "./compare.ts";
 import { UnsecureError } from "./errors.ts";
-import { own } from "./_internal/options.ts";
+import { ownOptions } from "./_internal/options.ts";
 
 // #region Types
 
@@ -247,8 +247,8 @@ function _assertLabelText(value: unknown, name: string): asserts value is string
 }
 
 /** The bags this module hands its codec, built like a caller's would be. */
-const _LOOSE: { loose: true } = /* @__PURE__ */ own({ loose: true });
-const _UNPADDED: { padding: false } = /* @__PURE__ */ own({ padding: false });
+const _LOOSE: { loose: true } = /* @__PURE__ */ ownOptions({ loose: true });
+const _UNPADDED: { padding: false } = /* @__PURE__ */ ownOptions({ padding: false });
 
 /** Algorithm name mapping for otpauth URIs (no hyphens). */
 const _URI_ALGORITHM_MAP: Record<DigestAlgorithm, string> = {
@@ -284,7 +284,7 @@ export async function hotp(
   counter: number,
   input?: HOTPOptions,
 ): Promise<string> {
-  const { algorithm, digits } = _baseOptions(own(input), "hotp");
+  const { algorithm, digits } = _baseOptions(ownOptions(input), "hotp");
   assertInteger(counter, "counter", "hotp", 0);
   return _code(await _resolveKey(secret, algorithm, "hotp"), counter, digits, "hotp");
 }
@@ -326,7 +326,7 @@ export async function hotpVerify(
   counter: number,
   input?: HOTPVerifyOptions,
 ): Promise<HOTPVerifyResult> {
-  const options = own(input);
+  const options = ownOptions(input);
   const { window = 0 } = options;
   const { algorithm, digits } = _baseOptions(options, "hotpVerify");
   assertInteger(window, "window", "hotpVerify", 0);
@@ -376,7 +376,7 @@ export async function totp(
   secret: string | BytesSource | CryptoKey,
   input?: TOTPOptions,
 ): Promise<string> {
-  const options = own(input);
+  const options = ownOptions(input);
   const { period = DEFAULT_PERIOD, time } = options;
   const { algorithm, digits } = _baseOptions(options, "totp");
   const counter = _timeStep(time, period, "totp");
@@ -421,7 +421,7 @@ export async function totpVerify(
   otp: string | null | undefined,
   input?: TOTPVerifyOptions,
 ): Promise<TOTPVerifyResult> {
-  const options = own(input);
+  const options = ownOptions(input);
   const { window = 1, period = DEFAULT_PERIOD, time, lastAccepted } = options;
   const { algorithm, digits } = _baseOptions(options, "totpVerify");
   assertInteger(window, "window", "totpVerify", 0);
@@ -505,7 +505,7 @@ export function generateOTPSecret(length: number = 20): string {
  */
 /* @__NO_SIDE_EFFECTS__ */
 export function otpauthURI(input: OTPAuthURIOptions): string {
-  const options = own(input);
+  const options = ownOptions(input);
   const { type, secret, account, issuer, counter, period = DEFAULT_PERIOD } = options;
   if (type !== "hotp" && type !== "totp") {
     // A string the library does not know is a name outside the supported set;

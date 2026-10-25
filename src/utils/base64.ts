@@ -7,7 +7,7 @@ import {
   parseFinalize,
   parsePrep,
 } from "../_internal/codec.ts";
-import { own } from "../_internal/options.ts";
+import { ownOptions } from "../_internal/options.ts";
 
 export type { Base64Alphabet };
 
@@ -55,7 +55,7 @@ export function base64Stringify(
   data: string | BytesSource,
   options?: Base64StringifyOptions,
 ): string {
-  return base64StringifyBytes(toBytes(data, "Base64.stringify"), own(options));
+  return base64StringifyBytes(toBytes(data, "Base64.stringify"), ownOptions(options));
 }
 
 /**
@@ -88,7 +88,7 @@ export function base64Parse(
   input_?: Base64ParseOptions,
 ): string | Uint8Array {
   assertData(input, "Base64.parse");
-  const options = own(input_);
+  const options = ownOptions(input_);
   const { text, wantString } = parsePrep(input, options);
   if (!text) return wantString ? "" : new Uint8Array(0);
   const loose = options.loose ?? false;

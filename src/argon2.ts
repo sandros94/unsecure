@@ -7,7 +7,7 @@ import { secureCompare } from "./compare.ts";
 import { UnsecureError } from "./errors.ts";
 import { secureRandomBytes } from "./random.ts";
 import { base64ParseText, base64StringifyBytes } from "./_internal/base64.ts";
-import { own } from "./_internal/options.ts";
+import { ownOptions } from "./_internal/options.ts";
 
 // #region Types
 
@@ -161,7 +161,7 @@ const _LIMIT_T = 64;
 const _LIMIT_P = 64;
 
 /** The unpadded base64 both PHC fields are written in, as one bag rather than a literal per call. */
-const _UNPADDED: { padding: false } = /* @__PURE__ */ own({ padding: false });
+const _UNPADDED: { padding: false } = /* @__PURE__ */ ownOptions({ padding: false });
 
 /**
  * `$argon2id$v=19$m=…,t=…,p=…$salt$tag`, the PHC string format.
@@ -664,7 +664,7 @@ export async function argon2(
   salt: string | BytesSource,
   input?: Argon2Options,
 ): Promise<Uint8Array<ArrayBuffer> | string> {
-  const options = own(input);
+  const options = ownOptions(input);
   const { returnAs } = options;
   // Before the derivation, not after it: an unknown `returnAs` is a caller mistake, and
   // reporting it should not cost a full hash first.
@@ -703,7 +703,7 @@ export async function argon2Hash(
   password: string | BytesSource,
   input?: Argon2HashOptions,
 ): Promise<string> {
-  const options = own(input);
+  const options = ownOptions(input);
   const resolved = _resolve(options);
   const salt =
     options.salt === undefined
@@ -827,7 +827,7 @@ export async function argon2Verify(
   password: string | BytesSource,
   input?: Argon2VerifyOptions,
 ): Promise<boolean> {
-  const options = own(input);
+  const options = ownOptions(input);
   const { variant, version, versionField, m, t, p, salt, tag } = _parsePhc(phc, "argon2Verify");
   // A string with no `v=` field predates version 0x13, so it is refused by version rather than
   // by shape. Reproducing a tag under a version this module does not implement is not possible;
@@ -842,7 +842,7 @@ export async function argon2Verify(
 
   // The cost is the string's to name but the caller's to bound: without a ceiling one stored
   // value decides how much memory and time every verify against it costs.
-  const limits = own(options.limits);
+  const limits = ownOptions(options.limits);
   const maxM = limits.m ?? _LIMIT_M;
   const maxT = limits.t ?? _LIMIT_T;
   const maxP = limits.p ?? _LIMIT_P;
@@ -905,7 +905,7 @@ export async function argon2Verify(
  */
 /* @__NO_SIDE_EFFECTS__ */
 export function argon2NeedsRehash(phc: string, input?: Argon2Parameters): boolean {
-  const parameters = own(input);
+  const parameters = ownOptions(input);
   const stored = _parsePhc(phc, "argon2NeedsRehash");
   if (stored.version !== _VERSION) return true;
 

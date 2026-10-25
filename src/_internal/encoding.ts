@@ -1,6 +1,6 @@
 import { base64ParseText, base64StringifyBytes } from "./base64.ts";
 import { hexParseText, hexStringifyBytes } from "./hex.ts";
-import { own } from "./options.ts";
+import { ownOptions } from "./options.ts";
 import type { DigestReturnAs } from "../hash.ts";
 import { UnsecureError } from "../errors.ts";
 
@@ -37,7 +37,7 @@ function _formOf(returnAs: DigestReturnAs, source: string): _Form {
 }
 
 /** The one base64url bag the module hands its codec, built like a caller's would be. */
-const _URL: { alphabet: "base64url" } = /* @__PURE__ */ own({ alphabet: "base64url" });
+const _URL: { alphabet: "base64url" } = /* @__PURE__ */ ownOptions({ alphabet: "base64url" });
 
 /**
  * Reject a `returnAs` the library does not know, before anything is computed.

@@ -1,6 +1,6 @@
 import { describeValue } from "./bytes.ts";
 import { UnsecureError } from "../errors.ts";
-import { own } from "./options.ts";
+import { ownOptions } from "./options.ts";
 
 /**
  * Shared UTF-8 `TextDecoder` instance. `ignoreBOM` keeps a leading U+FEFF in
@@ -9,13 +9,13 @@ import { own } from "./options.ts";
  */
 export const textDecoder: TextDecoder = /* @__PURE__ */ new TextDecoder(
   "utf-8",
-  /* @__PURE__ */ own({ ignoreBOM: true, fatal: false }),
+  /* @__PURE__ */ ownOptions({ ignoreBOM: true, fatal: false }),
 );
 
 /** Strict output decoder: invalid UTF-8 throws rather than yielding U+FFFD. */
 const _fatalDecoder: TextDecoder = /* @__PURE__ */ new TextDecoder(
   "utf-8",
-  /* @__PURE__ */ own({ ignoreBOM: true, fatal: true }),
+  /* @__PURE__ */ ownOptions({ ignoreBOM: true, fatal: true }),
 );
 
 /**

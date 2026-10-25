@@ -1,5 +1,5 @@
 import { describeValue } from "./_internal/bytes.ts";
-import { own } from "./_internal/options.ts";
+import { ownOptions } from "./_internal/options.ts";
 import { UnsecureError } from "./errors.ts";
 
 /**
@@ -123,7 +123,7 @@ export interface SanitizeCopyOptions {
  */
 /* @__NO_SIDE_EFFECTS__ */
 export function sanitizeObjectCopy<T>(obj: T, options?: SanitizeCopyOptions): T {
-  const trusted = _allowlist(own(options).allowlist);
+  const trusted = _allowlist(ownOptions(options).allowlist);
   if (obj === null || typeof obj !== "object") return obj;
   if (!_isCopyable(obj)) {
     if (_isTrusted(obj, trusted)) return obj;

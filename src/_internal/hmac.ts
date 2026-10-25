@@ -3,7 +3,7 @@ import { type BytesSource, toCryptoBytes } from "./bytes.ts";
 import { viaWebCrypto } from "./platform.ts";
 import { UnsecureError } from "../errors.ts";
 import type { DigestAlgorithm } from "../hash.ts";
-import { own } from "./options.ts";
+import { ownOptions } from "./options.ts";
 
 /**
  * Import a secret once, as an HMAC signing key.
@@ -35,7 +35,7 @@ export async function importHmacKey(
   secret: string | BytesSource,
   input?: { algorithm?: DigestAlgorithm },
 ): Promise<CryptoKey> {
-  const algorithm = normalizeAlgorithm(own(input).algorithm ?? "SHA-256", "hmac");
+  const algorithm = normalizeAlgorithm(ownOptions(input).algorithm ?? "SHA-256", "hmac");
   const keyBytes = toCryptoBytes(secret, "hmac");
   // A secret that failed to load is a deployment bug, not a wrong signature:
   // it must fail loudly here rather than silently key every MAC with nothing.
@@ -46,7 +46,7 @@ export async function importHmacKey(
   // runtimes first copy it into an ordinary object of their own — so the
   // optional `length` is set explicitly to the whole key: an inherited one
   // would truncate it, and nothing is left for any runtime to look up.
-  const params: HmacImportParams = own({
+  const params: HmacImportParams = ownOptions({
     name: "HMAC",
     hash: algorithm,
     length: keyBytes.length * 8,

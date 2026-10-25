@@ -7,7 +7,7 @@ import {
   parsePrep,
 } from "../_internal/codec.ts";
 import { hexParseText, hexStringifyBytes } from "../_internal/hex.ts";
-import { own } from "../_internal/options.ts";
+import { ownOptions } from "../_internal/options.ts";
 
 export interface HexCodec {
   /** See {@link hexStringify}. */
@@ -52,7 +52,7 @@ export function hexParse(input: Uint8Array, options?: DecodeOptions): Uint8Array
 /* @__NO_SIDE_EFFECTS__ */
 export function hexParse(input: string | Uint8Array, input_?: DecodeOptions): string | Uint8Array {
   assertData(input, "Hex.parse");
-  const options = own(input_);
+  const options = ownOptions(input_);
   const { text, wantString } = parsePrep(input, options);
   if (!text) return wantString ? "" : new Uint8Array(0);
   const loose = options.loose ?? false;

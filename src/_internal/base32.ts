@@ -1,5 +1,5 @@
 import { describeValue } from "./bytes.ts";
-import { NONE } from "./options.ts";
+import { NO_OPTIONS } from "./options.ts";
 import { UnsecureError } from "../errors.ts";
 import {
   type BlockShape,
@@ -101,7 +101,7 @@ function _decodeTable(alphabet: Base32Alphabet, chars: string, loose: boolean): 
 export function base32StringifyBytes(
   bytes: Uint8Array,
   source: string,
-  options: { alphabet?: Base32Alphabet; padding?: boolean } = NONE,
+  options: { alphabet?: Base32Alphabet; padding?: boolean } = NO_OPTIONS,
 ): string {
   const alphabet = options.alphabet ?? "base32";
   const chars = base32Chars(alphabet, source);
@@ -137,7 +137,7 @@ export function base32StringifyBytes(
 export function base32ParseText(
   text: string,
   source: string,
-  options: { alphabet?: Base32Alphabet; loose?: boolean; padding?: boolean } = NONE,
+  options: { alphabet?: Base32Alphabet; loose?: boolean; padding?: boolean } = NO_OPTIONS,
 ): Uint8Array<ArrayBuffer> {
   const alphabet = options.alphabet ?? "base32";
   const loose = options.loose ?? false;

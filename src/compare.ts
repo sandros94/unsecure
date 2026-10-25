@@ -1,6 +1,6 @@
 import { type BytesSource, toBytes } from "./_internal/bytes.ts";
 import { UnsecureError } from "./errors.ts";
-import { own } from "./_internal/options.ts";
+import { ownOptions } from "./_internal/options.ts";
 
 /** Stand-in for a `received` value that carries no bytes to compare. */
 const EMPTY = /* @__PURE__ */ new Uint8Array(0);
@@ -81,7 +81,7 @@ export function secureCompare(
     expected === undefined || expected === null ? EMPTY : toBytes(expected, "secureCompare");
 
   if (a.length === 0) {
-    if (own(options).strict) {
+    if (ownOptions(options).strict) {
       throw new UnsecureError(
         "OUT_OF_RANGE",
         "Cannot verify. Expected value is empty or undefined.",

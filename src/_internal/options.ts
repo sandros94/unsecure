@@ -1,19 +1,27 @@
 /**
- * An options bag as the caller wrote it: its own properties on a `null`
- * prototype. An ordinary `{}` inherits from `Object.prototype`, so a key the
- * caller left out reads through the prototype chain — a property a polluted
- * prototype carries would silently become a setting. Every public function
- * resolves its bag through here first; internal callers pass {@link NONE} or a
- * constant built the same way.
+ * Copy an options bag's own properties onto a `null` prototype, so a polluted
+ * `Object.prototype` can never stand in for an option the caller left out.
+ * Call it first in every function that reads an options bag.
+ *
+ * @internal Shared with downstream libraries; not part of the public contract.
+ * @example
+ * const options = ownOptions(input);
+ * const { algorithm = "SHA-256" } = options;
  */
 /* @__NO_SIDE_EFFECTS__ */
-export function own<T extends object>(options: T | undefined | null): T {
+export function ownOptions<T extends object>(options: T | undefined | null): T {
   return options === undefined || options === null
-    ? (NONE as T)
+    ? (NO_OPTIONS as T)
     : (Object.assign(Object.create(null), options) as T);
 }
 
-/** The empty bag: a frozen `null`-prototype object every default parameter can share. */
-export const NONE: Readonly<Record<never, never>> = /* @__PURE__ */ Object.freeze(
+/**
+ * The empty options bag: frozen, `null`-prototyped, safe as a default parameter.
+ *
+ * @internal Shared with downstream libraries; not part of the public contract.
+ * @example
+ * function parse(text: string, options: ParseOptions = NO_OPTIONS) {}
+ */
+export const NO_OPTIONS: Readonly<Record<never, never>> = /* @__PURE__ */ Object.freeze(
   Object.create(null) as Record<never, never>,
 );

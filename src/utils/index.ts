@@ -19,6 +19,7 @@ export {
 export { type HexCodec, Hex, hexParse, hexStringify } from "./hex.ts";
 
 export { type BytesSource, textEncoder } from "../_internal/bytes.ts";
+export { NO_OPTIONS, ownOptions } from "../_internal/options.ts";
 export {
   type DecodeReturnAs,
   type DecodeOptions,

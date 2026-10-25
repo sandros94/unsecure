@@ -7,6 +7,8 @@ import {
   base64Stringify,
   hexParse,
   hexStringify,
+  ownOptions,
+  NO_OPTIONS,
 } from "../src/utils/index.ts";
 
 describe.concurrent("Utility Functions", () => {
@@ -481,5 +483,27 @@ describe("public surface", () => {
     for (const barrel of [await import("../src/utils/index.ts"), await import("../src/index.ts")]) {
       expect(Object.keys(barrel).filter((name) => name.startsWith("_"))).toEqual([]);
     }
+  });
+});
+
+describe("ownOptions / NO_OPTIONS", () => {
+  it("copies own properties onto a null prototype and ignores inherited ones", () => {
+    (Object.prototype as any).loose = true;
+    try {
+      const bag = ownOptions({ padding: false });
+      expect(Object.getPrototypeOf(bag)).toBeNull();
+      expect(bag).toEqual({ padding: false });
+      expect((bag as any).loose).toBeUndefined();
+      expect(ownOptions(undefined)).toBe(NO_OPTIONS);
+      expect(ownOptions(null)).toBe(NO_OPTIONS);
+    } finally {
+      delete (Object.prototype as any).loose;
+    }
+  });
+
+  it("NO_OPTIONS is a frozen, null-prototype, empty bag", () => {
+    expect(Object.isFrozen(NO_OPTIONS)).toBe(true);
+    expect(Object.getPrototypeOf(NO_OPTIONS)).toBeNull();
+    expect(Object.keys(NO_OPTIONS)).toEqual([]);
   });
 });

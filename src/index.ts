@@ -112,6 +112,8 @@ export {
   base64Stringify,
   hexParse,
   hexStringify,
+  NO_OPTIONS,
+  ownOptions,
   textDecoder,
   textEncoder,
 } from "./utils/index.ts";

@@ -5,7 +5,7 @@ import { hmacSign, importHmacKey } from "./_internal/hmac.ts";
 import { assertHmacKey, isCryptoKey } from "./_internal/key.ts";
 import { secureCompare } from "./compare.ts";
 import { UnsecureError } from "./errors.ts";
-import { own } from "./_internal/options.ts";
+import { ownOptions } from "./_internal/options.ts";
 
 export { importHmacKey };
 
@@ -76,7 +76,7 @@ export async function hmac(
   data: string | BytesSource,
   input?: HMACOptions,
 ): Promise<Uint8Array<ArrayBuffer> | string> {
-  const options = own(input);
+  const options = ownOptions(input);
   const { returnAs } = options;
   assertReturnAs(returnAs, "hmac");
 
@@ -140,11 +140,11 @@ export async function hmacVerify(
   signature: string | BytesSource | null | undefined,
   input?: HMACOptions,
 ): Promise<boolean> {
-  const options = own(input);
+  const options = ownOptions(input);
   // Checked here, not only on the path that decodes text: a `returnAs` the
   // library does not know is a caller mistake whatever the signature is.
   assertReturnAs(options.returnAs, "hmac");
-  const bytesOptions: HMACOptions = own(options);
+  const bytesOptions: HMACOptions = ownOptions(options);
   bytesOptions.returnAs = "uint8array";
   const computed = await hmac(secret, data, bytesOptions);
 
