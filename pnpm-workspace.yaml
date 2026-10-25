@@ -1,12 +1,21 @@
+packages:
+  - docs
+
 allowBuilds:
-  '@parcel/watcher': false
+  "@parcel/watcher": false
+  "@tailwindcss/oxide": false
+  better-sqlite3: true
   esbuild: false
   simple-git-hooks: true
+  vue-demi: false
 
 ignoredBuiltDependencies:
   - "@parcel/watcher"
+  - "@tailwindcss/oxide"
   - esbuild
+  - vue-demi
 onlyBuiltDependencies:
+  - better-sqlite3
   - simple-git-hooks
 
 minimumReleaseAgeExclude:
@@ -20,3 +29,4 @@ minimumReleaseAgeExclude:
   - "@yuku-codegen/*"
   - "@yuku-toolchain/*"
   - "@yuku-parser/*"
+  - undocs-nightly@0.10.1-20261021-144810-60ffbf3
