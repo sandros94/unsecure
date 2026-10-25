@@ -117,6 +117,7 @@
     "build": "obuild",
     "stub": "obuild --stub",
     "dev:prepare": "obuild --stub && pnpm simple-git-hooks",
+    "docs": "pnpm --dir docs dev",
     "lint": "oxlint . && oxfmt --check .",
     "fmt": "oxlint --fix . && oxfmt .",
     "prepack": "pnpm build",
@@ -148,7 +149,7 @@
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
-      "version": "11.25.0",
+      "version": "12.3.4",
       "onFail": "download"
     },
     "runtime": {
