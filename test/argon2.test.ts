@@ -164,7 +164,7 @@ describe.concurrent("argon2 API", () => {
     await expectUnsecureError(
       argon2(password, salt, { ...CHEAP, returnAs: "unsupported" as any }),
       "UNSUPPORTED",
-      'Unsupported argon2 "returnAs" option: unsupported',
+      'argon2: unsupported returnAs "unsupported".',
     );
   });
 });
@@ -318,7 +318,7 @@ describe.concurrent("argon2Hash / argon2Verify", () => {
     await expectUnsecureError(
       argon2Verify(fields.join("$"), password),
       "OUT_OF_RANGE",
-      "argon2: salt length must be an integer between 8 and 4294967295, got 5.",
+      "argon2Verify: salt length must be an integer between 8 and 4294967295, got 5.",
     );
   });
 

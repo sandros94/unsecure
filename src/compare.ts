@@ -84,7 +84,7 @@ export function secureCompare(
     if (ownOptions(options).strict) {
       throw new UnsecureError(
         "OUT_OF_RANGE",
-        "Cannot verify. Expected value is empty or undefined.",
+        "secureCompare: expected must not be empty under strict.",
       );
     }
     return false;

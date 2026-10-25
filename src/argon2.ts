@@ -420,7 +420,7 @@ interface _Resolved {
 }
 
 /* @__NO_SIDE_EFFECTS__ */
-function _resolve(parameters: Argon2Parameters): _Resolved {
+function _resolve(parameters: Argon2Parameters, source: string = "argon2"): _Resolved {
   const {
     variant = "argon2id",
     m = _DEFAULT_M,
@@ -431,12 +431,12 @@ function _resolve(parameters: Argon2Parameters): _Resolved {
     data,
   } = parameters;
 
-  if (!_isVariant(variant)) throw _unsupportedVariant(variant, "argon2");
+  if (!_isVariant(variant)) throw _unsupportedVariant(variant, source);
   // `p` is checked first because it is what makes the lower bound on `m` a number.
-  assertInteger(p, "p (parallelism)", "argon2", 1, _MAX_UINT24);
-  assertInteger(m, "m (memory, KiB)", "argon2", 8 * p, _MAX_UINT32);
-  assertInteger(t, "t (iterations)", "argon2", 1, _MAX_UINT32);
-  assertInteger(length, "length", "argon2", 4, _MAX_UINT32);
+  assertInteger(p, "p (parallelism)", source, 1, _MAX_UINT24);
+  assertInteger(m, "m (memory, KiB)", source, 8 * p, _MAX_UINT32);
+  assertInteger(t, "t (iterations)", source, 1, _MAX_UINT32);
+  assertInteger(length, "length", source, 4, _MAX_UINT32);
 
   return {
     variant,
@@ -444,8 +444,8 @@ function _resolve(parameters: Argon2Parameters): _Resolved {
     t,
     p,
     length,
-    secret: secret === undefined ? new Uint8Array(0) : toBytes(secret, "argon2"),
-    data: data === undefined ? new Uint8Array(0) : toBytes(data, "argon2"),
+    secret: secret === undefined ? new Uint8Array(0) : toBytes(secret, source),
+    data: data === undefined ? new Uint8Array(0) : toBytes(data, source),
   };
 }
 
@@ -455,6 +455,7 @@ function _derive(
   password: Uint8Array,
   salt: Uint8Array,
   resolved: _Resolved,
+  source: string = "argon2",
 ): Uint8Array<ArrayBuffer> {
   const { variant, m, t, p, length, secret, data } = resolved;
 
@@ -467,7 +468,7 @@ function _derive(
     ["data", data, 0],
   ] as const;
   for (const [name, value, minimum] of inputs) {
-    assertInteger(value.length, `${name} length`, "argon2", minimum, _MAX_UINT32);
+    assertInteger(value.length, `${name} length`, source, minimum, _MAX_UINT32);
   }
 
   // H_0 = BLAKE2b-512(LE32(p) || LE32(T) || LE32(m) || LE32(t) || LE32(v) || LE32(y) ||
@@ -497,7 +498,7 @@ function _derive(
     // The engine declining the allocation is the platform refusing, not a caller mistake: the
     // cost passed its range checks. `H_0` already holds a digest of the password.
     h0.fill(0);
-    throw new UnsecureError("PLATFORM", `argon2: cannot allocate ${blocks} KiB of memory.`, {
+    throw new UnsecureError("PLATFORM", `${source}: cannot allocate ${blocks} KiB of memory.`, {
       cause: error,
     });
   }
@@ -704,16 +705,16 @@ export async function argon2Hash(
   input?: Argon2HashOptions,
 ): Promise<string> {
   const options = ownOptions(input);
-  const resolved = _resolve(options);
+  const resolved = _resolve(options, "argon2Hash");
   const salt =
     options.salt === undefined
       ? secureRandomBytes(_DEFAULT_SALT_LENGTH)
-      : toBytes(options.salt, "argon2");
-  const tag = _derive(toBytes(password, "argon2"), salt, resolved);
+      : toBytes(options.salt, "argon2Hash");
+  const tag = _derive(toBytes(password, "argon2Hash"), salt, resolved, "argon2Hash");
 
   const { variant, m, t, p } = resolved;
-  const saltText = base64StringifyBytes(salt, _UNPADDED);
-  const tagText = base64StringifyBytes(tag, _UNPADDED);
+  const saltText = base64StringifyBytes(salt, "argon2Hash", _UNPADDED);
+  const tagText = base64StringifyBytes(tag, "argon2Hash", _UNPADDED);
   return `$${variant}$v=${_VERSION}$m=${m},t=${t},p=${p}$${saltText}$${tagText}`;
 }
 
@@ -857,17 +858,13 @@ export async function argon2Verify(
   }
 
   const actual = _derive(
-    toBytes(password, "argon2"),
+    toBytes(password, "argon2Verify"),
     salt,
-    _resolve({
-      variant,
-      m,
-      t,
-      p,
-      length: tag.length,
-      secret: options.secret,
-      data: options.data,
-    }),
+    _resolve(
+      { variant, m, t, p, length: tag.length, secret: options.secret, data: options.data },
+      "argon2Verify",
+    ),
+    "argon2Verify",
   );
 
   return secureCompare(tag, actual);
@@ -909,13 +906,16 @@ export function argon2NeedsRehash(phc: string, input?: Argon2Parameters): boolea
   const stored = _parsePhc(phc, "argon2NeedsRehash");
   if (stored.version !== _VERSION) return true;
 
-  const wanted = _resolve({
-    variant: parameters.variant,
-    m: parameters.m,
-    t: parameters.t,
-    p: parameters.p,
-    length: parameters.length,
-  });
+  const wanted = _resolve(
+    {
+      variant: parameters.variant,
+      m: parameters.m,
+      t: parameters.t,
+      p: parameters.p,
+      length: parameters.length,
+    },
+    "argon2NeedsRehash",
+  );
 
   return (
     stored.variant !== wanted.variant ||

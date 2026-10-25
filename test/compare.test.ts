@@ -124,13 +124,13 @@ describe.concurrent("secureCompare", () => {
   // Opt-in strict mode: throw on empty / undefined expected
   it("throws in strict mode when expected is undefined", () => {
     expect(() => secureCompare(undefined, "test", { strict: true })).toThrow(
-      "Cannot verify. Expected value is empty or undefined.",
+      "secureCompare: expected must not be empty under strict.",
     );
   });
 
   it("throws in strict mode when expected is an empty string", () => {
     expect(() => secureCompare("", "test", { strict: true })).toThrow(
-      "Cannot verify. Expected value is empty or undefined.",
+      "secureCompare: expected must not be empty under strict.",
     );
   });
 

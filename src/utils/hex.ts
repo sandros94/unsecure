@@ -53,7 +53,7 @@ export function hexParse(input: Uint8Array, options?: DecodeOptions): Uint8Array
 export function hexParse(input: string | Uint8Array, input_?: DecodeOptions): string | Uint8Array {
   assertData(input, "Hex.parse");
   const options = ownOptions(input_);
-  const { text, wantString } = parsePrep(input, options);
+  const { text, wantString } = parsePrep(input, options, "Hex.parse");
   if (!text) return wantString ? "" : new Uint8Array(0);
   const loose = options.loose ?? false;
   return parseFinalize(hexParseText(text, "Hex.parse", options), wantString, !loose, "Hex.parse");

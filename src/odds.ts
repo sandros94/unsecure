@@ -15,8 +15,8 @@ const _CASCADE = "createCascade";
  * every cycle: a 1-in-4 hit shows up exactly once per four rolls, so the last
  * rolls of a cycle are predictable unless `reshuffleAt` is set. `"prd"`
  * (pseudo-random distribution) raises the odds after every miss and resets on
- * a hit: the long-run rate is exact, streaks are bounded, and no roll is ever
- * a certainty.
+ * a hit: the long-run rate is exact and streaks are bounded, so a long enough
+ * run of misses ends in a certain hit.
  */
 export type ChanceModel = "deck" | "prd" | "pity";
 

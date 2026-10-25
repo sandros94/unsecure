@@ -128,7 +128,7 @@ describe("hmac", () => {
 
     it("should throw for unsupported returnAs", async () => {
       await expect(hmac(secret, message, { returnAs: "unsupported" as any })).rejects.toThrow(
-        'Unsupported hmac "returnAs" option: unsupported',
+        'hmac: unsupported returnAs "unsupported".',
       );
       await expectUnsecureError(
         hmac(secret, message, { returnAs: "unsupported" as any }),
@@ -318,13 +318,13 @@ describe("hmacVerify signature formats", () => {
   it("rejects an unsupported returnAs whatever the signature is", async () => {
     const sig = await hmac(secret, message, { returnAs: "uint8array" });
     await expect(hmacVerify(secret, message, sig, { returnAs: "nope" as any })).rejects.toThrow(
-      'Unsupported hmac "returnAs" option: nope',
+      'hmac: unsupported returnAs "nope".',
     );
     await expect(hmacVerify(secret, message, "aa", { returnAs: "nope" as any })).rejects.toThrow(
-      'Unsupported hmac "returnAs" option: nope',
+      'hmac: unsupported returnAs "nope".',
     );
     await expect(hmacVerify(secret, message, null, { returnAs: "nope" as any })).rejects.toThrow(
-      'Unsupported hmac "returnAs" option: nope',
+      'hmac: unsupported returnAs "nope".',
     );
   });
 

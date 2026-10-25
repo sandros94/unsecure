@@ -103,7 +103,7 @@ export function base32Parse(
   // Refused before the empty-input return, so an unusable alphabet never passes silently.
   base32Chars(options.alphabet ?? "base32", "Base32.parse");
   const loose = options.loose ?? false;
-  const { text, wantString } = parsePrep(input, options);
+  const { text, wantString } = parsePrep(input, options, "Base32.parse");
   if (!text) return wantString ? "" : new Uint8Array(0);
   const bytes = base32ParseText(text, "Base32.parse", options);
   return parseFinalize(bytes, wantString, !loose, "Base32.parse");

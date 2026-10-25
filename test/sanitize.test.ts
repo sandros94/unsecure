@@ -218,7 +218,7 @@ describe("sanitizeObjectCopy refusal and allowlist", () => {
       expectUnsecureError(
         () => sanitizeObjectCopy({ value } as any),
         "INVALID_TYPE",
-        "sanitizeObjectCopy: cannot copy a",
+        "sanitizeObjectCopy: cannot copy an instance of",
       );
     }
   });

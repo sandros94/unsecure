@@ -1,4 +1,6 @@
 import { NO_OPTIONS } from "./options.ts";
+import { showValue } from "./assert.ts";
+import { UnsecureError } from "../errors.ts";
 import { nodeBuffer, preferBuffer, toBuffer } from "./buffer.ts";
 import {
   type BlockShape,
@@ -27,6 +29,17 @@ const _nativeFromBase64: boolean = /* @__PURE__ */ (() =>
 /** Whether `toBase64` honours a view; a runtime without it never reaches it. */
 const _base64Views: boolean = /* @__PURE__ */ (() =>
   !_nativeToBase64 || honoursViews((view) => (view as unknown as _ToBase64).toBase64(), "AQI="))();
+
+/** The alphabet a caller named, or `base64`; anything else is a name this codec does not know. */
+/* @__NO_SIDE_EFFECTS__ */
+function _alphabet(alphabet: Base64Alphabet | undefined, source: string): Base64Alphabet {
+  if (alphabet === undefined) return "base64";
+  if (alphabet === "base64" || alphabet === "base64url") return alphabet;
+  throw new UnsecureError(
+    "UNSUPPORTED",
+    `${source}: unsupported alphabet ${showValue(alphabet)}; use "base64" or "base64url".`,
+  );
+}
 
 /** Standard (`+/`) or URL-safe (`-_`) alphabet. */
 export type Base64Alphabet = "base64" | "base64url";
@@ -67,9 +80,10 @@ function _padTo4(s: string): string {
 /* @__NO_SIDE_EFFECTS__ */
 export function base64StringifyBytes(
   bytes: Uint8Array,
+  source: string,
   options: { alphabet?: Base64Alphabet; padding?: boolean } = NO_OPTIONS,
 ): string {
-  const alphabet = options.alphabet ?? "base64";
+  const alphabet = _alphabet(options.alphabet, source);
   const padding = options.padding ?? alphabet !== "base64url";
   const url = alphabet === "base64url";
   if (preferBuffer(bytes.length, _nativeToBase64)) {
@@ -104,7 +118,7 @@ export function base64ParseText(
   source: string,
   options: { alphabet?: Base64Alphabet; loose?: boolean; padding?: boolean } = NO_OPTIONS,
 ): Uint8Array<ArrayBuffer> {
-  const url = (options.alphabet ?? "base64") === "base64url";
+  const url = _alphabet(options.alphabet, source) === "base64url";
   let body: string;
   if (options.loose) {
     // Either alphabet is accepted; `-_` fold onto `+/` before the junk goes.

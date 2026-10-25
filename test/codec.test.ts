@@ -497,3 +497,24 @@ describe("base32 alphabet option type", () => {
     );
   });
 });
+
+describe("codec option names are checked", () => {
+  it("refuses an unknown base64 alphabet with UNSUPPORTED on both directions", () => {
+    expectUnsecureError(
+      () => base64Stringify("hi", { alphabet: "base64URL" as never }),
+      "UNSUPPORTED",
+      'Base64.stringify: unsupported alphabet "base64URL"',
+    );
+    expectUnsecureError(() => base64Parse("aGk", { alphabet: "url" as never }), "UNSUPPORTED");
+  });
+
+  it("refuses an unknown returnAs with UNSUPPORTED instead of returning bytes", () => {
+    expectUnsecureError(
+      () => hexParse("6869", { returnAs: "hex" as never }),
+      "UNSUPPORTED",
+      'Hex.parse: unsupported returnAs "hex"',
+    );
+    expectUnsecureError(() => base64Parse("aGk=", { returnAs: "text" as never }), "UNSUPPORTED");
+    expectUnsecureError(() => base32Parse("NBUQ", { returnAs: "buffer" as never }), "UNSUPPORTED");
+  });
+});

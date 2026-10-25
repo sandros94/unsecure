@@ -38,7 +38,7 @@ export function uuidv4(): string {
  *                  within the 48-bit range.
  * @throws {UnsecureError} `INVALID_TYPE` if `timestamp` is neither a `Date` nor a
  *                         `number`; `OUT_OF_RANGE` if it is not finite, is negative, or
- *                      exceeds `2^48 - 1` ms (~year 10,895).
+ *                      exceeds `2^48 - 1` ms (year 10,889).
  */
 /* @__NO_SIDE_EFFECTS__ */
 export function uuidv7(timestamp?: Date | number): string {
@@ -226,17 +226,17 @@ function _coerceMs(value: Date | number): number {
     try {
       ms = value.getTime();
     } catch {
-      throw new UnsecureError("INVALID_TYPE", "UUIDv7 timestamp must be a Date or number.");
+      throw new UnsecureError("INVALID_TYPE", "uuidv7: timestamp must be a Date or number.");
     }
   } else if (typeof value === "number") {
     ms = Math.floor(value);
   } else {
-    throw new UnsecureError("INVALID_TYPE", "UUIDv7 timestamp must be a Date or number.");
+    throw new UnsecureError("INVALID_TYPE", "uuidv7: timestamp must be a Date or number.");
   }
   if (!Number.isFinite(ms) || ms < 0 || ms > _MAX_V7_MS) {
     throw new UnsecureError(
       "OUT_OF_RANGE",
-      `UUIDv7 timestamp must be a finite ms value in [0, 2^48 - 1], got ${showValue(value)}.`,
+      `uuidv7: timestamp must be a finite ms value in [0, 2^48 - 1], got ${showValue(value)}.`,
     );
   }
   return ms;

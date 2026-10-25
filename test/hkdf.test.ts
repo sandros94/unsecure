@@ -204,7 +204,7 @@ describe("hkdf API", () => {
 
   it("throws on unsupported returnAs", async () => {
     await expect(hkdf(ikm, { length: 16, returnAs: "unsupported" as any })).rejects.toThrow(
-      'Unsupported hkdf "returnAs" option: unsupported',
+      'hkdf: unsupported returnAs "unsupported".',
     );
     await expectUnsecureError(
       hkdf(ikm, { length: 16, returnAs: "unsupported" as any }),

@@ -1,5 +1,6 @@
 import { base64ParseText, base64StringifyBytes } from "./base64.ts";
 import { hexParseText, hexStringifyBytes } from "./hex.ts";
+import { showValue } from "./assert.ts";
 import { ownOptions } from "./options.ts";
 import type { DigestReturnAs } from "../hash.ts";
 import { UnsecureError } from "../errors.ts";
@@ -30,7 +31,7 @@ function _formOf(returnAs: DigestReturnAs, source: string): _Form {
   if (form === undefined) {
     throw new UnsecureError(
       "UNSUPPORTED",
-      `Unsupported ${source} "returnAs" option: ${String(returnAs)}`,
+      `${source}: unsupported returnAs ${showValue(returnAs)}.`,
     );
   }
   return form;
@@ -68,10 +69,10 @@ export function encodeBytes(
       return hexStringifyBytes(bytes);
     }
     case "base64": {
-      return base64StringifyBytes(bytes);
+      return base64StringifyBytes(bytes, source);
     }
     case "base64url": {
-      return base64StringifyBytes(bytes, _URL);
+      return base64StringifyBytes(bytes, source, _URL);
     }
   }
 }

@@ -115,7 +115,7 @@ export interface EntropyResult {
  * @example
  * // Analyze random bytes
  * const bytes = secureRandomBytes(256);
- * entropy(bytes).bitsPerSymbol; // ~7.9+ (close to max of 8 for 256 byte values)
+ * entropy(bytes).bitsPerSymbol; // near the maximum of 8; lower for a short sample
  */
 /* @__NO_SIDE_EFFECTS__ */
 export function entropy(data: string | Uint8Array | null | undefined): EntropyResult {

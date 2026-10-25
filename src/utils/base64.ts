@@ -55,7 +55,11 @@ export function base64Stringify(
   data: string | BytesSource,
   options?: Base64StringifyOptions,
 ): string {
-  return base64StringifyBytes(toBytes(data, "Base64.stringify"), ownOptions(options));
+  return base64StringifyBytes(
+    toBytes(data, "Base64.stringify"),
+    "Base64.stringify",
+    ownOptions(options),
+  );
 }
 
 /**
@@ -89,7 +93,7 @@ export function base64Parse(
 ): string | Uint8Array {
   assertData(input, "Base64.parse");
   const options = ownOptions(input_);
-  const { text, wantString } = parsePrep(input, options);
+  const { text, wantString } = parsePrep(input, options, "Base64.parse");
   if (!text) return wantString ? "" : new Uint8Array(0);
   const loose = options.loose ?? false;
   const bytes = base64ParseText(text, "Base64.parse", options);

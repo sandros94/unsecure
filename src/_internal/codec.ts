@@ -1,3 +1,4 @@
+import { showValue } from "./assert.ts";
 import { describeValue } from "./bytes.ts";
 import { UnsecureError } from "../errors.ts";
 import { ownOptions } from "./options.ts";
@@ -118,9 +119,16 @@ function _isBytes(input: unknown): input is Uint8Array {
 export function parsePrep(
   input: string | Uint8Array,
   options: DecodeOptions | undefined,
+  source: string,
 ): { text: string; wantString: boolean } {
   const isBytes = _isBytes(input);
   const returnAs = options?.returnAs ?? (isBytes ? "uint8array" : "string");
+  if (returnAs !== "string" && returnAs !== "uint8array" && returnAs !== "bytes") {
+    throw new UnsecureError(
+      "UNSUPPORTED",
+      `${source}: unsupported returnAs ${showValue(returnAs)}; use "string", "uint8array" or "bytes".`,
+    );
+  }
   return {
     text: isBytes ? _latin1(input) : input,
     wantString: returnAs === "string",

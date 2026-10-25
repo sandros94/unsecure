@@ -262,7 +262,7 @@ function _isTrusted(value: object, trusted: readonly _Constructor[]): boolean {
 function _notCopyable(value: object): UnsecureError {
   return new UnsecureError(
     "INVALID_TYPE",
-    `sanitizeObjectCopy: cannot copy a ${describeValue(value)}; add it to allowlist, or use sanitizeObject().`,
+    `sanitizeObjectCopy: cannot copy an instance of ${describeValue(value)}; add it to allowlist, or use sanitizeObject().`,
   );
 }
 

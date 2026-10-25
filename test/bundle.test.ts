@@ -87,7 +87,7 @@ const ENTRIES: ReadonlyArray<Entry> = [
   {
     name: "secureCompare",
     module: "compare.ts",
-    measured: 1358,
+    measured: 1361,
     absent: [...CODECS, MARKERS.randomBuffer, MARKERS.randomBytes, MARKERS.importKey],
   },
   // fairness, not secrecy: the shared generator and its pool come along by design
@@ -121,19 +121,19 @@ const ENTRIES: ReadonlyArray<Entry> = [
   {
     name: "hash",
     module: "hash.ts",
-    measured: 4296,
+    measured: 4702,
     absent: [...BASE32, MARKERS.randomBuffer, MARKERS.randomBytes, MARKERS.importKey],
   },
   {
     name: "hkdf",
     module: "hkdf.ts",
-    measured: 5549,
+    measured: 5799,
     absent: [...BASE32, MARKERS.randomBuffer, MARKERS.randomBytes, MARKERS.digest],
   },
   {
     name: "hmac",
     module: "hmac.ts",
-    measured: 5585,
+    measured: 5835,
     absent: [
       ...BASE32,
       MARKERS.randomBuffer,
@@ -176,7 +176,7 @@ const ENTRIES: ReadonlyArray<Entry> = [
   {
     name: "argon2Verify",
     module: "argon2.ts",
-    measured: 13916,
+    measured: 14160,
     absent: [...BASE32, ...HEX, MARKERS.importKey, MARKERS.deriveBits, MARKERS.hkdf],
   },
   // draws from the shared pool; the sampling generator over it stays behind
@@ -196,26 +196,26 @@ const ENTRIES: ReadonlyArray<Entry> = [
   {
     name: "uuidv7",
     module: "uuid.ts",
-    measured: 2721,
+    measured: 2724,
     absent: [...CODECS, MARKERS.importKey],
   },
   {
     name: "hexParse",
     module: "utils/index.ts",
-    measured: 2979,
+    measured: 3322,
     absent: [...BASE32, ...BASE64, MARKERS.randomBytes],
   },
   // parse only, so even the encoder half stays behind
   {
     name: "base64Parse",
     module: "utils/index.ts",
-    measured: 4395,
+    measured: 4980,
     absent: [...BASE32, ...HEX, MARKERS.base64Encode, MARKERS.randomBytes],
   },
   {
     name: "base32Parse",
     module: "utils/index.ts",
-    measured: 5032,
+    measured: 5378,
     absent: [...BASE64, ...HEX, MARKERS.randomBytes],
   },
   // the error class on its own is a constructor and a field

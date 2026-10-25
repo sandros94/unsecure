@@ -141,7 +141,7 @@ describe("hash utility", () => {
 
   it("should throw for unsupported returnAs", async () => {
     await expect(hash(testString, { returnAs: "unsupported" as any })).rejects.toThrow(
-      'Unsupported hash "returnAs" option: unsupported',
+      'hash: unsupported returnAs "unsupported".',
     );
     await expectUnsecureError(hash(testString, { returnAs: "unsupported" as any }), "UNSUPPORTED");
   });
