@@ -208,28 +208,78 @@ describe("safeJsonParse", () => {
   });
 });
 
-describe("sanitizeObjectCopy pass-through", () => {
-  it("passes non-plain values through by reference", () => {
-    class Thing {
-      v = 1;
+describe("sanitizeObjectCopy refusal and allowlist", () => {
+  class Thing {
+    v = 1;
+  }
+
+  it("refuses a value that is neither plain nor an array with INVALID_TYPE", () => {
+    for (const value of [new Date(0), new Map(), new Set(), new Uint8Array(2), /x/g, new Thing()]) {
+      expectUnsecureError(
+        () => sanitizeObjectCopy({ value } as any),
+        "INVALID_TYPE",
+        "sanitizeObjectCopy: cannot copy a",
+      );
     }
-    const date = new Date(0);
+  });
+
+  it("refuses a non-plain root the same way", () => {
+    expectUnsecureError(() => sanitizeObjectCopy(new Map() as any), "INVALID_TYPE");
+  });
+
+  it("carries an allowlisted instance by reference, subclasses included", () => {
+    class Later extends Date {}
+    const date = new Later(0);
     const map = new Map([["a", 1]]);
-    const set = new Set([1]);
-    const bytes = new Uint8Array([1, 2]);
-    const regexp = /x/g;
-    const fn = (): number => 1;
-    const instance = new Thing();
-
-    const copy = sanitizeObjectCopy({ date, map, set, bytes, regexp, fn, instance } as any) as any;
-
+    const copy = sanitizeObjectCopy({ date, map, n: { date } } as any, {
+      allowlist: [Date, Map],
+    }) as any;
     expect(copy.date).toBe(date);
     expect(copy.map).toBe(map);
-    expect(copy.set).toBe(set);
-    expect(copy.bytes).toBe(bytes);
-    expect(copy.regexp).toBe(regexp);
-    expect(copy.fn).toBe(fn);
-    expect(copy.instance).toBe(instance);
+    expect(copy.n.date).toBe(date);
+    expect(sanitizeObjectCopy(map as any, { allowlist: new Set([Map]) })).toBe(map);
+  });
+
+  it("still refuses what the allowlist does not name", () => {
+    expectUnsecureError(
+      () => sanitizeObjectCopy({ set: new Set() } as any, { allowlist: [Map] }),
+      "INVALID_TYPE",
+    );
+  });
+
+  it("does not inspect an allowlisted instance", () => {
+    const thing = new Thing();
+    Object.defineProperty(thing, "__proto__", { value: { polluted: true }, enumerable: true });
+    const copy = sanitizeObjectCopy({ thing } as any, { allowlist: [Thing] }) as any;
+    expect(copy.thing).toBe(thing);
+    expect(Object.getOwnPropertyNames(thing)).toContain("__proto__");
+  });
+
+  it("carries functions by reference", () => {
+    const fn = (): number => 1;
+    expect((sanitizeObjectCopy({ fn } as any) as any).fn).toBe(fn);
+  });
+
+  it("rejects an allowlist that is not an iterable of constructors", () => {
+    expectUnsecureError(
+      () => sanitizeObjectCopy({}, { allowlist: "Date" as any }),
+      "INVALID_TYPE",
+      "allowlist must be an iterable of constructors",
+    );
+    expectUnsecureError(
+      () => sanitizeObjectCopy({}, { allowlist: [1] as any }),
+      "INVALID_TYPE",
+      "allowlist entries must be constructors",
+    );
+  });
+
+  it("reads allowlist as an own property only", () => {
+    (Object.prototype as any).allowlist = [Map];
+    try {
+      expectUnsecureError(() => sanitizeObjectCopy({ m: new Map() } as any), "INVALID_TYPE");
+    } finally {
+      delete (Object.prototype as any).allowlist;
+    }
   });
 
   it("copies null-prototype nested objects onto Object.prototype", () => {
@@ -239,13 +289,6 @@ describe("sanitizeObjectCopy pass-through", () => {
     expect(copy.nested).not.toBe(nested);
     expect(Object.getPrototypeOf(copy.nested)).toBe(Object.prototype);
     expect(copy.nested.safe).toBe(1);
-  });
-});
-
-describe("sanitizeObjectCopy root pass-through", () => {
-  it("returns a non-plain root unchanged", () => {
-    const map = new Map([["a", 1]]);
-    expect(sanitizeObjectCopy(map as any)).toBe(map);
   });
 });
 
@@ -468,5 +511,63 @@ describe("array elements", () => {
     } finally {
       delete (Array.prototype as any)["1"];
     }
+  });
+});
+
+describe("arrays with named own properties", () => {
+  it("sanitizeObject strips dangerous names hung on an array and walks named children", () => {
+    const a: unknown[] & Record<string, unknown> = [1, 2] as never;
+    Reflect.set(a, "constructor", { prototype: { polluted: true } });
+    Object.defineProperty(a, "__proto__", {
+      value: { polluted: true },
+      enumerable: true,
+      configurable: true,
+    });
+    a.nested = JSON.parse('{"__proto__":{"polluted":true}}');
+    const received = structuredClone({ a });
+    sanitizeObject(received);
+    expect(Object.getOwnPropertyNames(received.a)).toEqual(["0", "1", "length", "nested"]);
+    expect(Object.getOwnPropertyNames(received.a.nested as object)).toEqual([]);
+  });
+
+  it("both walkers cost the elements present, not the declared length", () => {
+    const sparse: unknown[] = [];
+    sparse[2 ** 32 - 2] = JSON.parse('{"__proto__":{"polluted":true},"keep":1}');
+    const started = performance.now();
+    const copy = sanitizeObjectCopy({ sparse }) as any;
+    sanitizeObject({ sparse });
+    expect(performance.now() - started).toBeLessThan(500);
+    expect(copy.sparse).toHaveLength(2 ** 32 - 1);
+    expect(Object.getOwnPropertyNames(copy.sparse[2 ** 32 - 2])).toEqual(["keep"]);
+  });
+});
+
+describe("objects from another realm", () => {
+  it("sanitizeObjectCopy rebuilds a foreign JSON object and strips it", async () => {
+    const vm = await import("node:vm");
+    const context = vm.createContext({});
+    const foreign = vm.runInContext(
+      `JSON.parse('{"a":1,"__proto__":{"polluted":"yes"},"n":{"constructor":{"prototype":{"p":1}}},"list":[{"__proto__":{"x":1}}]}')`,
+      context,
+    );
+    expect(Object.getPrototypeOf(foreign)).not.toBe(Object.prototype);
+    const copy = sanitizeObjectCopy(foreign) as any;
+    expect(copy).not.toBe(foreign);
+    expect(Object.getPrototypeOf(copy)).toBe(Object.prototype);
+    expect(Object.getOwnPropertyNames(copy)).toEqual(["a", "n", "list"]);
+    expect(Object.getOwnPropertyNames(copy.n)).toEqual([]);
+    expect(Object.getOwnPropertyNames(copy.list[0])).toEqual([]);
+    expect(Object.getPrototypeOf(copy.list[0])).toBe(Object.prototype);
+    // Still refused: a foreign Date is not plain in any realm.
+    const date = vm.runInContext("new Date(0)", context);
+    expectUnsecureError(() => sanitizeObjectCopy({ date }), "INVALID_TYPE");
+  });
+
+  it("a prototype merely named Object is not plain", () => {
+    const Fake = { Object: class Object {} }.Object;
+    const proto = Object.create(null);
+    proto.constructor = Fake;
+    const value = Object.create(proto);
+    expectUnsecureError(() => sanitizeObjectCopy({ value }), "INVALID_TYPE");
   });
 });
