@@ -19,21 +19,21 @@ The documentation site is the single source of truth, and every page is also ser
 
 ## Which page
 
-| Task                                                        | Page                                                                          |
-| ----------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Store and check passwords (Argon2, pepper, rehash on login) | `/raw/crypto/password-hashing.md`                                             |
-| Sign or verify a message or webhook (HMAC)                  | `/raw/crypto/hashing/hmac.md`, recipe `/raw/examples/webhook-verification.md` |
-| Fingerprint data (SHA-2)                                    | `/raw/crypto/hashing/hash.md`                                                 |
-| Derive several keys from one secret (HKDF)                  | `/raw/crypto/key-derivation.md`                                               |
-| Add a second factor (TOTP/HOTP, QR URI, replay refusal)     | `/raw/crypto/otp.md`, recipe `/raw/examples/two-factor-auth.md`               |
-| Generate tokens, compare secrets, measure entropy           | `/raw/generate/secrets.md` and its subpages                                   |
-| Random numbers, bytes, shuffles, jitter                     | `/raw/generate/random.md`                                                     |
-| UUIDv4 / UUIDv7                                             | `/raw/generate/uuid.md`                                                       |
-| Fair odds (decks, pity, cascades)                           | `/raw/generate/odds.md`                                                       |
-| Parse untrusted JSON safely                                 | `/raw/safety/sanitize.md`                                                     |
-| Hex / base64 / base32                                       | `/raw/safety/codecs.md`                                                       |
-| Errors and their codes                                      | `/raw/safety/errors.md`                                                       |
-| Install, subpaths vs barrel, CDN, migration                 | `/raw/getting-started/installation.md`, `/raw/getting-started/migration.md`   |
+| Task | Page |
+| --- | --- |
+| Store and check passwords (Argon2, pepper, rehash on login) | `/raw/crypto/password-hashing.md` |
+| Sign or verify a message or webhook (HMAC) | `/raw/crypto/hashing/hmac.md`, recipe `/raw/examples/webhook-verification.md` |
+| Fingerprint data (SHA-2) | `/raw/crypto/hashing/hash.md` |
+| Derive several keys from one secret (HKDF) | `/raw/crypto/key-derivation.md` |
+| Add a second factor (TOTP/HOTP, QR URI, replay refusal) | `/raw/crypto/otp.md`, recipe `/raw/examples/two-factor-auth.md` |
+| Generate tokens, compare secrets, measure entropy | `/raw/generate/secrets.md` and its subpages |
+| Random numbers, bytes, shuffles, jitter | `/raw/generate/random.md` |
+| UUIDv4 / UUIDv7 | `/raw/generate/uuid.md` |
+| Fair odds (decks, pity, cascades) | `/raw/generate/odds.md` |
+| Parse untrusted JSON safely | `/raw/safety/sanitize.md` |
+| Hex / base64 / base32 | `/raw/safety/codecs.md` |
+| Errors and their codes | `/raw/safety/errors.md` |
+| Install, subpaths vs barrel, CDN, migration | `/raw/getting-started/installation.md`, `/raw/getting-started/migration.md` |
 
 ## Rules that hold everywhere
 

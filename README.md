@@ -5,9 +5,7 @@
 
 # unsecure
 
-[![npm version](https://npmx.dev/api/registry/badge/version/unsecure?name=true)](https://npmx.dev/package/unsecure)
-[![npm downloads](https://npmx.dev/api/registry/badge/downloads/unsecure)](https://npmx.dev/package/unsecure)
-[![bundle size](https://npmx.dev/api/registry/badge/size/unsecure)](https://npmx.dev/package/unsecure)
+[![npm version](https://npmx.dev/api/registry/badge/version/unsecure?name=true)](https://npmx.dev/package/unsecure) [![npm downloads](https://npmx.dev/api/registry/badge/downloads/unsecure)](https://npmx.dev/package/unsecure) [![bundle size](https://npmx.dev/api/registry/badge/size/unsecure)](https://npmx.dev/package/unsecure)
 
 `unsecure` is a collection of runtime-agnostic cryptographically-secure utilities. (ba dum tss 🥁)
 
@@ -52,18 +50,18 @@ import { base64Parse } from "https://esm.sh/unsecure/utils";
 
 ## What's inside
 
-| Module                                                      | Functions                                                                                                                    | Docs                                                                 |
-| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `unsecure/hash`, `unsecure/hmac`                            | `hash`, `hmac`, `hmacVerify`, `importHmacKey`                                                                                | [Hashing & MAC](https://unsecure.s94.dev/crypto/hashing)             |
-| `unsecure/hkdf`                                             | `hkdf`, `importHkdfKey`                                                                                                      | [Key derivation](https://unsecure.s94.dev/crypto/key-derivation)     |
-| `unsecure/argon2`                                           | `argon2`, `argon2Hash`, `argon2Verify`, `argon2NeedsRehash`                                                                  | [Password hashing](https://unsecure.s94.dev/crypto/password-hashing) |
-| `unsecure/otp`                                              | `hotp`, `hotpVerify`, `totp`, `totpVerify`, `generateOTPSecret`, `otpauthURI`                                                | [One-time passwords](https://unsecure.s94.dev/crypto/otp)            |
-| `unsecure/uuid`                                             | `uuidv4`, `uuidv7`, `createUUIDv7Generator`, `uuidv7Timestamp`, `isUUIDv4`, `isUUIDv7`                                       | [UUID](https://unsecure.s94.dev/generate/uuid)                       |
-| `unsecure/generate`, `unsecure/compare`, `unsecure/entropy` | `secureGenerate`, `secureCompare`, `entropy`                                                                                 | [Secrets](https://unsecure.s94.dev/generate/secrets)                 |
-| `unsecure/sanitize`                                         | `sanitizeObject`, `sanitizeObjectCopy`, `safeJsonParse`                                                                      | [Sanitize](https://unsecure.s94.dev/safety/sanitize)                 |
-| `unsecure/random`                                           | `createSecureRandomGenerator`, `secureRandomNumber`, `secureRandomBytes`, `secureShuffle`, `randomJitter`                    | [Random](https://unsecure.s94.dev/generate/random)                   |
-| `unsecure/utils`                                            | `hexStringify` / `hexParse`, `base64Stringify` / `base64Parse`, `base32Stringify` / `base32Parse`, `Hex`, `Base64`, `Base32` | [Codecs](https://unsecure.s94.dev/safety/codecs)                     |
-| `unsecure/errors`                                           | `UnsecureError`                                                                                                              | [Errors](https://unsecure.s94.dev/safety/errors)                     |
+| Module | Functions | Docs |
+| --- | --- | --- |
+| `unsecure/hash`, `unsecure/hmac` | `hash`, `hmac`, `hmacVerify`, `importHmacKey` | [Hashing & MAC](https://unsecure.s94.dev/crypto/hashing) |
+| `unsecure/hkdf` | `hkdf`, `importHkdfKey` | [Key derivation](https://unsecure.s94.dev/crypto/key-derivation) |
+| `unsecure/argon2` | `argon2`, `argon2Hash`, `argon2Verify`, `argon2NeedsRehash` | [Password hashing](https://unsecure.s94.dev/crypto/password-hashing) |
+| `unsecure/otp` | `hotp`, `hotpVerify`, `totp`, `totpVerify`, `generateOTPSecret`, `otpauthURI` | [One-time passwords](https://unsecure.s94.dev/crypto/otp) |
+| `unsecure/uuid` | `uuidv4`, `uuidv7`, `createUUIDv7Generator`, `uuidv7Timestamp`, `isUUIDv4`, `isUUIDv7` | [UUID](https://unsecure.s94.dev/generate/uuid) |
+| `unsecure/generate`, `unsecure/compare`, `unsecure/entropy` | `secureGenerate`, `secureCompare`, `entropy` | [Secrets](https://unsecure.s94.dev/generate/secrets) |
+| `unsecure/sanitize` | `sanitizeObject`, `sanitizeObjectCopy`, `safeJsonParse` | [Sanitize](https://unsecure.s94.dev/safety/sanitize) |
+| `unsecure/random` | `createSecureRandomGenerator`, `secureRandomNumber`, `secureRandomBytes`, `secureShuffle`, `randomJitter` | [Random](https://unsecure.s94.dev/generate/random) |
+| `unsecure/utils` | `hexStringify` / `hexParse`, `base64Stringify` / `base64Parse`, `base32Stringify` / `base32Parse`, `Hex`, `Base64`, `Base32` | [Codecs](https://unsecure.s94.dev/safety/codecs) |
+| `unsecure/errors` | `UnsecureError` | [Errors](https://unsecure.s94.dev/safety/errors) |
 
 ## The contract
 
@@ -96,8 +94,7 @@ Inspired by [DeepSource Corp work](https://github.com/DeepSourceCorp/shifty).
 ## License
 
 Published under the [MIT](https://github.com/sandros94/unsecure/blob/main/LICENSE) license.
+
 Made by [community](https://github.com/sandros94/unsecure/graphs/contributors) 💛
-<br><br>
-<a href="https://github.com/sandros94/unsecure/graphs/contributors">
-<img src="https://contrib.rocks/image?repo=sandros94/unsecure" />
-</a>
+
+<a href="https://github.com/sandros94/unsecure/graphs/contributors"> <img src="https://contrib.rocks/image?repo=sandros94/unsecure" /> </a>
