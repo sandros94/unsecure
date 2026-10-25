@@ -501,3 +501,64 @@ describe.concurrent("argon2 interoperability", () => {
     }
   });
 });
+
+describe.concurrent("argon2Verify limits", () => {
+  const FAST = { m: 8, t: 1, p: 1 } as const;
+
+  /** `stored` with one `k=v` cost field rewritten, so only the limit is under test. */
+  function withCost(stored: string, field: string, value: string): string {
+    return stored.replace(new RegExp(`${field}=\\d+`), `${field}=${value}`);
+  }
+
+  it("refuses a stored pass count above the default ceiling before deriving", async () => {
+    const stored = await argon2Hash("pw", FAST);
+    await expectUnsecureError(
+      argon2Verify(withCost(stored, "t", "65"), "pw"),
+      "OUT_OF_RANGE",
+      "argon2Verify: stored cost m=8,t=65,p=1 exceeds the limits m<=1048576,t<=64,p<=64.",
+    );
+    expect(await argon2Verify(withCost(stored, "t", "64"), "pw")).toBe(false);
+  });
+
+  it("applies caller limits, and lets a caller raise them", async () => {
+    const stored = await argon2Hash("pw", { m: 72, t: 2, p: 1 });
+    await expectUnsecureError(
+      argon2Verify(stored, "pw", { limits: { m: 64 } }),
+      "OUT_OF_RANGE",
+      "m<=64",
+    );
+    await expectUnsecureError(
+      argon2Verify(stored, "pw", { limits: { t: 1 } }),
+      "OUT_OF_RANGE",
+      "t<=1",
+    );
+    expect(await argon2Verify(stored, "pw", { limits: { m: 72, t: 2 } })).toBe(true);
+    await expectUnsecureError(
+      argon2Verify(stored, "pw", { limits: { m: 7 } }),
+      "OUT_OF_RANGE",
+      "limits.m",
+    );
+    await expectUnsecureError(
+      argon2Verify(stored, "pw", { limits: { p: 1.5 } }),
+      "OUT_OF_RANGE",
+      "limits.p",
+    );
+  });
+
+  it("argon2NeedsRehash answers for a stored cost above the limits", async () => {
+    const stored = await argon2Hash("pw", FAST);
+    expect(argon2NeedsRehash(withCost(stored, "t", "4294967295"), FAST)).toBe(true);
+  });
+
+  it("refuses a cost field with leading zeros as MALFORMED", async () => {
+    const stored = await argon2Hash("pw", FAST);
+    for (const bad of [
+      withCost(stored, "m", "08"),
+      withCost(stored, "t", "01"),
+      stored.replace("v=19", "v=019"),
+    ]) {
+      await expectUnsecureError(argon2Verify(bad, "pw"), "MALFORMED");
+      expectUnsecureError(() => argon2NeedsRehash(bad), "MALFORMED");
+    }
+  });
+});

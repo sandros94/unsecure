@@ -89,8 +89,27 @@ export interface Argon2HashOptions extends Argon2Parameters {
   salt?: string | BytesSource;
 }
 
-/** The `secret` / `data` inputs {@link argon2Hash} was called with, if any. */
-export type Argon2VerifyOptions = Pick<Argon2Parameters, "secret" | "data">;
+/** The `secret` / `data` inputs {@link argon2Hash} was called with, if any, and the cost {@link argon2Verify} will run. */
+export interface Argon2VerifyOptions extends Pick<Argon2Parameters, "secret" | "data"> {
+  /**
+   * The highest cost a stored string may ask for. The parameters travel in the
+   * string, so a verify does whatever work the string names; this is the ceiling
+   * on that work, and a string above it is refused rather than run.
+   *
+   * @default { m: 1_048_576, t: 64, p: 64 } — 1 GiB of memory
+   */
+  limits?: Argon2Limits;
+}
+
+/** A ceiling on each cost parameter read from a stored PHC string. */
+export interface Argon2Limits {
+  /** Highest memory in KiB. @default 1_048_576 (1 GiB) */
+  m?: number;
+  /** Highest pass count. @default 64 */
+  t?: number;
+  /** Highest parallelism. @default 64 */
+  p?: number;
+}
 
 // #region Constants
 
@@ -134,6 +153,17 @@ const _DEFAULT_LENGTH = 32;
 const _DEFAULT_SALT_LENGTH = 16;
 
 /**
+ * What a stored string may ask a verify to do: the memory ceiling `@noble/hashes` applies by
+ * default, and pass and lane counts far above any published recommendation.
+ */
+const _LIMIT_M = 1_048_576;
+const _LIMIT_T = 64;
+const _LIMIT_P = 64;
+
+/** The unpadded base64 both PHC fields are written in, as one bag rather than a literal per call. */
+const _UNPADDED: { padding: false } = /* @__PURE__ */ own({ padding: false });
+
+/**
  * `$argon2id$v=19$m=…,t=…,p=…$salt$tag`, the PHC string format.
  *
  * The variant and version are captured rather than spelled out so that an unsupported value is
@@ -141,7 +171,7 @@ const _DEFAULT_SALT_LENGTH = 16;
  * format — a string without one predates `0x13` — so its absence is refused the same way.
  */
 const _PHC =
-  /^\$([a-z0-9]+)\$(?:v=(\d+)\$)?m=(\d+),t=(\d+),p=(\d+)\$([A-Za-z0-9+/]+)\$([A-Za-z0-9+/]+)$/;
+  /^\$([a-z0-9]+)\$(?:v=(0|[1-9]\d*)\$)?m=(0|[1-9]\d*),t=(0|[1-9]\d*),p=(0|[1-9]\d*)\$([A-Za-z0-9+/]+)\$([A-Za-z0-9+/]+)$/;
 
 // #region Compression
 
@@ -460,7 +490,17 @@ function _derive(
   const blocks = 4 * p * Math.floor(m / (_SLICES * p));
   const laneLength = Math.floor(blocks / p);
   const segmentLength = Math.floor(laneLength / _SLICES);
-  const memory = new Uint32Array(blocks * _BLOCK);
+  let memory: Uint32Array;
+  try {
+    memory = new Uint32Array(blocks * _BLOCK);
+  } catch (error) {
+    // The engine declining the allocation is the platform refusing, not a caller mistake: the
+    // cost passed its range checks. `H_0` already holds a digest of the password.
+    h0.fill(0);
+    throw new UnsecureError("PLATFORM", `argon2: cannot allocate ${blocks} KiB of memory.`, {
+      cause: error,
+    });
+  }
 
   for (let lane = 0; lane < p; lane++) {
     _writeLE32(h0, 68, lane);
@@ -672,8 +712,8 @@ export async function argon2Hash(
   const tag = _derive(toBytes(password, "argon2"), salt, resolved);
 
   const { variant, m, t, p } = resolved;
-  const saltText = base64StringifyBytes(salt, { padding: false });
-  const tagText = base64StringifyBytes(tag, { padding: false });
+  const saltText = base64StringifyBytes(salt, _UNPADDED);
+  const tagText = base64StringifyBytes(tag, _UNPADDED);
   return `$${variant}$v=${_VERSION}$m=${m},t=${t},p=${p}$${saltText}$${tagText}`;
 }
 
@@ -773,9 +813,10 @@ function _parsePhc(phc: string, source: string): _Stored {
  *
  * @throws {UnsecureError} `MALFORMED` if `phc` is a string that is not a well-formed PHC
  * string; `UNSUPPORTED` if it names a variant or version this module does not implement;
- * `OUT_OF_RANGE` if the cost parameters or the salt it carries are outside their range;
- * `INVALID_TYPE` if `phc` is not a string, or `password`, `secret` or `data` is neither text
- * nor bytes.
+ * `OUT_OF_RANGE` if the cost parameters or the salt it carries are outside their range, or
+ * the cost is above `limits`; `INVALID_TYPE` if `phc` is not a string, or `password`, `secret`
+ * or `data` is neither text nor bytes; `PLATFORM` if the runtime cannot allocate the memory
+ * the string asks for.
  *
  * @example
  * if (!(await argon2Verify(user.passwordHash, submitted))) refuse();
@@ -796,6 +837,22 @@ export async function argon2Verify(
     throw new UnsecureError(
       "UNSUPPORTED",
       `argon2Verify: unsupported argon2 version ${found}; only 19 (0x13) is supported.`,
+    );
+  }
+
+  // The cost is the string's to name but the caller's to bound: without a ceiling one stored
+  // value decides how much memory and time every verify against it costs.
+  const limits = own(options.limits);
+  const maxM = limits.m ?? _LIMIT_M;
+  const maxT = limits.t ?? _LIMIT_T;
+  const maxP = limits.p ?? _LIMIT_P;
+  assertInteger(maxM, "limits.m", "argon2Verify", 8);
+  assertInteger(maxT, "limits.t", "argon2Verify", 1);
+  assertInteger(maxP, "limits.p", "argon2Verify", 1);
+  if (m > maxM || t > maxT || p > maxP) {
+    throw new UnsecureError(
+      "OUT_OF_RANGE",
+      `argon2Verify: stored cost m=${m},t=${t},p=${p} exceeds the limits m<=${maxM},t<=${maxT},p<=${maxP}.`,
     );
   }
 
