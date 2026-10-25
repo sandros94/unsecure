@@ -1,123 +1,44 @@
 ---
 name: unsecure
-description: "Expert knowledge for working with unsecure — a zero-dependency, runtime-agnostic cryptographic utilities library using the Web Crypto API. Use this skill whenever the user is working with hashing, HMAC, HKDF, Argon2 password hashing, OTP, secure string generation, constant-time comparison, entropy analysis, randomness utilities, or object sanitization. Trigger on any mention of unsecure or related cryptographic operations."
+description: "Working with unsecure, a zero-dependency cryptographic utilities library on the Web Crypto API: hashing, HMAC, HKDF, Argon2 password hashing, HOTP/TOTP, UUIDs, CSPRNG helpers, constant-time comparison, prototype-pollution sanitizing and strict codecs. Use whenever code imports from `unsecure` or `unsecure/*`, or the user asks how to do one of those tasks in Node, Bun, Deno, Workers or a browser."
 metadata:
-  version: 0.1.0
+  version: 0.2.0
   library: unsecure
-  library-version: 0.3.0
   org: sandros94
   documentation: https://unsecure.s94.dev
   repository: https://github.com/sandros94/unsecure
 ---
 
-# unsecure Skill
+# unsecure
 
-> Zero-dependency, runtime-agnostic cryptographic utilities built on the Web Crypto API.
+The documentation site is the single source of truth, and every page is also served as Markdown. Read the page for the task before writing code; do not rely on memory of the API.
 
-**Package:** `unsecure` (npm)
-**Requires:** Node.js ^22.12 or >=24, or any runtime with Web Crypto (Bun, Deno, browsers)
+- Index of every page: https://unsecure.s94.dev/llms.txt
+- One page as Markdown: `https://unsecure.s94.dev/raw/<path>.md`, e.g. https://unsecure.s94.dev/raw/crypto/password-hashing.md
+- Start with https://unsecure.s94.dev/raw/getting-started/concepts.md when the user is new to hashing, MACs, key derivation or constant-time comparison.
 
-**Entry points — per-module subpaths + a convenience barrel:**
+## Which page
 
-Every public module is also its own subpath so CDN / browser consumers only ship the bytes they import. The main barrel (`unsecure`) re-exports everything for bundler workflows (Vite, webpack, etc.) where `sideEffects: false` tree-shakes unused symbols.
+| Task                                                        | Page                                                                          |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Store and check passwords (Argon2, pepper, rehash on login) | `/raw/crypto/password-hashing.md`                                             |
+| Sign or verify a message or webhook (HMAC)                  | `/raw/crypto/hashing/hmac.md`, recipe `/raw/examples/webhook-verification.md` |
+| Fingerprint data (SHA-2)                                    | `/raw/crypto/hashing/hash.md`                                                 |
+| Derive several keys from one secret (HKDF)                  | `/raw/crypto/key-derivation.md`                                               |
+| Add a second factor (TOTP/HOTP, QR URI, replay refusal)     | `/raw/crypto/otp.md`, recipe `/raw/examples/two-factor-auth.md`               |
+| Generate tokens, compare secrets, measure entropy           | `/raw/generate/secrets.md` and its subpages                                   |
+| Random numbers, bytes, shuffles, jitter                     | `/raw/generate/random.md`                                                     |
+| UUIDv4 / UUIDv7                                             | `/raw/generate/uuid.md`                                                       |
+| Fair odds (decks, pity, cascades)                           | `/raw/generate/odds.md`                                                       |
+| Parse untrusted JSON safely                                 | `/raw/safety/sanitize.md`                                                     |
+| Hex / base64 / base32                                       | `/raw/safety/codecs.md`                                                       |
+| Errors and their codes                                      | `/raw/safety/errors.md`                                                       |
+| Install, subpaths vs barrel, CDN, migration                 | `/raw/getting-started/installation.md`, `/raw/getting-started/migration.md`   |
 
-- `unsecure` — barrel re-exporting every module below
-- `unsecure/argon2` — `argon2`, `argon2Hash`, `argon2Verify`, `argon2NeedsRehash`
-- `unsecure/compare` — `secureCompare`
-- `unsecure/entropy` — `entropy`
-- `unsecure/odds` — `createDeck`, `createChance`, `createCascade`
-- `unsecure/errors` — `UnsecureError`, `UnsecureErrorCode`
-- `unsecure/generate` — `secureGenerate`
-- `unsecure/hash` — `hash`
-- `unsecure/hkdf` — `hkdf`
-- `unsecure/hmac` — `hmac`, `hmacVerify`
-- `unsecure/otp` — `hotp`, `hotpVerify`, `totp`, `totpVerify`, `generateOTPSecret`, `otpauthURI`
-- `unsecure/random` — `createSecureRandomGenerator`, `secureRandomNumber`, `secureRandomBytes`, `secureShuffle`, `randomJitter`
-- `unsecure/sanitize` — `sanitizeObject`, `sanitizeObjectCopy`, `safeJsonParse`
-- `unsecure/uuid` — `uuidv4`, `uuidv7`, `secureUUID`, `createUUIDv7Generator`, `uuidv7Timestamp`, `isUUIDv4`, `isUUIDv7`
-- `unsecure/utils` — `hexStringify`/`hexParse`, `base64Stringify`/`base64Parse`, `base32Stringify`/`base32Parse` (strict decode by default), the `Hex`/`Base64`/`Base32` objects grouping them, `textEncoder`, `textDecoder`.
+## Rules that hold everywhere
 
-**CDN usage** (browsers, Deno, Bun) — prefer per-module subpaths so only the imported module is downloaded:
-
-```ts
-import { uuidv7 } from "https://esm.sh/unsecure/uuid";
-import { hkdf } from "https://esm.sh/unsecure/hkdf";
-import { argon2Hash, argon2Verify } from "https://esm.sh/unsecure/argon2";
-import { totp, generateOTPSecret } from "https://esm.sh/unsecure/otp";
-import { Base64 } from "https://esm.sh/unsecure/utils";
-```
-
----
-
-## Reference Files
-
-Load the relevant file(s) based on what the user needs:
-
-### [hash.md](./references/hash.md)
-
-SHA hashing via `crypto.subtle.digest`. Load when working with `hash()`, content hashing, data integrity checks, or token storage patterns.
-
-### [hkdf.md](./references/hkdf.md)
-
-HKDF key derivation (RFC 5869) via `crypto.subtle.deriveBits`. Load when working with `hkdf()`, deriving session keys, domain-separating keys via `info`, or expanding shared secrets into key material.
-
-### [argon2.md](./references/argon2.md)
-
-Argon2 password hashing (RFC 9106), plain JavaScript. Load when working with `argon2Hash()`, `argon2Verify()`, `argon2NeedsRehash()`, `argon2()`, storing or checking passwords, PHC strings, peppers, cost tuning, lazy rehashing, or password hashing on a runtime that cannot compile WebAssembly at request time.
-
-### [hmac.md](./references/hmac.md)
-
-HMAC signing and verification. Load when working with `hmac()`, `hmacVerify()`, webhook signature verification, or message authentication.
-
-### [otp.md](./references/otp.md)
-
-One-time passwords (RFC 4226 HOTP / RFC 6238 TOTP). Load when working with `hotp()`, `totp()`, `hotpVerify()`, `totpVerify()`, `generateOTPSecret()`, `otpauthURI()`, two-factor authentication, or QR code provisioning.
-
-### [generate.md](./references/generate.md)
-
-Secure string/token/password generation. Load when working with `secureGenerate()`, API tokens, passwords, PINs, or custom character set generation.
-
-### [compare.md](./references/compare.md)
-
-Constant-time comparison. Load when working with `secureCompare()`, the `strict` option, timing-attack prevention, or secure equality checks for tokens/secrets.
-
-### [entropy.md](./references/entropy.md)
-
-Shannon entropy analysis. Load when working with `entropy()`, measuring randomness quality, password strength validation, or input quality heuristics.
-
-### [odds.md](./references/odds.md)
-
-Fair-feeling randomness. Load when working with `createDeck()`, `createChance()`, `createCascade()`, shuffle bags, loot tables, critical-hit or proc chances, pseudo-random distribution (PRD), pity timers, or "random but never unlucky for long" requirements.
-
-### [random.md](./references/random.md)
-
-Randomness utilities. Load when working with `createSecureRandomGenerator()`, `secureRandomNumber()`, `secureRandomBytes()`, `secureShuffle()`, `randomJitter()`, cryptographic random number generation, fair shuffling, or timing jitter.
-
-### [sanitize.md](./references/sanitize.md)
-
-Prototype-pollution sanitization. Load when working with `sanitizeObject()`, `sanitizeObjectCopy()`, `safeJsonParse()`, untrusted JSON input, or request body sanitization middleware.
-
-### [uuid.md](./references/uuid.md)
-
-UUID generation (RFC 9562). Load when working with `uuidv4()`, `uuidv7()`, `secureUUID()`, `createUUIDv7Generator()`, `uuidv7Timestamp()`, `isUUIDv7()`, time-ordered IDs, database primary keys, or UUID parsing/validation.
-
-### [errors.md](./references/errors.md)
-
-The one error class every function throws. Load when working with `UnsecureError`, `error.code`, catching or classifying failures from any `unsecure` call, or mapping them onto HTTP responses.
-
-### [utils.md](./references/utils.md)
-
-Encoding/decoding utilities. Load when working with the hex, base64 or base32 codecs — the flat `hexParse`/`base64Stringify`/… functions or the `Hex` / `Base64` / `Base32` objects — `textEncoder`/`textDecoder`, or the `unsecure/utils` entry point.
-
----
-
-## Architecture Notes
-
-- **Zero dependencies** — everything is built on Web Crypto API (`crypto.subtle`, `crypto.getRandomValues`)
-- Codecs pick a bulk backend per call: Node `Buffer` where present, except that inputs of 64 bytes or fewer use the TC39 `Uint8Array` hex/base64 methods when those exist too; a manual loop is the fallback where neither exists
-- Random generator uses a 256-element `Uint32Array` buffer with rejection sampling to avoid modulo bias
-- `secureRandomBytes()` handles the 65536-byte `crypto.getRandomValues` limit via chunking, and refuses a length above `2**31 - 1`
-- `secureRandomNumber()` and `randomJitter()` draw from one module-level instance of that generator
-- All verification functions (`hmacVerify`, `hotpVerify`, `totpVerify`, `argon2Verify`) use `secureCompare()` internally
-- Everything the library throws is an `UnsecureError` carrying a `code`; verification functions return `false` for untrusted input and throw only for caller or configuration mistakes
-- `argon2` is the one module Web Crypto cannot back: it carries its own BLAKE2b and does 64-bit arithmetic as 32-bit halves in `Uint32Array`, which keeps it inside the zero-dependency, WebAssembly-free constraint
+- Import from the subpath (`unsecure/argon2`, `unsecure/otp`, …) unless a bundler is in play; a CDN import of the barrel downloads every module.
+- `secureCompare`, `hmacVerify`, `hotpVerify`, `totpVerify` return `false` on untrusted input and throw only for configuration mistakes. `argon2Verify` throws for a stored string it cannot read and for a non-text password.
+- Everything thrown is an `UnsecureError` with a `code`: `INVALID_TYPE`, `OUT_OF_RANGE`, `MALFORMED`, `UNSUPPORTED`, `FROZEN`, `PLATFORM`.
+- The library holds no state: persist the TOTP `step` / HOTP `counter + 1` with a conditional write, and never ship a placeholder hash literal; build an absent-account dummy with `argon2Hash` at start-up.
+- JOSE (JWT/JWS/JWE/JWK) is out of scope: use `unjwt` (https://unjwt.s94.dev).

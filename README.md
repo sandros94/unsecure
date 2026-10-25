@@ -22,7 +22,7 @@ Zero dependencies, built on the Web Crypto API, one module per subpath so a CDN 
 npx nypm install unsecure
 ```
 
-Runs on Node.js ^22.12 or >=24, and on any runtime with Web Crypto (Bun, Deno, Cloudflare Workers, browsers).
+Runs on Node.js ^22.13 or >=24, and on any runtime with Web Crypto (Bun, Deno, Cloudflare Workers, browsers).
 
 ## A taste
 
