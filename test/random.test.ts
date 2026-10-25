@@ -77,7 +77,7 @@ describe.concurrent("Random-based Functions", () => {
       const max = 3.14;
       expectUnsecureError(() => secureRandomNumber(max), "OUT_OF_RANGE");
       expect(() => secureRandomNumber(max)).toThrow(
-        "SecureRandomGenerator.next: min and max must be integers.",
+        "SecureRandomGenerator.next: min and max must be safe integers.",
       );
     });
 
@@ -147,7 +147,7 @@ describe.concurrent("Random-based Functions", () => {
       expectUnsecureError(() => secureRandomNumber(1.5, 10), "OUT_OF_RANGE");
       expectUnsecureError(() => secureRandomNumber(1, 10.5), "OUT_OF_RANGE");
       expect(() => secureRandomNumber(1.5, 10.5)).toThrow(
-        "SecureRandomGenerator.next: min and max must be integers.",
+        "SecureRandomGenerator.next: min and max must be safe integers.",
       );
     });
 
@@ -303,7 +303,7 @@ describe.concurrent("Random-based Functions", () => {
       const gen = createSecureRandomGenerator();
       expectUnsecureError(() => gen.next(1.5, 10), "OUT_OF_RANGE");
       expect(() => gen.next(1.5, 10)).toThrow(
-        "SecureRandomGenerator.next: min and max must be integers.",
+        "SecureRandomGenerator.next: min and max must be safe integers.",
       );
     });
 
@@ -554,26 +554,26 @@ describe("randomJitter", () => {
 
     it("throws OUT_OF_RANGE when minMs is negative", () => {
       expect(() => randomJitter(-1, 10)).toThrow(
-        "randomJitter: minMs must be an integer >= 0, got -1.",
+        "randomJitter: minMs must be an integer between 0 and 2147483647, got -1.",
       );
       expectUnsecureError(() => randomJitter(-1), "OUT_OF_RANGE");
     });
 
     it("throws OUT_OF_RANGE when maxMs is negative (single-arg form)", () => {
       expect(() => randomJitter(-5)).toThrow(
-        "randomJitter: maxMs must be an integer >= 0, got -5.",
+        "randomJitter: maxMs must be an integer between 0 and 2147483647, got -5.",
       );
     });
 
     it("throws OUT_OF_RANGE for a null bound instead of taking the default", () => {
       expect(() => randomJitter(null as any)).toThrow(
-        "randomJitter: maxMs must be an integer >= 0, got null.",
+        "randomJitter: maxMs must be an integer between 0 and 2147483647, got null.",
       );
       expect(() => randomJitter(null as any, 50)).toThrow(
-        "randomJitter: minMs must be an integer >= 0, got null.",
+        "randomJitter: minMs must be an integer between 0 and 2147483647, got null.",
       );
       expect(() => randomJitter(0, null as any)).toThrow(
-        "randomJitter: maxMs must be an integer >= 0, got null.",
+        "randomJitter: maxMs must be an integer between 0 and 2147483647, got null.",
       );
     });
 
@@ -587,10 +587,10 @@ describe("randomJitter", () => {
     it("throws OUT_OF_RANGE on fractional milliseconds", () => {
       // setTimeout truncates, so a fractional bound never described the delay.
       expect(() => randomJitter(1.5)).toThrow(
-        "randomJitter: maxMs must be an integer >= 0, got 1.5.",
+        "randomJitter: maxMs must be an integer between 0 and 2147483647, got 1.5.",
       );
       expect(() => randomJitter(0.5, 10)).toThrow(
-        "randomJitter: minMs must be an integer >= 0, got 0.5.",
+        "randomJitter: minMs must be an integer between 0 and 2147483647, got 0.5.",
       );
     });
   });
@@ -644,5 +644,26 @@ describe("resetEntropy()", () => {
     gen.next(10);
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy.mock.calls[0]![0]).toHaveLength(1024);
+  });
+});
+
+describe("secureRandomNumber safe-integer bounds", () => {
+  it("refuses bounds past 2^53 instead of returning a rounded candidate", () => {
+    for (const [min, max] of [
+      [2 ** 53, 2 ** 53 + 2],
+      [2 ** 60, 2 ** 60 + 2 ** 32],
+      [-(2 ** 53) - 4, -(2 ** 53)],
+    ]) {
+      expectUnsecureError(() => secureRandomNumber(min!, max!), "OUT_OF_RANGE", "safe integers");
+      expectUnsecureError(() => createSecureRandomGenerator().next(min!, max!), "OUT_OF_RANGE");
+    }
+    expectUnsecureError(() => secureRandomNumber(2 ** 53), "OUT_OF_RANGE");
+    const value = secureRandomNumber(2 ** 53 - 4, 2 ** 53 - 1);
+    expect(value).toBeGreaterThanOrEqual(2 ** 53 - 4);
+    expect(value).toBeLessThan(2 ** 53 - 1);
+  });
+
+  it("randomJitter refuses a delay setTimeout would clamp", () => {
+    expectUnsecureError(() => randomJitter(2 ** 31), "OUT_OF_RANGE", "between 0 and 2147483647");
   });
 });

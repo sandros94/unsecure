@@ -95,8 +95,10 @@ function _generatorOver(pool: EntropyPool): SecureRandomGenerator {
     // through `secureRandomNumber`, `secureShuffle` and `randomJitter` as well
     // as directly, so naming any one of those would be wrong three times out
     // of four.
-    if (!Number.isInteger(min) || !Number.isInteger(max)) {
-      throw new UnsecureError("OUT_OF_RANGE", `${_SOURCE}: min and max must be integers.`);
+    // Safe integers, as every bounded number in the library: past 2^53 the
+    // candidate `min + offset` rounds, collapsing the range onto a few values.
+    if (!Number.isSafeInteger(min) || !Number.isSafeInteger(max)) {
+      throw new UnsecureError("OUT_OF_RANGE", `${_SOURCE}: min and max must be safe integers.`);
     }
     if (max <= min) {
       throw new UnsecureError("OUT_OF_RANGE", `${_SOURCE}: max must be greater than min.`);
@@ -295,6 +297,9 @@ export function secureShuffle<T>(array: Array<T>, generator?: SecureRandomGenera
  * @throws {UnsecureError} `OUT_OF_RANGE` if `minMs` or `maxMs` is not a
  *                         non-negative integer, or if `maxMs` is less than `minMs`.
  */
+/** The longest delay `setTimeout` honours. */
+const _MAX_TIMEOUT = 2 ** 31 - 1;
+
 export function randomJitter(maxMs?: number): Promise<void>;
 export function randomJitter(minMs: number | undefined, maxMs: number): Promise<void>;
 export function randomJitter(minOrMax?: number, maxMs?: number): Promise<void> {
@@ -306,8 +311,10 @@ export function randomJitter(minOrMax?: number, maxMs?: number): Promise<void> {
   const min = oneArgument || minOrMax === undefined ? 0 : minOrMax;
   const max = oneArgument ? (minOrMax === undefined ? 100 : minOrMax) : maxMs;
 
-  assertInteger(min, "minMs", "randomJitter", 0);
-  assertInteger(max, "maxMs", "randomJitter", 0);
+  // `setTimeout` clamps a delay past 2^31 - 1 ms to 1 ms, which would turn a
+  // long jitter into none at all.
+  assertInteger(min, "minMs", "randomJitter", 0, _MAX_TIMEOUT);
+  assertInteger(max, "maxMs", "randomJitter", 0, _MAX_TIMEOUT);
   if (max < min) {
     throw new UnsecureError(
       "OUT_OF_RANGE",
