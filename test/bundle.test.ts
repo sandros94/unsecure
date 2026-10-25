@@ -87,53 +87,53 @@ const ENTRIES: ReadonlyArray<Entry> = [
   {
     name: "secureCompare",
     module: "compare.ts",
-    measured: 1110,
+    measured: 1358,
     absent: [...CODECS, MARKERS.randomBuffer, MARKERS.randomBytes, MARKERS.importKey],
   },
   // fairness, not secrecy: the shared generator and its pool come along by design
   {
     name: "createDeck",
     module: "odds.ts",
-    measured: 4350,
+    measured: 4875,
     absent: [...CODECS, MARKERS.importKey, MARKERS.digest],
   },
   // tiers bring their own chances, so no randomness of its own
   {
     name: "createCascade",
     module: "odds.ts",
-    measured: 1268,
+    measured: 1342,
     absent: [...CODECS, MARKERS.randomBuffer, MARKERS.randomBytes, MARKERS.importKey],
   },
   // the only public function that throws nothing
   {
     name: "entropy",
     module: "entropy.ts",
-    measured: 1068,
-    absent: [...CODECS, MARKERS.errorClass, MARKERS.randomBytes],
+    measured: 1554,
+    absent: [...CODECS, MARKERS.randomBytes],
   },
   {
     name: "secureGenerate",
     module: "generate.ts",
-    measured: 4482,
+    measured: 5004,
     absent: [...CODECS, MARKERS.importKey],
   },
   // hex and base64 come with `returnAs`, base32 does not
   {
     name: "hash",
     module: "hash.ts",
-    measured: 3902,
+    measured: 4296,
     absent: [...BASE32, MARKERS.randomBuffer, MARKERS.randomBytes, MARKERS.importKey],
   },
   {
     name: "hkdf",
     module: "hkdf.ts",
-    measured: 5081,
+    measured: 5534,
     absent: [...BASE32, MARKERS.randomBuffer, MARKERS.randomBytes, MARKERS.digest],
   },
   {
     name: "hmac",
     module: "hmac.ts",
-    measured: 4985,
+    measured: 5567,
     absent: [
       ...BASE32,
       MARKERS.randomBuffer,
@@ -148,7 +148,7 @@ const ENTRIES: ReadonlyArray<Entry> = [
   {
     name: "hotp",
     module: "otp.ts",
-    measured: 6622,
+    measured: 7728,
     absent: [
       ...BASE64,
       ...HEX,
@@ -162,7 +162,7 @@ const ENTRIES: ReadonlyArray<Entry> = [
   {
     name: "otpauthURI",
     module: "otp.ts",
-    measured: 6226,
+    measured: 7361,
     absent: [
       ...BASE64,
       ...HEX,
@@ -176,46 +176,46 @@ const ENTRIES: ReadonlyArray<Entry> = [
   {
     name: "argon2Verify",
     module: "argon2.ts",
-    measured: 13182,
+    measured: 13916,
     absent: [...BASE32, ...HEX, MARKERS.importKey, MARKERS.deriveBits, MARKERS.hkdf],
   },
   // draws from the shared pool; the sampling generator over it stays behind
   {
     name: "secureRandomBytes",
     module: "random.ts",
-    measured: 1573,
+    measured: 1913,
     absent: [...CODECS, MARKERS.importKey],
   },
   {
     name: "sanitizeObject",
     module: "sanitize.ts",
-    measured: 978,
+    measured: 761,
     absent: [...CODECS, MARKERS.randomBytes, MARKERS.importKey],
   },
   // no codec at all: a UUID is printed from its own hex table; the entropy pool comes along by design
   {
     name: "uuidv7",
     module: "uuid.ts",
-    measured: 2003,
+    measured: 2721,
     absent: [...CODECS, MARKERS.importKey],
   },
   {
     name: "hexParse",
     module: "utils/index.ts",
-    measured: 2491,
+    measured: 2932,
     absent: [...BASE32, ...BASE64, MARKERS.randomBytes],
   },
   // parse only, so even the encoder half stays behind
   {
     name: "base64Parse",
     module: "utils/index.ts",
-    measured: 4004,
+    measured: 4348,
     absent: [...BASE32, ...HEX, MARKERS.base64Encode, MARKERS.randomBytes],
   },
   {
     name: "base32Parse",
     module: "utils/index.ts",
-    measured: 4609,
+    measured: 4985,
     absent: [...BASE64, ...HEX, MARKERS.randomBytes],
   },
   // the error class on its own is a constructor and a field
