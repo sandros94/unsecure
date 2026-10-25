@@ -1,3 +1,6 @@
+import { describeValue } from "./_internal/bytes.ts";
+import { UnsecureError } from "./errors.ts";
+
 export interface EntropyResult {
   /**
    * Total Shannon (unigram) entropy of the input in bits.
@@ -116,6 +119,19 @@ export interface EntropyResult {
  */
 /* @__NO_SIDE_EFFECTS__ */
 export function entropy(data: string | Uint8Array | null | undefined): EntropyResult {
+  // Anything else — a JSON object with a `length`, a number — is a caller
+  // mistake, not something to walk: the loop below runs to `data.length`.
+  if (
+    data !== null &&
+    data !== undefined &&
+    typeof data !== "string" &&
+    !(ArrayBuffer.isView(data) && data instanceof Uint8Array)
+  ) {
+    throw new UnsecureError(
+      "INVALID_TYPE",
+      `entropy: expected a string or Uint8Array, got ${describeValue(data)}.`,
+    );
+  }
   if (!data || data.length === 0) {
     return {
       bits: 0,

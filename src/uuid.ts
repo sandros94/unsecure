@@ -1,4 +1,5 @@
 import { sharedPool } from "./_internal/pool.ts";
+import { showValue } from "./_internal/assert.ts";
 import { UnsecureError } from "./errors.ts";
 
 /**
@@ -170,7 +171,7 @@ export function uuidv7Timestamp(uuid: string): number {
     // it is not; a value that is not text never made the claim.
     throw new UnsecureError(
       typeof uuid === "string" ? "MALFORMED" : "INVALID_TYPE",
-      `uuidv7Timestamp: Not a valid UUIDv7: ${String(uuid)}`,
+      `uuidv7Timestamp: Not a valid UUIDv7: ${showValue(uuid)}`,
     );
   }
   // First 12 hex chars (positions 0-7 and 9-12 around the first hyphen) are
@@ -220,7 +221,13 @@ function _isCanonicalUUIDWithVersion(value: unknown, version: string): value is 
 function _coerceMs(value: Date | number): number {
   let ms: number;
   if (value instanceof Date) {
-    ms = value.getTime();
+    // An object on `Date.prototype` without the slot throws here; that is a
+    // wrong type, not a runtime failure.
+    try {
+      ms = value.getTime();
+    } catch {
+      throw new UnsecureError("INVALID_TYPE", "UUIDv7 timestamp must be a Date or number.");
+    }
   } else if (typeof value === "number") {
     ms = Math.floor(value);
   } else {
@@ -229,7 +236,7 @@ function _coerceMs(value: Date | number): number {
   if (!Number.isFinite(ms) || ms < 0 || ms > _MAX_V7_MS) {
     throw new UnsecureError(
       "OUT_OF_RANGE",
-      `UUIDv7 timestamp must be a finite ms value in [0, 2^48 - 1], got ${String(value)}.`,
+      `UUIDv7 timestamp must be a finite ms value in [0, 2^48 - 1], got ${showValue(value)}.`,
     );
   }
   return ms;

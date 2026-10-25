@@ -1,5 +1,5 @@
 import type { DigestReturnAs } from "./hash.ts";
-import { assertInteger } from "./_internal/assert.ts";
+import { assertInteger, showValue } from "./_internal/assert.ts";
 import { blake2b, createBlake2b } from "./_internal/blake2b.ts";
 import { type BytesSource, describeValue, toBytes } from "./_internal/bytes.ts";
 import { assertReturnAs, encodeBytes } from "./_internal/encoding.ts";
@@ -107,10 +107,10 @@ function _isVariant(value: string): value is Argon2Variant {
 }
 
 /** The one wording for a flavour this module does not implement, wherever the name came from. */
-function _unsupportedVariant(variant: string, source: string): UnsecureError {
+function _unsupportedVariant(variant: unknown, source: string): UnsecureError {
   return new UnsecureError(
     "UNSUPPORTED",
-    `${source}: unsupported argon2 variant ${JSON.stringify(variant)}.`,
+    `${source}: unsupported argon2 variant ${showValue(variant)}.`,
   );
 }
 

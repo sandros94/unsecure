@@ -497,3 +497,11 @@ describe("hmac CryptoKey secrets", () => {
     expect(await hmacVerify(key, message, sig.replace(/^./, "0"))).toBe(false);
   });
 });
+
+describe("CryptoKey shape", () => {
+  it("treats an object on CryptoKey.prototype without the internal slots as a wrong type", async () => {
+    const fake = Object.create(CryptoKey.prototype) as CryptoKey;
+    await expectUnsecureError(hmac(fake, "data"), "INVALID_TYPE", "got CryptoKey.");
+    await expectUnsecureError(hmacVerify(fake, "data", "00"), "INVALID_TYPE");
+  });
+});

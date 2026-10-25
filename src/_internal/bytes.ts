@@ -13,12 +13,17 @@ export const textEncoder: TextEncoder = /* @__PURE__ */ new TextEncoder();
  */
 export type BytesSource = ArrayBufferLike | ArrayBufferView<ArrayBufferLike>;
 
-/** Name what the caller actually passed, so the message says something. */
+/**
+ * Name what the caller actually passed, so the message says something. The
+ * constructor name is taken only when it is one: the value may come off the
+ * wire, and a `constructor` key it carries is data, not a type.
+ */
 /* @__NO_SIDE_EFFECTS__ */
 export function describeValue(value: unknown): string {
   if (value === null) return "null";
   if (typeof value !== "object") return typeof value;
-  return (value as { constructor?: { name?: string } }).constructor?.name ?? "object";
+  const name = (value as { constructor?: { name?: unknown } }).constructor?.name;
+  return typeof name === "string" && /^[A-Za-z_$][\w$]{0,63}$/.test(name) ? name : "object";
 }
 
 /**

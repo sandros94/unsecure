@@ -299,7 +299,7 @@ describe.concurrent("uuidv7Timestamp", () => {
     expectUnsecureError(
       () => uuidv7Timestamp(uuid),
       "MALFORMED",
-      `uuidv7Timestamp: Not a valid UUIDv7: ${uuid}`,
+      `uuidv7Timestamp: Not a valid UUIDv7: "${uuid}"`,
     );
   });
 
@@ -307,7 +307,7 @@ describe.concurrent("uuidv7Timestamp", () => {
     expectUnsecureError(
       () => uuidv7Timestamp("not-a-uuid"),
       "MALFORMED",
-      "uuidv7Timestamp: Not a valid UUIDv7: not-a-uuid",
+      'uuidv7Timestamp: Not a valid UUIDv7: "not-a-uuid"',
     );
     expectUnsecureError(() => uuidv7Timestamp(""), "MALFORMED");
     expectUnsecureError(
@@ -392,5 +392,12 @@ describe.concurrent("isUUIDv7", () => {
     expect(isUUIDv7(null)).toBe(false);
     expect(isUUIDv7(undefined)).toBe(false);
     expect(isUUIDv7({})).toBe(false);
+  });
+});
+
+describe("uuidv7 timestamp shape", () => {
+  it("treats an object on Date.prototype without the slot as a wrong type", () => {
+    const fake = Object.create(Date.prototype) as Date;
+    expectUnsecureError(() => uuidv7(fake), "INVALID_TYPE", "must be a Date or number");
   });
 });

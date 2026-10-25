@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { entropy } from "../src/entropy.ts";
+import { expectUnsecureError } from "./_helpers.ts";
 
 describe("entropy", () => {
   describe("edge cases", () => {
@@ -329,5 +330,21 @@ describe("entropy", () => {
       expect(repeated.bits).toBe(0);
       expect(varied.bits).toBeGreaterThan(50);
     });
+  });
+});
+
+describe("entropy input contract", () => {
+  it("refuses anything that is not text or bytes before reading its length", () => {
+    expectUnsecureError(
+      () => entropy({ length: 1e9 } as never),
+      "INVALID_TYPE",
+      "entropy: expected a string or Uint8Array, got Object.",
+    );
+    expectUnsecureError(() => entropy(123 as never), "INVALID_TYPE", "got number.");
+    expectUnsecureError(() => entropy([1, 2] as never), "INVALID_TYPE", "got Array.");
+    expectUnsecureError(
+      () => entropy(Object.create(Uint8Array.prototype) as never),
+      "INVALID_TYPE",
+    );
   });
 });

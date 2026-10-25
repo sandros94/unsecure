@@ -13,7 +13,16 @@ import { UnsecureError } from "../errors.ts";
  */
 /* @__NO_SIDE_EFFECTS__ */
 export function isCryptoKey(value: unknown): value is CryptoKey {
-  return typeof CryptoKey !== "undefined" && value instanceof CryptoKey;
+  if (typeof CryptoKey === "undefined" || !(value instanceof CryptoKey)) return false;
+  // `instanceof` only says what a value inherits from: an object created on
+  // `CryptoKey.prototype` carries none of the internal slots, and reading an
+  // accessor through it throws the runtime's own error. Such a value is bytes
+  // or a mistake, like anything else that is not a key.
+  try {
+    return typeof value.type === "string";
+  } catch {
+    return false;
+  }
 }
 
 /**
