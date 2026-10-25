@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { type TestProjectConfiguration, defineConfig } from "vitest/config";
 
 /**
@@ -44,6 +45,31 @@ const nativeProject: TestProjectConfiguration = {
   },
 };
 
+/**
+ * The documented examples import `unsecure/<module>` the way a consumer does.
+ * This project points that name at `src`, so the docs exercise the source
+ * under test rather than a stale `dist`; benchmarks keep the real package.
+ */
+const examplesProject: TestProjectConfiguration = {
+  resolve: {
+    alias: [
+      {
+        find: /^unsecure\/utils$/,
+        replacement: fileURLToPath(new URL("./src/utils/index.ts", import.meta.url)),
+      },
+      {
+        find: /^unsecure\/(.+)$/,
+        replacement: fileURLToPath(new URL("./src/$1.ts", import.meta.url)),
+      },
+      {
+        find: /^unsecure$/,
+        replacement: fileURLToPath(new URL("./src/index.ts", import.meta.url)),
+      },
+    ],
+  },
+  test: { name: "examples", include: ["test/examples/**/*.test.ts"] },
+};
+
 export default defineConfig({
   test: {
     slowTestThreshold: 1000,
@@ -51,6 +77,7 @@ export default defineConfig({
       {
         test: {
           name: "default",
+          exclude: ["test/examples/**", "**/node_modules/**"],
           // Benchmarks import the built package (`unsecure/<module>`), and the
           // build must reach Node as native ESM: through the module runner
           // every imported binding is a getter, which dominates a hot loop.
@@ -59,6 +86,7 @@ export default defineConfig({
         },
       },
       ...(!NATIVE_METHODS_AVAILABLE && nativeFlagAccepted() ? [nativeProject] : []),
+      examplesProject,
     ],
   },
 });

@@ -20,8 +20,15 @@
     "composite": true,
     "isolatedDeclarations": true,
     "allowImportingTsExtensions": true,
-    "lib": ["ESNext", "DOM"]
+    "lib": ["ESNext", "DOM"],
+    // `examples/` import the package by name, as a consumer would; the paths
+    // point that name at `src` so the examples typecheck against the source.
+    "paths": {
+      "unsecure": ["./src/index.ts"],
+      "unsecure/utils": ["./src/utils/index.ts"],
+      "unsecure/*": ["./src/*.ts"]
+    }
   },
-  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "include": ["src/**/*.ts", "test/**/*.ts", "examples/**/*.ts"],
   "exclude": ["node_modules", "dist", "coverage"]
 }

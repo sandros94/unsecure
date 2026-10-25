@@ -1,0 +1,20 @@
+<!-- #region docs -->
+<!doctype html>
+<meta charset="utf-8" />
+<title>File checksum</title>
+
+<input type="file" id="file" />
+<output id="checksum"></output>
+
+<script type="module">
+  import { hash } from "https://esm.sh/unsecure@__UNSECURE_VERSION__/hash";
+
+  const input = document.querySelector("#file");
+  input.addEventListener("change", async () => {
+    const [file] = input.files;
+    if (!file) return;
+    const digest = await hash(await file.arrayBuffer(), { returnAs: "hex" });
+    document.querySelector("#checksum").value = digest;
+  });
+</script>
+<!-- #endregion -->

@@ -109,6 +109,9 @@ importers:
 
   .:
     devDependencies:
+      automd:
+        specifier: 0.4.3
+        version: 0.4.3
       undocs:
         specifier: npm:undocs-nightly@0.10.1-20261021-144810-60ffbf3
         version: undocs-nightly@0.10.1-20261021-144810-60ffbf3(@oxc-project/types@0.148.0)(csstype@3.2.3)(dotenv@17.4.2)(giget@3.3.1)(jiti@2.7.0)(lightningcss@1.33.0)(rolldown@1.2.7)
