@@ -133,7 +133,7 @@ const ENTRIES: ReadonlyArray<Entry> = [
   {
     name: "hmac",
     module: "hmac.ts",
-    measured: 5567,
+    measured: 5585,
     absent: [
       ...BASE32,
       MARKERS.randomBuffer,
@@ -148,7 +148,7 @@ const ENTRIES: ReadonlyArray<Entry> = [
   {
     name: "hotp",
     module: "otp.ts",
-    measured: 7728,
+    measured: 7746,
     absent: [
       ...BASE64,
       ...HEX,

@@ -42,9 +42,15 @@ export async function importHmacKey(
   if (keyBytes.length === 0) {
     throw new UnsecureError("OUT_OF_RANGE", "hmac: secret must not be empty.");
   }
-  // Web Crypto reads a dictionary through its prototype chain, so an ordinary
-  // literal would hand it an inherited optional `length` and truncate the key.
-  const params: HmacImportParams = own({ name: "HMAC", hash: algorithm });
+  // Web Crypto reads its dictionary through the prototype chain — and some
+  // runtimes first copy it into an ordinary object of their own — so the
+  // optional `length` is set explicitly to the whole key: an inherited one
+  // would truncate it, and nothing is left for any runtime to look up.
+  const params: HmacImportParams = own({
+    name: "HMAC",
+    hash: algorithm,
+    length: keyBytes.length * 8,
+  });
   return viaWebCrypto(
     () => crypto.subtle.importKey("raw", keyBytes, params, false, ["sign"]),
     "importKey",
