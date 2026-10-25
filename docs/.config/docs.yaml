@@ -21,6 +21,8 @@ redirects:
   /codecs: /safety/codecs
   /errors: /safety/errors
   /guide: /getting-started
+  /examples/password-storage: /crypto/password-hashing
+  /examples/safe-json: /safety/sanitize
   /blog: /
 
 socials:
