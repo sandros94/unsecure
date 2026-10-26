@@ -2,7 +2,7 @@
 name: unsecure
 description: "Working with unsecure, a zero-dependency cryptographic utilities library on the Web Crypto API: hashing, HMAC, HKDF, Argon2 password hashing, HOTP/TOTP, UUIDs, CSPRNG helpers, constant-time comparison, prototype-pollution sanitizing and strict codecs. Use whenever code imports from `unsecure` or `unsecure/*`, or the user asks how to do one of those tasks in Node, Bun, Deno, Workers or a browser."
 metadata:
-  version: 0.2.0
+  version: 0.3.4
   library: unsecure
   org: sandros94
   documentation: https://unsecure.s94.dev
